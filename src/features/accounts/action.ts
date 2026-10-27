@@ -3,7 +3,7 @@
 import { apiFetch, ApiError } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth-server";
 import { hasPermission } from "@/lib/auth-jwt";
-import type { AccountPageResponse, ApiResponse } from "./types";
+import type { AccountItem, AccountPageResponse, ApiResponse } from "./types";
 
 export type GetAccountsParams = {
   search?: string;
