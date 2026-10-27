@@ -226,7 +226,95 @@ export async function deleteCourseAction(id: number | string) {
     };
   }
 }
+export async function getCourseTranslationByLanguageAction(
+  courseId: number | string,
+  langCode: string
+) {
+  try {
+    const res = await apiFetch<ApiResponse<CourseItem>>(
+      `/v1/courses/${courseId}/language/${encodeURIComponent(langCode)}`
+    );
 
+    return {
+      success: true,
+      data: res?.data,
+      message: res?.message,
+    };
+  } catch (error) {
+    console.error(`Failed to fetch translation for course ${courseId} language ${langCode}:`, error);
+    const message =
+      error instanceof ApiError
+        ? error.message
+        : "Failed to load translation for the selected language.";
+    return {
+      success: false,
+      error: message,
+    };
+  }
+}
+
+export type UpdateCourseTranslationPayload = {
+  language: string;
+  courseName: string;
+  courseDetails: string;
+  courseLevel?: string;
+  duration?: string;
+  categoryId?: string;
+  categoryName?: string;
+  courseId?: string;
+  points?: number;
+  noOfVideos?: number;
+  noOfCertifications?: string;
+  imageUrl?: string;
+  mode?: string;
+  status?: string;
+  languages?: unknown[];
+  [key: string]: unknown;
+};
+
+export async function updateCourseTranslationAction(
+  courseId: number | string,
+  payload: UpdateCourseTranslationPayload
+) {
+  const user = await getCurrentUser();
+  const userPerms = user ? [...user.roles, ...user.permissions] : [];
+
+  if (!hasPermission(userPerms, ["courses.update", "courses.create"])) {
+    return {
+      success: false,
+      error: "You do not have permission to update course translations.",
+    };
+  }
+
+  try {
+    const res = await apiFetch<ApiResponse<CourseItem>>(
+      `/v1/courses/${courseId}/translations`,
+      {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      }
+    );
+
+    revalidatePath(`/courses/${courseId}`);
+    revalidatePath("/courses");
+
+    return {
+      success: true,
+      data: res?.data,
+      message: res?.message || "Course translation updated successfully",
+    };
+  } catch (error) {
+    console.error(`Failed to update translation for course ${courseId}:`, error);
+    const message =
+      error instanceof ApiError
+        ? error.message
+        : "Failed to update course translation. Please try again.";
+    return {
+      success: false,
+      error: message,
+    };
+  }
+}
 
 export async function exportCoursesAction() {
   const user = await getCurrentUser();
@@ -317,7 +405,3 @@ export async function getCourseVideosAction(params: {
     };
   }
 }
-
-
-
-

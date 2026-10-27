@@ -26,31 +26,37 @@ export type AccountItem = {
   signupDate?: string;
   signupIp?: string;
   image?: string;
+  profileImage?: string;
   profilePicture?: string;
   assessmentResults?: AssessmentResultItem[];
 };
 
 export type CreateAccountPayload = {
   name: string;
-  mobileNumber: string;
+  mobileNumber?: string;
+  mobile?: string;
   state: string;
-  city: string;
   district?: string;
+  city: string;
   bhBp?: string;
   emailId?: string;
+  image?: string;
   active?: boolean | string;
+  [key: string]: unknown;
 };
 
 export type UpdateAccountPayload = {
   name?: string;
+  mobile?: string;
   mobileNumber?: string;
   state?: string;
-  city?: string;
   district?: string;
-  bhBp?: string;
+  city?: string;
   emailId?: string;
-  active?: boolean | string;
-  image?: File | Blob | null;
+  image?: string;
+  bhBp?: string;
+  active?: string | boolean;
+  [key: string]: unknown;
 };
 
 export type AccountPageResponse = {
@@ -72,4 +78,19 @@ export type ApiResponse<T> = {
   data: T;
   path?: string;
   timestamp?: string;
+};
+
+export type BulkImportError = {
+  rowNumber: number;
+  identifier?: string;
+  field?: string;
+  rejectedValue?: string;
+  errorMessage: string;
+};
+
+export type BulkImportResponse = {
+  totalRows: number;
+  successCount: number;
+  failureCount: number;
+  errors?: BulkImportError[];
 };

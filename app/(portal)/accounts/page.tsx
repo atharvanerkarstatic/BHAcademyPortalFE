@@ -15,6 +15,7 @@ import {
   FileSpreadsheet,
   Upload,
   ArrowUpDown,
+  User,
 } from "lucide-react";
 
 import { DataTable, type Column } from "@/components/common/data-table";
@@ -24,10 +25,30 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
-import { getAccountsAction, exportAccountsAction } from "@/features/accounts/action";
-import type { AccountItem, AccountPageResponse } from "@/features/accounts/types";
+import {
+  getAccountsAction,
+  exportAccountsAction,
+  importAccountsAction,
+  importAccountBhbpAction,
+  getSampleImportAction,
+} from "@/features/accounts/action";
+import type {
+  AccountItem,
+  AccountPageResponse,
+  BulkImportResponse,
+  BulkImportError,
+} from "@/features/accounts/types";
 import { cn } from "@/lib/utils";
 
 export default function AccountsPage() {
@@ -162,20 +183,122 @@ export default function AccountsPage() {
     }
   };
 
-  const displayAccounts = useMemo(() => {
-    if (!activeSearch.trim()) return pageData.content;
-    const query = activeSearch.toLowerCase();
-    return pageData.content.filter(
-      (a) =>
-        a.name?.toLowerCase().includes(query) ||
-        a.id?.toLowerCase().includes(query) ||
-        a.bhBp?.toLowerCase().includes(query) ||
-        a.mobile?.includes(query) ||
-        a.city?.toLowerCase().includes(query) ||
-        a.state?.toLowerCase().includes(query) ||
-        a.district?.toLowerCase().includes(query)
-    );
-  }, [pageData.content, activeSearch]);
+  // State for Import Error Dialog
+  const [importResult, setImportResult] = useState<BulkImportResponse | null>(null);
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
+  const [downloadingSample, setDownloadingSample] = useState<string | null>(null);
+
+  // Download sample file from API
+  const handleDownloadSample = async (type: "ACCOUNTS" | "ACCOUNT_BHBP") => {
+    setDownloadingSample(type);
+    try {
+      const res = await getSampleImportAction(type);
+      if (res.success && res.data) {
+        const blob = new Blob([res.data], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = res.filename || `${type.toLowerCase()}_sample.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        success("Sample template downloaded successfully!");
+      } else {
+        toastError(res.error || "Failed to download sample file");
+      }
+    } catch {
+      toastError("Failed to download sample file");
+    } finally {
+      setDownloadingSample(null);
+    }
+  };
+
+  // Bulk Upload Accounts Handler
+  const handleBulkAccountsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bulkUsersFile) {
+      toastError("Please choose a file to upload");
+      return;
+    }
+
+    setIsBulkUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", bulkUsersFile);
+
+      const res = await importAccountsAction(formData);
+      if (res.success) {
+        const data = res.data;
+        const hasErrors = data && data.errors && data.errors.length > 0;
+
+        if (hasErrors) {
+          setImportResult(data);
+          setErrorDialogOpen(true);
+          toastError(
+            `Import processed with ${data.errors?.length ?? 0} error(s). Please review the errors.`
+          );
+        } else {
+          success(
+            res.message ||
+              `Import successful! Processed ${data?.totalRows ?? 0} rows.`
+          );
+          setBulkUsersFile(null);
+          setActiveTab("list");
+          loadAccounts(1, "", false);
+        }
+      } else {
+        toastError(res.error || "Bulk upload failed. Please try again.");
+      }
+    } catch {
+      toastError("An unexpected error occurred during bulk upload.");
+    } finally {
+      setIsBulkUploading(false);
+    }
+  };
+
+  // Bulk Upload BP Numbers Handler
+  const handleBulkBhbpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bulkBpFile) {
+      toastError("Please choose a file to upload");
+      return;
+    }
+
+    setIsBulkUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", bulkBpFile);
+
+      const res = await importAccountBhbpAction(formData);
+      if (res.success) {
+        const data = res.data;
+        const hasErrors = data && data.errors && data.errors.length > 0;
+
+        if (hasErrors) {
+          setImportResult(data);
+          setErrorDialogOpen(true);
+          toastError(
+            `Import processed with ${data.errors?.length ?? 0} error(s). Please review the errors.`
+          );
+        } else {
+          success(
+            res.message ||
+              `BP numbers imported successfully! Processed ${data?.totalRows ?? 0} rows.`
+          );
+          setBulkBpFile(null);
+          setActiveTab("list");
+          loadAccounts(1, "", false);
+        }
+      } else {
+        toastError(res.error || "Bulk update failed. Please try again.");
+      }
+    } catch {
+      toastError("An unexpected error occurred during BP number update.");
+    } finally {
+      setIsBulkUploading(false);
+    }
+  };
+
+  const displayAccounts = pageData.content;
 
   // Data table columns exactly matching Screenshot 1
   const columns: Column<AccountItem>[] = useMemo(() => {
@@ -271,16 +394,15 @@ export default function AccountsPage() {
       />
 
       <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        {/* Top Tab Bar matching Screenshot 1:
+        {/* Top Tab Bar:
             - Accounts List (Active tab)
-            - Add New Account
-            - Download Accounts
             - Bulk Update BP Numbers
             - Bulk Update Accounts
         */}
         <div className="flex flex-wrap items-center border-b border-slate-200 bg-slate-50/70 px-2 pt-2 gap-1 text-xs font-medium">
           <button
             type="button"
+            suppressHydrationWarning
             onClick={() => setActiveTab("list")}
             className={cn(
               "flex items-center gap-1.5 px-4 py-2.5 rounded-t-lg transition-colors",
@@ -293,30 +415,9 @@ export default function AccountsPage() {
             Accounts List
           </button>
 
-          {canCreate && (
-            <Link
-              href="/accounts/new"
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-t-lg text-slate-600 hover:text-blue-600 hover:bg-slate-100 transition-colors"
-            >
-              <Plus className="h-4 w-4 text-blue-600" />
-              Add New Account
-            </Link>
-          )}
-
-          {canExport && (
-            <button
-              type="button"
-              onClick={handleDownloadAccounts}
-              disabled={isExporting}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-t-lg text-slate-600 hover:text-blue-600 hover:bg-slate-100 transition-colors"
-            >
-              <FileSpreadsheet className="h-4 w-4 text-blue-600" />
-              {isExporting ? "Downloading…" : "Download Accounts"}
-            </button>
-          )}
-
           <button
             type="button"
+            suppressHydrationWarning
             onClick={() => setActiveTab("bulk_bp")}
             className={cn(
               "flex items-center gap-1.5 px-4 py-2.5 rounded-t-lg transition-colors",
@@ -331,6 +432,7 @@ export default function AccountsPage() {
 
           <button
             type="button"
+            suppressHydrationWarning
             onClick={() => setActiveTab("bulk_users")}
             className={cn(
               "flex items-center gap-1.5 px-4 py-2.5 rounded-t-lg transition-colors",
@@ -347,9 +449,30 @@ export default function AccountsPage() {
         {/* TAB 1: ACCOUNTS LIST TABLE */}
         {activeTab === "list" && (
           <div className="p-4 space-y-4">
-            {/* Search Box on right matching screenshot 1 */}
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
+            {/* Toolbar: Search input, Refresh, Download Accounts, and Add New Account */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* Search input on left / middle */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <Input
+                  placeholder="Search accounts..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="h-8 w-44 pl-8 text-xs sm:w-56"
+                />
+                {searchInput && (
+                  <button
+                    type="button"
+                    onClick={handleSearchClear}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
+              {/* Action Buttons: Refresh, Download Accounts, Add New Account */}
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -363,28 +486,29 @@ export default function AccountsPage() {
                   <RefreshCw className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`} />
                   <span className="hidden sm:inline text-xs">Refresh</span>
                 </Button>
-              </div>
 
-              <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 text-xs">
-                <span className="text-slate-700 font-medium">Search:</span>
-                <div className="relative">
-                  <Input
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    placeholder=""
-                    className="h-8 w-44 text-xs pr-6"
-                  />
-                  {searchInput && (
-                    <button
-                      type="button"
-                      onClick={handleSearchClear}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-[11px]"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              </form>
+                {canExport && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownloadAccounts}
+                    disabled={isExporting}
+                    className="gap-1.5 text-slate-700 bg-white hover:bg-slate-50 border-slate-300 h-8"
+                  >
+                    <Download className={`h-3.5 w-3.5 ${isExporting ? "animate-bounce" : ""}`} />
+                    <span>{isExporting ? "Downloading…" : "Download Accounts"}</span>
+                  </Button>
+                )}
+
+                {canCreate && (
+                  <Button asChild size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white h-8">
+                    <Link href="/accounts/new">
+                      <Plus className="h-4 w-4" />
+                      Add Account
+                    </Link>
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Table */}
@@ -468,7 +592,26 @@ export default function AccountsPage() {
                       return (
                         <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-2.5 px-3 font-mono text-slate-800">{r.id}</td>
-                          <td className="py-2.5 px-3 font-medium text-slate-900">{r.name}</td>
+                          <td className="py-2.5 px-3 font-medium text-slate-900">
+                            <div className="flex items-center gap-2.5">
+                              <div className="relative h-7 w-7 rounded-full overflow-hidden bg-slate-100 border border-slate-200 shrink-0 flex items-center justify-center">
+                                {r.profileImage || r.image || r.profilePicture ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={r.profileImage || r.image || r.profilePicture}
+                                    alt={r.name}
+                                    className="h-full w-full object-cover"
+                                    onError={(e) => {
+                                      (e.currentTarget as HTMLElement).style.display = "none";
+                                    }}
+                                  />
+                                ) : (
+                                  <User className="h-3.5 w-3.5 text-slate-400" />
+                                )}
+                              </div>
+                              <span className="truncate">{r.name}</span>
+                            </div>
+                          </td>
                           <td className="py-2.5 px-3 font-mono text-slate-700">{r.mobile || r.mobileNumber || "—"}</td>
                           <td className="py-2.5 px-3 font-mono text-slate-700">{r.bhBp || "—"}</td>
                           <td className="py-2.5 px-3 text-slate-700">{r.state || "—"}</td>
@@ -537,51 +680,57 @@ export default function AccountsPage() {
         {/* TAB 2: BULK UPDATE BP NUMBERS */}
         {activeTab === "bulk_bp" && (
           <div className="p-6 space-y-6">
-            <div className="space-y-1.5 text-xs text-slate-700">
-              <p>
-                Upload an Excel file (.xlsx or .xls) to update BP numbers in bulk. The columns should be:{" "}
-                <span className="font-bold text-slate-900">Mobile Number, BP Number</span>.
+            <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4 space-y-2 text-xs text-slate-700">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <p className="text-slate-700">
+                  Upload a CSV file containing updated BP numbers for existing accounts.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={downloadingSample === "ACCOUNT_BHBP"}
+                  onClick={() => handleDownloadSample("ACCOUNT_BHBP")}
+                  className="h-7 text-xs font-medium gap-1.5 border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
+                >
+                  <Download className="h-3 w-3" />
+                  {downloadingSample === "ACCOUNT_BHBP" ? "Downloading…" : "Download Sample File"}
+                </Button>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                <span className="font-semibold text-slate-800">Required Columns:</span>{" "}
+                <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 text-blue-800 font-mono">mobile,bhBp</code>
               </p>
             </div>
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!bulkBpFile) {
-                  toastError("Please choose an Excel file to upload");
-                  return;
-                }
-                setIsBulkUploading(true);
-                setTimeout(() => {
-                  setIsBulkUploading(false);
-                  success(`${bulkBpFile.name} uploaded! BP numbers updated successfully.`);
-                  setBulkBpFile(null);
-                  setActiveTab("list");
-                }, 1000);
-              }}
-              className="space-y-4 max-w-xl"
-            >
+            <form onSubmit={handleBulkBhbpSubmit} className="space-y-5 max-w-xl">
               <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
                 <Label className="text-xs font-semibold text-slate-700 sm:text-right">
-                  Choose File
+                  Choose File <span className="text-rose-500">*</span>
                 </Label>
                 <div className="sm:col-span-3">
                   <Input
                     type="file"
-                    accept=".xlsx, .xls, .csv"
+                    accept=".csv, .xlsx, .xls"
                     onChange={(e) => setBulkBpFile(e.target.files?.[0] || null)}
-                    className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+                    className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
                   />
+                  {bulkBpFile && (
+                    <p className="text-[11px] text-emerald-600 mt-1 font-medium">
+                      Selected: {bulkBpFile.name} ({(bulkBpFile.size / 1024).toFixed(1)} KB)
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="flex items-center gap-2 sm:pl-32 pt-2">
                 <Button
                   type="submit"
-                  disabled={isBulkUploading}
-                  className="bg-blue-600 hover:bg-blue-700 text-white min-w-24 h-8 text-xs font-semibold"
+                  disabled={isBulkUploading || !bulkBpFile}
+                  className="bg-blue-600 hover:bg-blue-700 text-white min-w-28 h-8 text-xs font-semibold gap-1.5"
                 >
-                  {isBulkUploading ? "Uploading…" : "Upload"}
+                  <Upload className="h-3.5 w-3.5" />
+                  {isBulkUploading ? "Uploading…" : "Upload & Process"}
                 </Button>
                 <Button
                   type="button"
@@ -599,54 +748,62 @@ export default function AccountsPage() {
           </div>
         )}
 
-        {/* TAB 3: BULK UPDATE ACCOUNTS */}
+        {/* TAB 3: BULK UPLOAD ACCOUNTS */}
         {activeTab === "bulk_users" && (
           <div className="p-6 space-y-6">
-            <div className="space-y-1.5 text-xs text-slate-700">
-              <p>
-                Upload an Excel file (.xlsx or .xls) to update multiple account details. The columns should be:{" "}
-                <span className="font-bold text-slate-900">Name, Mobile, State, City, District, Status</span>.
+            <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4 space-y-2 text-xs text-slate-700">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <p className="text-slate-700">
+                  Upload a CSV file containing multiple user accounts to create or import.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={downloadingSample === "ACCOUNTS"}
+                  onClick={() => handleDownloadSample("ACCOUNTS")}
+                  className="h-7 text-xs font-medium gap-1.5 border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
+                >
+                  <Download className="h-3 w-3" />
+                  {downloadingSample === "ACCOUNTS" ? "Downloading…" : "Download Sample File"}
+                </Button>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                <span className="font-semibold text-slate-800">Supported Headers:</span>{" "}
+                <span className="font-mono text-slate-600">
+                  bhBp, name, mobile, languageId, languageName, professionId, professionName, msBp, msProfile, msRole, msStatus, lmsBp, pincode, city, state, dob, yoe, gender, kycStatus, aadharNumber, region, division, blocked, geolocation, profileImage, userType, points, interestIds, msiBp
+                </span>
               </p>
             </div>
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!bulkUsersFile) {
-                  toastError("Please choose an Excel file to upload");
-                  return;
-                }
-                setIsBulkUploading(true);
-                setTimeout(() => {
-                  setIsBulkUploading(false);
-                  success(`${bulkUsersFile.name} uploaded! Accounts updated successfully.`);
-                  setBulkUsersFile(null);
-                  setActiveTab("list");
-                }, 1000);
-              }}
-              className="space-y-4 max-w-xl"
-            >
+            <form onSubmit={handleBulkAccountsSubmit} className="space-y-5 max-w-xl">
               <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
                 <Label className="text-xs font-semibold text-slate-700 sm:text-right">
-                  Choose File
+                  Choose File <span className="text-rose-500">*</span>
                 </Label>
                 <div className="sm:col-span-3">
                   <Input
                     type="file"
-                    accept=".xlsx, .xls, .csv"
+                    accept=".csv, .xlsx, .xls"
                     onChange={(e) => setBulkUsersFile(e.target.files?.[0] || null)}
-                    className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+                    className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
                   />
+                  {bulkUsersFile && (
+                    <p className="text-[11px] text-emerald-600 mt-1 font-medium">
+                      Selected: {bulkUsersFile.name} ({(bulkUsersFile.size / 1024).toFixed(1)} KB)
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="flex items-center gap-2 sm:pl-32 pt-2">
                 <Button
                   type="submit"
-                  disabled={isBulkUploading}
-                  className="bg-blue-600 hover:bg-blue-700 text-white min-w-24 h-8 text-xs font-semibold"
+                  disabled={isBulkUploading || !bulkUsersFile}
+                  className="bg-blue-600 hover:bg-blue-700 text-white min-w-28 h-8 text-xs font-semibold gap-1.5"
                 >
-                  {isBulkUploading ? "Uploading…" : "Upload"}
+                  <Upload className="h-3.5 w-3.5" />
+                  {isBulkUploading ? "Uploading…" : "Upload & Process"}
                 </Button>
                 <Button
                   type="button"
@@ -664,6 +821,106 @@ export default function AccountsPage() {
           </div>
         )}
       </Card>
+
+      {/* Bulk Import Error Dialog Modal */}
+      <AlertDialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
+        <AlertDialogContent
+          size="xl"
+          className="w-[95vw] sm:max-w-4xl lg:max-w-5xl max-h-[88vh] flex flex-col p-6 overflow-hidden bg-white shadow-2xl border border-slate-200"
+        >
+          <AlertDialogHeader className="border-b pb-4">
+            <div className="flex items-center gap-2">
+              <div className="h-9 w-9 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-bold">
+                !
+              </div>
+              <div>
+                <AlertDialogTitle className="text-lg font-bold text-slate-900">
+                  Bulk Upload Validation Errors
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-xs text-slate-500">
+                  Some rows in your file could not be processed due to validation or duplication issues.
+                </AlertDialogDescription>
+              </div>
+            </div>
+
+            {/* Counts Summary Cards */}
+            {importResult && (
+              <div className="grid grid-cols-3 gap-3 pt-3 w-full">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-center">
+                  <div className="text-[11px] font-medium text-slate-500 uppercase">Total Rows</div>
+                  <div className="text-lg font-bold text-slate-800">{importResult.totalRows ?? 0}</div>
+                </div>
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-2.5 text-center">
+                  <div className="text-[11px] font-medium text-emerald-700 uppercase">Success</div>
+                  <div className="text-lg font-bold text-emerald-700">{importResult.successCount ?? 0}</div>
+                </div>
+                <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-2.5 text-center">
+                  <div className="text-[11px] font-medium text-rose-700 uppercase">Failures</div>
+                  <div className="text-lg font-bold text-rose-700">{importResult.failureCount ?? importResult.errors?.length ?? 0}</div>
+                </div>
+              </div>
+            )}
+          </AlertDialogHeader>
+
+          {/* Errors Table */}
+          <div className="flex-1 overflow-y-auto my-3 border border-slate-200 rounded-lg">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-slate-50 text-slate-700 font-semibold sticky top-0 border-b border-slate-200">
+                <tr>
+                  <th className="py-2 px-3 w-16">Row #</th>
+                  <th className="py-2 px-3 w-28">Identifier</th>
+                  <th className="py-2 px-3 w-28">Field</th>
+                  <th className="py-2 px-3 w-32">Rejected Value</th>
+                  <th className="py-2 px-3">Error Message</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {importResult?.errors && importResult.errors.length > 0 ? (
+                  importResult.errors.map((err, idx) => (
+                    <tr key={idx} className="hover:bg-rose-50/30 transition-colors">
+                      <td className="py-2 px-3 font-mono font-medium text-slate-700">
+                        {err.rowNumber || "—"}
+                      </td>
+                      <td className="py-2 px-3 font-mono text-slate-600 truncate max-w-[120px]">
+                        {err.identifier || "—"}
+                      </td>
+                      <td className="py-2 px-3 font-medium text-slate-800">
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px]">
+                          {err.field || "—"}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 font-mono text-rose-700 truncate max-w-[140px]">
+                        {err.rejectedValue ? `"${err.rejectedValue}"` : "—"}
+                      </td>
+                      <td className="py-2 px-3 text-rose-600 font-medium">
+                        {err.errorMessage}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="py-6 text-center text-slate-400">
+                      No errors to display
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <AlertDialogFooter className="border-t pt-3 flex sm:justify-between items-center w-full">
+            <p className="text-xs text-slate-500">
+              Fix the errors in your CSV file and upload again.
+            </p>
+            <AlertDialogAction
+              onClick={() => setErrorDialogOpen(false)}
+              className="bg-slate-800 hover:bg-slate-900 text-white text-xs px-4 h-8"
+            >
+              Close & Fix File
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

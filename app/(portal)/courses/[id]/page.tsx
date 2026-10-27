@@ -47,8 +47,11 @@ import {
   getCourseByIdAction,
   deleteCourseAction,
   getCourseVideosAction,
+  getCourseTranslationByLanguageAction,
+  updateCourseTranslationAction,
   type CourseVideoItem,
 } from "@/features/courses/action";
+import { getSampleImportAction } from "@/features/accounts/action";
 import { LanguageSelect } from "@/features/languages/components/language-select";
 import type { CourseItem } from "@/features/courses/types";
 import { cn } from "@/lib/utils";
@@ -114,15 +117,19 @@ export default function CourseDetailPage() {
   // Selected language for sub-views
   const [selectedLangId, setSelectedLangId] = useState<string>("LANG_01");
   const [selectedLangName, setSelectedLangName] = useState<string>("English");
+  const [selectedLangCode, setSelectedLangCode] = useState<string>("en");
 
   // Per-row interactive toggles for Portal and Training (ready for future backend toggle endpoints)
   const [portalToggles, setPortalToggles] = useState<Record<number, boolean>>({});
   const [trainingToggles, setTrainingToggles] = useState<Record<number, boolean>>({});
 
   // Translation Form State
+  const [currentTransData, setCurrentTransData] = useState<Partial<CourseItem> | null>(null);
   const [transCourseName, setTransCourseName] = useState("");
   const [transDescription, setTransDescription] = useState("");
   const [transDuration, setTransDuration] = useState("");
+  const [transCourseLevel, setTransCourseLevel] = useState("BEGINNER");
+  const [isLoadingTrans, setIsLoadingTrans] = useState(false);
   const [isSavingTrans, setIsSavingTrans] = useState(false);
 
   // Videos List State
@@ -178,6 +185,30 @@ export default function CourseDetailPage() {
   const [uploadMode, setUploadMode] = useState<"append" | "replace">("append");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [downloadingSample, setDownloadingSample] = useState<string | null>(null);
+
+  const handleDownloadCourseSample = async (type: "COURSE_TRANSLATIONS" | "COURSE_VIDEOS") => {
+    setDownloadingSample(type);
+    try {
+      const res = await getSampleImportAction(type);
+      if (res.success && res.data) {
+        const blob = new Blob([res.data], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = res.filename || `${type.toLowerCase()}_sample.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        success("Sample template downloaded successfully!");
+      } else {
+        toastError(res.error || "Failed to download sample file");
+      }
+    } catch {
+      toastError("Failed to download sample file");
+    } finally {
+      setDownloadingSample(null);
+    }
+  };
 
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -283,23 +314,53 @@ export default function CourseDetailPage() {
     }
   };
 
+  const fetchTranslationForLanguage = async (courseId: number | string, langCode: string, langName: string) => {
+    setIsLoadingTrans(true);
+    try {
+      const res = await getCourseTranslationByLanguageAction(courseId, langCode);
+      if (res.success && res.data) {
+        setCurrentTransData(res.data);
+        setTransCourseName(res.data.courseName || "");
+        setTransDescription(res.data.courseDetails || "");
+        setTransDuration(res.data.duration || "");
+        setTransCourseLevel(res.data.courseLevel || "BEGINNER");
+      } else {
+        // Fallback from current course state if not found
+        const meta = LANGUAGES_META.find(
+          (m) => m.code.toLowerCase() === langCode.toLowerCase()
+        );
+        const code = meta?.code || langCode;
+        const isEn = code.toLowerCase() === "en";
+        const nameKey = isEn ? "courseName" : (`courseName${code}` as keyof CourseItem);
+        const descKey = isEn ? "courseDetails" : (`courseDetails${code}` as keyof CourseItem);
+        setCurrentTransData(course ? { ...course } : null);
+        setTransCourseName((course?.[nameKey] as string) || (isEn ? course?.courseName || "" : ""));
+        setTransDescription((course?.[descKey] as string) || (isEn ? course?.courseDetails || "" : ""));
+        setTransDuration(course?.duration || "");
+        setTransCourseLevel((course?.courseLevel as string) || "BEGINNER");
+      }
+    } catch (err) {
+      console.error("Failed to load translation:", err);
+    } finally {
+      setIsLoadingTrans(false);
+    }
+  };
+
   const handleOpenTranslation = (meta: (typeof LANGUAGES_META)[0], isEdit: boolean) => {
     setSelectedLangId(meta.languageId);
     setSelectedLangName(meta.language);
+    const code = meta.code.toLowerCase();
+    setSelectedLangCode(code);
 
     if (course) {
-      const isEn = meta.code === "en";
-      const nameKey = isEn ? "courseName" : (`courseName${meta.code}` as keyof CourseItem);
-      const descKey = isEn ? "courseDetails" : (`courseDetails${meta.code}` as keyof CourseItem);
-
-      if (isEdit || isEn) {
-        setTransCourseName((course[nameKey] as string) || (isEn ? course.courseName : ""));
-        setTransDescription((course[descKey] as string) || (isEn ? course.courseDetails || "" : ""));
-        setTransDuration(course.duration || "15 minutes");
+      if (isEdit || meta.code.toLowerCase() === "en") {
+        fetchTranslationForLanguage(course.id, code, meta.language);
       } else {
+        setCurrentTransData(null);
         setTransCourseName("");
         setTransDescription("");
-        setTransDuration("");
+        setTransDuration(course.duration || "");
+        setTransCourseLevel(course.courseLevel || "BEGINNER");
       }
     }
     setViewMode("translation_form");
@@ -308,23 +369,56 @@ export default function CourseDetailPage() {
   const handleOpenVideos = (meta: (typeof LANGUAGES_META)[0]) => {
     setSelectedLangId(meta.languageId);
     setSelectedLangName(meta.language);
+    setSelectedLangCode(meta.code.toLowerCase());
     setViewMode("videos_view");
   };
 
   const handleOpenQuestionnaire = (meta: (typeof LANGUAGES_META)[0]) => {
     setSelectedLangId(meta.languageId);
     setSelectedLangName(meta.language);
+    setSelectedLangCode(meta.code.toLowerCase());
     setViewMode("questionnaire_view");
   };
 
-  const handleSaveTranslation = (e: React.FormEvent) => {
+  const handleSaveTranslation = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!course) return;
+
+    if (!transCourseName.trim()) {
+      toastError("Course Name is required");
+      return;
+    }
+
     setIsSavingTrans(true);
-    setTimeout(() => {
+    try {
+      // Send the rest of the translation data as it is, with updated fields merged
+      const payload = {
+        ...(currentTransData || {}),
+        language: selectedLangCode,
+        courseName: transCourseName.trim(),
+        courseDetails: transDescription.trim(),
+        courseLevel: transCourseLevel || "BEGINNER",
+        ...(transDuration ? { duration: transDuration } : {}),
+      };
+
+      const res = await updateCourseTranslationAction(course.id, payload);
+
+      if (res.success) {
+        success(res.message || `Translation for ${selectedLangName} saved successfully!`);
+        // If data updated, refresh course state
+        if (res.data) {
+          setCourse(res.data);
+          setCurrentTransData(res.data);
+        }
+        setViewMode("details");
+      } else {
+        toastError(res.error || "Failed to update course translation.");
+      }
+    } catch {
+      toastError("An unexpected error occurred while saving the translation.");
+    } finally {
       setIsSavingTrans(false);
-      success(`Translation for ${selectedLangName} saved successfully!`);
-      setViewMode("details");
-    }, 600);
+    }
   };
 
   const handleAddVideo = (e: React.FormEvent) => {
@@ -843,24 +937,30 @@ export default function CourseDetailPage() {
               {/* TAB 2: Upload Translations */}
               {activeDetailsTab === "translations" && (
                 <div className="p-6 space-y-6">
-                  <div className="space-y-1.5 text-xs text-slate-700">
-                    <p>
-                      You can download the sample excel file here. The order of columns should be exactly
-                      as in{" "}
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          success("Sample translations Excel template downloaded.");
-                        }}
-                        className="text-blue-600 underline font-medium"
+                  <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4 space-y-2 text-xs text-slate-700">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <p className="text-slate-700">
+                        Upload a file with course translations for multiple languages.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={downloadingSample === "COURSE_TRANSLATIONS"}
+                        onClick={() => handleDownloadCourseSample("COURSE_TRANSLATIONS")}
+                        className="h-7 text-xs font-medium gap-1.5 border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
                       >
-                        sample file.
-                      </a>
-                    </p>
-                    <p>
-                      <span className="font-bold text-slate-900">Columns in Excel File:</span> Language
-                      ID, Course Name, Description, Course Duration, Active on Portal, Active in Training
+                        <Download className="h-3 w-3" />
+                        {downloadingSample === "COURSE_TRANSLATIONS"
+                          ? "Downloading…"
+                          : "Download Sample File"}
+                      </Button>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      <span className="font-semibold text-slate-800">Columns in Sample File:</span>{" "}
+                      <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 text-blue-800 font-mono">
+                        courseId,languageId,courseName,description,courseDuration,courseLevel,activeOnPortal,activeInTraining
+                      </code>
                     </p>
                   </div>
 
@@ -872,7 +972,7 @@ export default function CourseDetailPage() {
                       <div className="sm:col-span-3">
                         <Input
                           type="file"
-                          accept=".xlsx, .xls"
+                          accept=".xlsx, .xls, .csv"
                           onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                           className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
                         />
@@ -934,24 +1034,30 @@ export default function CourseDetailPage() {
               {/* TAB 3: Upload Videos */}
               {activeDetailsTab === "videos" && (
                 <div className="p-6 space-y-6">
-                  <div className="space-y-1.5 text-xs text-slate-700">
-                    <p>
-                      You can download the sample excel file here. The order of columns should be exactly
-                      as in{" "}
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          success("Sample videos Excel template downloaded.");
-                        }}
-                        className="text-blue-600 underline font-medium"
+                  <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4 space-y-2 text-xs text-slate-700">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <p className="text-slate-700">
+                        Upload a file with video links and metadata for this course.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={downloadingSample === "COURSE_VIDEOS"}
+                        onClick={() => handleDownloadCourseSample("COURSE_VIDEOS")}
+                        className="h-7 text-xs font-medium gap-1.5 border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
                       >
-                        sample file.
-                      </a>
-                    </p>
-                    <p>
-                      <span className="font-bold text-slate-900">Columns in Excel File:</span> Language
-                      ID, Title, YoutubeID, Description, Display Order, Status
+                        <Download className="h-3 w-3" />
+                        {downloadingSample === "COURSE_VIDEOS"
+                          ? "Downloading…"
+                          : "Download Sample File"}
+                      </Button>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      <span className="font-semibold text-slate-800">Columns in Sample File:</span>{" "}
+                      <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 text-blue-800 font-mono">
+                        courseId,languageId,title,youtubeId,description,displayOrder,status
+                      </code>
                     </p>
                   </div>
 
@@ -1141,23 +1247,29 @@ export default function CourseDetailPage() {
 
           <div className="p-6 space-y-6">
             {/* Language Dropdown Pill with Change option */}
-            <div>
+            <div className="flex items-center justify-between flex-wrap gap-3">
               <LanguageSelect
                 value={selectedLangId}
                 onChange={(newId, newName) => {
                   setSelectedLangId(newId);
                   setSelectedLangName(newName);
-                  // Update fields if translation exists for that language
-                  const meta = LANGUAGES_META.find((m) => m.languageId === newId || m.language === newName);
-                  if (meta && course) {
-                    const isEn = meta.code === "en";
-                    const nameKey = isEn ? "courseName" : (`courseName${meta.code}` as keyof CourseItem);
-                    const descKey = isEn ? "courseDetails" : (`courseDetails${meta.code}` as keyof CourseItem);
-                    setTransCourseName((course[nameKey] as string) || (isEn ? course.courseName : ""));
-                    setTransDescription((course[descKey] as string) || (isEn ? course.courseDetails || "" : ""));
+                  const meta = LANGUAGES_META.find(
+                    (m) => m.languageId === newId || m.language === newName
+                  );
+                  const code = meta?.code?.toLowerCase() || "en";
+                  setSelectedLangCode(code);
+                  if (course) {
+                    fetchTranslationForLanguage(course.id, code, newName);
                   }
                 }}
               />
+
+              {isLoadingTrans && (
+                <div className="flex items-center gap-1.5 text-xs text-blue-600 font-medium">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Fetching {selectedLangName} translation…
+                </div>
+              )}
             </div>
 
             {/* Heading: Translations for <Language> */}
@@ -1165,13 +1277,16 @@ export default function CourseDetailPage() {
               <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
                 Translations for {selectedLangName}
               </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Language Code: <span className="font-mono font-semibold text-slate-700 uppercase">{selectedLangCode}</span>
+              </p>
             </div>
 
             {/* Translation Form Inputs */}
             <form onSubmit={handleSaveTranslation} className="mx-auto max-w-2xl space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
                 <Label htmlFor="trans-courseName" className="text-xs font-bold text-slate-800 sm:text-right">
-                  Course Name
+                  Course Name <span className="text-rose-500">*</span>
                 </Label>
                 <div className="sm:col-span-3">
                   <Input
@@ -1202,6 +1317,24 @@ export default function CourseDetailPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                <Label htmlFor="trans-level" className="text-xs font-bold text-slate-800 sm:text-right">
+                  Course Level
+                </Label>
+                <div className="sm:col-span-3">
+                  <select
+                    id="trans-level"
+                    value={transCourseLevel}
+                    onChange={(e) => setTransCourseLevel(e.target.value)}
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="BEGINNER">BEGINNER</option>
+                    <option value="INTERMEDIATE">INTERMEDIATE</option>
+                    <option value="ADVANCED">ADVANCED</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
                 <Label htmlFor="trans-duration" className="text-xs font-bold text-slate-800 sm:text-right">
                   Course Duration
                 </Label>
@@ -1210,7 +1343,7 @@ export default function CourseDetailPage() {
                     id="trans-duration"
                     value={transDuration}
                     onChange={(e) => setTransDuration(e.target.value)}
-                    placeholder="Duration"
+                    placeholder="Duration (e.g. 11.07)"
                     className="h-9 text-xs"
                   />
                 </div>
@@ -1220,11 +1353,11 @@ export default function CourseDetailPage() {
               <div className="flex items-center justify-center gap-2 pt-4">
                 <Button
                   type="submit"
-                  disabled={isSavingTrans}
-                  className="bg-blue-600 hover:bg-blue-700 text-white min-w-20 h-8 text-xs font-semibold uppercase"
+                  disabled={isSavingTrans || isLoadingTrans}
+                  className="bg-blue-600 hover:bg-blue-700 text-white min-w-24 h-8 text-xs font-semibold uppercase gap-1.5"
                 >
-                  {isSavingTrans && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                  SAVE
+                  {isSavingTrans && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {isSavingTrans ? "SAVING…" : "SAVE"}
                 </Button>
                 <Button
                   type="button"

@@ -25,7 +25,12 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
-import { getAccountByIdAction, updateAccountAction } from "@/features/accounts/action";
+import {
+  getAccountByIdAction,
+  getAccountsAction,
+  updateAccountAction,
+  uploadMediaAction,
+} from "@/features/accounts/action";
 import type { AccountItem } from "@/features/accounts/types";
 import { cn } from "@/lib/utils";
 
@@ -69,38 +74,7 @@ export default function AccountDetailPage() {
           setAccount(res.data);
           populateForm(res.data);
         } else {
-          // Fallback sample account data if endpoint returns error during backend dev
-          const fallback: AccountItem = {
-            id: idOrBhBp,
-            bhBp: idOrBhBp.startsWith("Bh_") ? idOrBhBp : `Bh_${idOrBhBp}`,
-            name: "vasundhara",
-            mobile: "9686507610",
-            mobileNumber: "9686507610",
-            otp: "1194",
-            email: "vasundhara@example.com",
-            emailId: "vasundhara@example.com",
-            state: "Karnataka",
-            district: "Belgavi",
-            city: "Belgavi",
-            signupDate: "22-10-2026",
-            signupIp: "36.255.18.221",
-            status: "Active",
-            active: true,
-            assessmentResults: [
-              {
-                courseName: "Wallpaper",
-                language: "English",
-                score: "7 / 10",
-                percentage: "70%",
-                status: "PASS",
-                certificateUrl: "#",
-                date: "2026-10-23 11:18:02",
-                mode: "Self on Portal",
-              },
-            ],
-          };
-          setAccount(fallback);
-          populateForm(fallback);
+          toastError(res.error || "Failed to load account details");
         }
       })
       .catch((err) => {
@@ -141,39 +115,73 @@ export default function AccountDetailPage() {
     }
 
     startSavingTransition(async () => {
-      const formData = new FormData();
-      formData.append("name", name.trim());
-      formData.append("mobileNumber", mobileNumber.trim());
-      formData.append("state", state.trim());
-      if (district.trim()) formData.append("district", district.trim());
-      formData.append("city", city.trim());
-      formData.append("bhBp", (bhBp.trim() || idOrBhBp));
-      if (emailId.trim()) formData.append("emailId", emailId.trim());
-      formData.append("active", String(active));
+      let imageString = account?.profileImage || account?.image || account?.profilePicture || "";
       if (imageFile) {
-        formData.append("image", imageFile);
+        try {
+          const uploadFormData = new FormData();
+          uploadFormData.append("file", imageFile);
+          uploadFormData.append("path", `profile_image_${Date.now()}`);
+
+          const uploadRes = await uploadMediaAction(uploadFormData);
+          if (uploadRes.success && uploadRes.data) {
+            imageString = uploadRes.data;
+          } else {
+            console.warn("Image upload warning:", uploadRes.error);
+          }
+        } catch (err) {
+          console.error("Failed to upload image:", err);
+        }
       }
 
-      const res = await updateAccountAction(idOrBhBp, formData);
+      // JSON payload matching PUT /api/v1/account/{idOrBhBp}:
+      // {
+      //   "name": "Example 3",
+      //   "mobile": "7999875496",
+      //   "state": "testing",
+      //   "district": "Nagpur",
+      //   "city": "testing",
+      //   "emailId": "testing",
+      //   "image": "...",
+      //   "bhBp": "Bh_999",
+      //   "active": "false"
+      // }
+      const finalBhBp = (bhBp.trim() || account?.bhBp || idOrBhBp);
+      const payload: Record<string, unknown> = {
+        name: name.trim(),
+        mobile: mobileNumber.trim(),
+        mobileNumber: mobileNumber.trim(),
+        state: state.trim(),
+        district: district.trim(),
+        city: city.trim(),
+        emailId: emailId.trim(),
+        image: imageString,
+        bhBp: finalBhBp,
+        active: String(active),
+      };
+
+      const res = await updateAccountAction(finalBhBp, payload);
 
       if (res.success) {
         success(res.message || "Account updated successfully");
-        if (account) {
-          setAccount({
-            ...account,
-            name: name.trim(),
-            mobile: mobileNumber.trim(),
-            mobileNumber: mobileNumber.trim(),
-            state: state.trim(),
-            district: district.trim(),
-            city: city.trim(),
-            bhBp: bhBp.trim() || idOrBhBp,
-            email: emailId.trim(),
-            emailId: emailId.trim(),
-            status: active ? "Active" : "Inactive",
-            active,
-          });
+
+        // Immediately fetch the fresh account details by account ID/bhBp and update the card
+        try {
+          const freshRes = await getAccountByIdAction(finalBhBp);
+          if (freshRes.success && freshRes.data) {
+            setAccount(freshRes.data);
+            populateForm(freshRes.data);
+          } else if (res.data) {
+            setAccount(res.data);
+            populateForm(res.data);
+          }
+        } catch {
+          if (res.data) {
+            setAccount(res.data);
+            populateForm(res.data);
+          }
         }
+
+        setImageFile(null);
         setIsEditing(false);
       } else {
         toastError(res.error || "Failed to update account");
@@ -247,20 +255,30 @@ export default function AccountDetailPage() {
 
             <CardContent className="p-4 space-y-4">
               {/* Profile Image Box */}
-              <div className="mx-auto w-28 h-28 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
-                {account.image || account.profilePicture ? (
+              <div className="mx-auto w-28 h-28 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden relative shadow-2xs">
+                {account.profileImage || account.image || account.profilePicture ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={account.image || account.profilePicture}
+                    key={account.profileImage || account.image || account.profilePicture}
+                    src={account.profileImage || account.image || account.profilePicture}
                     alt={account.name}
                     className="h-full w-full object-cover"
                     onError={(e) => {
-                      (e.target as HTMLElement).style.display = "none";
+                      const img = e.currentTarget;
+                      img.style.display = "none";
+                      const fallback = img.parentElement?.querySelector(".avatar-fallback");
+                      if (fallback) (fallback as HTMLElement).style.display = "flex";
                     }}
                   />
-                ) : (
-                  <User className="h-16 w-16 text-slate-300" />
-                )}
+                ) : null}
+                <div
+                  className="avatar-fallback flex items-center justify-center w-full h-full text-slate-300"
+                  style={{
+                    display: account.profileImage || account.image || account.profilePicture ? "none" : "flex",
+                  }}
+                >
+                  <User className="h-16 w-16" />
+                </div>
               </div>
 
               {/* Account Meta Grid (Matches screenshot 2) */}

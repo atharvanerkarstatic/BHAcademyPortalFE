@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
-import { createAccountAction } from "@/features/accounts/action";
+import { createAccountAction, uploadMediaAction } from "@/features/accounts/action";
 
 export default function NewAccountPage() {
   const router = useRouter();
@@ -94,20 +94,48 @@ export default function NewAccountPage() {
     }
 
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append("name", name.trim());
-      formData.append("mobileNumber", mobileNumber.trim());
-      formData.append("state", state.trim());
-      if (district.trim()) formData.append("district", district.trim());
-      formData.append("city", city.trim());
-      if (bhBp.trim()) formData.append("bhBp", bhBp.trim());
-      if (emailId.trim()) formData.append("emailId", emailId.trim());
-      formData.append("active", String(active));
+      let imageUrl = "";
       if (imageFile) {
-        formData.append("image", imageFile);
+        try {
+          const uploadFormData = new FormData();
+          uploadFormData.append("file", imageFile);
+          uploadFormData.append("path", `profile_image_${Date.now()}`);
+
+          const uploadRes = await uploadMediaAction(uploadFormData);
+          if (uploadRes.success && uploadRes.data) {
+            imageUrl = uploadRes.data;
+          } else {
+            console.warn("Image upload warning:", uploadRes.error);
+          }
+        } catch (err) {
+          console.error("Failed to upload image:", err);
+        }
       }
 
-      const res = await createAccountAction(formData);
+      // JSON payload exactly matching:
+      // {
+      //   "name": "string",
+      //   "mobileNumber": "stringstri",
+      //   "state": "string",
+      //   "district": "string",
+      //   "city": "string",
+      //   "bhBp": "string",
+      //   "emailId": "string",
+      //   "image": "string"
+      // }
+      const payload: Record<string, unknown> = {
+        name: name.trim(),
+        mobileNumber: mobileNumber.trim(),
+        state: state.trim(),
+        district: district.trim(),
+        city: city.trim(),
+        bhBp: bhBp.trim(),
+        emailId: emailId.trim(),
+        image: imageUrl,
+        active: String(active),
+      };
+
+      const res = await createAccountAction(payload);
 
       if (res.success) {
         success(res.message || "Account created successfully");
