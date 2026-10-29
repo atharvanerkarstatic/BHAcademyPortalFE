@@ -13,6 +13,7 @@ import {
   List,
   Download,
   FileSpreadsheet,
+  Image as ImageIcon,
   Upload,
   ArrowUpDown,
   User,
@@ -108,6 +109,22 @@ export default function AccountsPage() {
       }
     });
   };
+
+  useEffect(() => {
+    const handleReset = () => {
+      setActiveTab("list");
+      setBulkBpFile(null);
+      setBulkUsersFile(null);
+    };
+
+    window.addEventListener("popstate", handleReset);
+    window.addEventListener("pageshow", handleReset);
+    return () => {
+      window.removeEventListener("popstate", handleReset);
+      window.removeEventListener("pageshow", handleReset);
+      handleReset();
+    };
+  }, []);
 
   useEffect(() => {
     loadAccounts(page, activeSearch);
@@ -298,22 +315,52 @@ export default function AccountsPage() {
     }
   };
 
-  const displayAccounts = pageData.content;
-
-  // Data table columns exactly matching Screenshot 1
+  // Data table columns matching Course List pattern and uniformity
   const columns: Column<AccountItem>[] = useMemo(() => {
     const cols: Column<AccountItem>[] = [
       {
         header: "ID",
         cell: (r) => (
-          <span className="font-mono text-xs text-slate-800">{r.id}</span>
+          <span className="font-mono text-xs font-semibold text-slate-700">#{r.id}</span>
         ),
+        className: "w-16 text-center",
+      },
+      {
+        header: "Image",
+        cell: (r) => {
+          const imgUrl = r.profileImage || r.image || r.profilePicture;
+          const validImg = imgUrl && imgUrl.startsWith("http");
+          return (
+            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+              {validImg ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={imgUrl}
+                  alt={r.name}
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = "none";
+                  }}
+                />
+              ) : (
+                <ImageIcon className="h-4 w-4 text-slate-400" />
+              )}
+            </div>
+          );
+        },
         className: "w-16",
       },
       {
         header: "Name",
         cell: (r) => (
-          <span className="font-medium text-slate-900 text-xs">{r.name}</span>
+          <div className="max-w-xs space-y-0.5">
+            <p className="font-medium text-slate-900 leading-snug">{r.name}</p>
+            {r.emailId && (
+              <p className="text-[11px] text-slate-500 font-normal truncate max-w-[180px]">
+                {r.emailId}
+              </p>
+            )}
+          </div>
         ),
         className: "min-w-40",
       },
@@ -327,30 +374,30 @@ export default function AccountsPage() {
       {
         header: "BP Number",
         cell: (r) => (
-          <span className="font-mono text-xs text-slate-700">{r.bhBp || "—"}</span>
+          <span className="font-mono text-xs font-semibold text-slate-700">{r.bhBp || "—"}</span>
         ),
-        className: "w-36",
+        className: "w-32",
       },
       {
         header: "State",
         cell: (r) => (
           <span className="text-xs text-slate-700">{r.state || "—"}</span>
         ),
-        className: "w-40",
+        className: "w-36",
       },
       {
         header: "City",
         cell: (r) => (
           <span className="text-xs text-slate-700">{r.city || "—"}</span>
         ),
-        className: "w-36",
+        className: "w-32",
       },
       {
         header: "District",
         cell: (r) => (
           <span className="text-xs text-slate-700">{r.district?.trim() ? r.district : "—"}</span>
         ),
-        className: "w-36",
+        className: "w-32",
       },
       {
         header: "Status",
@@ -359,8 +406,10 @@ export default function AccountsPage() {
           return (
             <span
               className={cn(
-                "inline-block text-xs font-semibold",
-                isActive ? "text-emerald-600" : "text-rose-600"
+                "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+                isActive
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : "bg-rose-50 text-rose-700 border-rose-200"
               )}
             >
               {isActive ? "Active" : "Inactive"}
@@ -372,12 +421,11 @@ export default function AccountsPage() {
       {
         header: "Details",
         cell: (r) => (
-          <Link
-            href={`/accounts/${encodeURIComponent(r.bhBp || r.id)}`}
-            className="text-xs text-blue-600 hover:underline font-medium"
-          >
-            Details
-          </Link>
+          <Button asChild variant="outline" size="xs" className="h-7 text-xs font-medium text-blue-600 border-blue-200 hover:bg-blue-50">
+            <Link href={`/accounts/${encodeURIComponent(r.bhBp || r.id)}`}>
+              Details
+            </Link>
+          </Button>
         ),
         className: "w-20 text-center",
       },
@@ -449,231 +497,86 @@ export default function AccountsPage() {
         {/* TAB 1: ACCOUNTS LIST TABLE */}
         {activeTab === "list" && (
           <div className="p-4 space-y-4">
-            {/* Toolbar: Search input, Refresh, Download Accounts, and Add New Account */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              {/* Search input on left / middle */}
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                <Input
-                  placeholder="Search accounts..."
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  className="h-8 w-44 pl-8 text-xs sm:w-56"
-                />
-                {searchInput && (
-                  <button
-                    type="button"
-                    onClick={handleSearchClear}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
+            <DataTable
+              title="Accounts List"
+              columns={columns}
+              data={pageData.content}
+              getRowId={(r) => r.id}
+              loading={isPending}
+              emptyMessage={activeSearch ? `No accounts matching "${activeSearch}"` : "No accounts found"}
+              action={
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {/* Search Input beside Refresh - exact same behavior & style as Courses page */}
+                  <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+                    <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <Input
+                      placeholder="Search accounts..."
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      className="h-8 w-44 pl-8 pr-14 text-xs sm:w-56"
+                    />
+                    {searchInput && (
+                      <button
+                        type="button"
+                        onClick={handleSearchClear}
+                        className="absolute right-8 text-[11px] text-slate-400 hover:text-slate-600"
+                      >
+                        Clear
+                      </button>
+                    )}
+                    <Button type="submit" variant="ghost" size="sm" className="hidden">
+                      Search
+                    </Button>
+                  </form>
 
-              {/* Action Buttons: Refresh, Download Accounts, Add New Account */}
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setPage(1);
-                    loadAccounts(1, activeSearch, true);
-                  }}
-                  disabled={isPending}
-                  className="gap-1.5 text-slate-600 h-8"
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`} />
-                  <span className="hidden sm:inline text-xs">Refresh</span>
-                </Button>
-
-                {canExport && (
+                  {/* Refresh button */}
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={handleDownloadAccounts}
-                    disabled={isExporting}
-                    className="gap-1.5 text-slate-700 bg-white hover:bg-slate-50 border-slate-300 h-8"
+                    onClick={() => {
+                      setPage(1);
+                      loadAccounts(1, activeSearch, true);
+                    }}
+                    disabled={isPending}
+                    className="gap-1.5 text-slate-600 h-8 text-xs"
                   >
-                    <Download className={`h-3.5 w-3.5 ${isExporting ? "animate-bounce" : ""}`} />
-                    <span>{isExporting ? "Downloading…" : "Download Accounts"}</span>
+                    <RefreshCw className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`} />
+                    <span className="hidden sm:inline">Refresh</span>
                   </Button>
-                )}
 
-                {canCreate && (
-                  <Button asChild size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white h-8">
-                    <Link href="/accounts/new">
-                      <Plus className="h-4 w-4" />
-                      Add Account
-                    </Link>
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Table */}
-            <div className="border border-slate-200 rounded-md overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b text-slate-700 font-bold">
-                  <tr>
-                    <th className="py-2.5 px-3">
-                      <div className="flex items-center gap-1 cursor-pointer">
-                        <span>ID</span>
-                        <ArrowUpDown className="h-3 w-3 text-slate-400" />
-                      </div>
-                    </th>
-                    <th className="py-2.5 px-3">
-                      <div className="flex items-center gap-1 cursor-pointer">
-                        <span>Name</span>
-                        <ArrowUpDown className="h-3 w-3 text-slate-400" />
-                      </div>
-                    </th>
-                    <th className="py-2.5 px-3">
-                      <div className="flex items-center gap-1 cursor-pointer">
-                        <span>Mobile</span>
-                        <ArrowUpDown className="h-3 w-3 text-slate-400" />
-                      </div>
-                    </th>
-                    <th className="py-2.5 px-3">
-                      <div className="flex items-center gap-1 cursor-pointer">
-                        <span>BP Number</span>
-                        <ArrowUpDown className="h-3 w-3 text-slate-400" />
-                      </div>
-                    </th>
-                    <th className="py-2.5 px-3">
-                      <div className="flex items-center gap-1 cursor-pointer">
-                        <span>State</span>
-                        <ArrowUpDown className="h-3 w-3 text-slate-400" />
-                      </div>
-                    </th>
-                    <th className="py-2.5 px-3">
-                      <div className="flex items-center gap-1 cursor-pointer">
-                        <span>City</span>
-                        <ArrowUpDown className="h-3 w-3 text-slate-400" />
-                      </div>
-                    </th>
-                    <th className="py-2.5 px-3">
-                      <div className="flex items-center gap-1 cursor-pointer">
-                        <span>District</span>
-                        <ArrowUpDown className="h-3 w-3 text-slate-400" />
-                      </div>
-                    </th>
-                    <th className="py-2.5 px-3 text-center">
-                      <div className="flex items-center justify-center gap-1 cursor-pointer">
-                        <span>Status</span>
-                        <ArrowUpDown className="h-3 w-3 text-slate-400" />
-                      </div>
-                    </th>
-                    <th className="py-2.5 px-3 text-center">
-                      <div className="flex items-center justify-center gap-1 cursor-pointer">
-                        <span>Details</span>
-                        <ArrowUpDown className="h-3 w-3 text-slate-400" />
-                      </div>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {isPending ? (
-                    <tr>
-                      <td colSpan={9} className="p-8 text-center text-slate-400">
-                        <RefreshCw className="h-5 w-5 animate-spin mx-auto text-blue-600 mb-2" />
-                        Loading accounts…
-                      </td>
-                    </tr>
-                  ) : displayAccounts.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} className="p-8 text-center text-slate-400">
-                        {activeSearch ? `No accounts matching "${activeSearch}"` : "No accounts found"}
-                      </td>
-                    </tr>
-                  ) : (
-                    displayAccounts.map((r) => {
-                      const isActive = r.status?.toLowerCase() === "active" || r.active === true;
-                      return (
-                        <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-2.5 px-3 font-mono text-slate-800">{r.id}</td>
-                          <td className="py-2.5 px-3 font-medium text-slate-900">
-                            <div className="flex items-center gap-2.5">
-                              <div className="relative h-7 w-7 rounded-full overflow-hidden bg-slate-100 border border-slate-200 shrink-0 flex items-center justify-center">
-                                {r.profileImage || r.image || r.profilePicture ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={r.profileImage || r.image || r.profilePicture}
-                                    alt={r.name}
-                                    className="h-full w-full object-cover"
-                                    onError={(e) => {
-                                      (e.currentTarget as HTMLElement).style.display = "none";
-                                    }}
-                                  />
-                                ) : (
-                                  <User className="h-3.5 w-3.5 text-slate-400" />
-                                )}
-                              </div>
-                              <span className="truncate">{r.name}</span>
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-3 font-mono text-slate-700">{r.mobile || r.mobileNumber || "—"}</td>
-                          <td className="py-2.5 px-3 font-mono text-slate-700">{r.bhBp || "—"}</td>
-                          <td className="py-2.5 px-3 text-slate-700">{r.state || "—"}</td>
-                          <td className="py-2.5 px-3 text-slate-700">{r.city || "—"}</td>
-                          <td className="py-2.5 px-3 text-slate-700">{r.district?.trim() ? r.district : "—"}</td>
-                          <td className="py-2.5 px-3 text-center">
-                            <span
-                              className={cn(
-                                "inline-block text-xs font-semibold",
-                                isActive ? "text-emerald-600" : "text-rose-600"
-                              )}
-                            >
-                              {isActive ? "Active" : "Inactive"}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 text-center">
-                            <Link
-                              href={`/accounts/${encodeURIComponent(r.bhBp || r.id)}`}
-                              className="text-xs text-blue-600 hover:underline font-medium"
-                            >
-                              Details
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })
+                  {/* Download Accounts button */}
+                  {canExport && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadAccounts}
+                      disabled={isExporting}
+                      className="gap-1.5 text-slate-700 bg-white hover:bg-slate-50 border-slate-300 h-8 text-xs"
+                    >
+                      <Download className={`h-3.5 w-3.5 ${isExporting ? "animate-bounce" : ""}`} />
+                      <span>{isExporting ? "Downloading…" : "Download Accounts"}</span>
+                    </Button>
                   )}
-                </tbody>
-              </table>
-            </div>
 
-            {/* Bottom Pagination & Showing info matching screenshot 1 */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 pt-2">
-              <div>
-                Showing {displayAccounts.length > 0 ? (page - 1) * pageSize + 1 : 0} to{" "}
-                {Math.min(page * pageSize, pageData.totalElements)} of {pageData.totalElements} entries
-              </div>
-
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page <= 1}
-                  className="h-8 text-xs px-3"
-                >
-                  Previous
-                </Button>
-                <span className="flex h-8 min-w-8 items-center justify-center rounded bg-blue-600 text-xs font-semibold text-white px-2">
-                  {page}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page >= pageData.totalPages}
-                  className="h-8 text-xs px-3"
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+                  {/* Add Account button */}
+                  {canCreate && (
+                    <Button asChild size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs font-semibold">
+                      <Link href="/accounts/new">
+                        <Plus className="h-4 w-4" />
+                        Add Account
+                      </Link>
+                    </Button>
+                  )}
+                </div>
+              }
+              pagination={{
+                page,
+                pageSize,
+                totalElements: pageData.totalElements,
+                totalPages: pageData.totalPages,
+                onPageChange: handlePageChange,
+              }}
+            />
           </div>
         )}
 

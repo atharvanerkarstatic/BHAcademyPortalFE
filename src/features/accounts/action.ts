@@ -46,11 +46,15 @@ export async function getAccountsAction(params: GetAccountsParams = {}) {
   // Spring Pageable is 0-indexed on the backend
   const apiPage = Math.max(page - 1, 0);
 
-  const searchParams = new URLSearchParams();
-  searchParams.set("search", params.search ? params.search.trim() : "");
-  searchParams.set("page", String(apiPage));
-  searchParams.set("size", String(size));
-  searchParams.set("sort", params.sort || '["string"]');
+  const searchParams = new URLSearchParams({
+    page: String(apiPage),
+    size: String(size),
+    sort: params.sort || '["string"]',
+  });
+
+  if (params.search && params.search.trim()) {
+    searchParams.set("search", params.search.trim());
+  }
 
   try {
     const res = await apiFetch<ApiResponse<AccountPageResponse>>(
@@ -387,7 +391,7 @@ export type SampleImportType =
   | "ACCOUNTS"
   | "ACCOUNT_BHBP"
   | "COURSE_TRANSLATIONS"
-  | "COURSE_VIDEOS";
+  | "COURSE_VIDEOS" | "QUIZ";
 
 export async function getSampleImportAction(type: SampleImportType) {
   try {
@@ -416,6 +420,7 @@ export async function getSampleImportAction(type: SampleImportType) {
       ACCOUNT_BHBP: "account_bhbp_sample.csv",
       COURSE_TRANSLATIONS: "course_translations_sample.csv",
       COURSE_VIDEOS: "course_videos_sample.csv",
+      QUIZ: "quiz_sample.csv",
     };
 
     return {

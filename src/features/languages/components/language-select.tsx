@@ -7,11 +7,12 @@ import type { LanguageItem } from "@/features/languages/types";
 import { cn } from "@/lib/utils";
 
 type LanguageSelectProps = {
-  value: string; // languageId or language name
-  onChange: (languageId: string, languageName: string) => void;
+  value?: string | number | null; // languageId or language name or code
+  onChange: (languageId: string, languageName: string, languageCode?: string | null) => void;
   disabled?: boolean;
   buttonClassName?: string;
   displayFormat?: "pill" | "input"; // "pill" for blue button like in screenshot
+  showCodeOnly?: boolean; // When true, displays and emphasizes code instead of languageId
 };
 
 export function LanguageSelect({
@@ -20,6 +21,7 @@ export function LanguageSelect({
   disabled = false,
   buttonClassName,
   displayFormat = "pill",
+  showCodeOnly = false,
 }: LanguageSelectProps) {
   const [open, setOpen] = useState(false);
   const [languages, setLanguages] = useState<LanguageItem[]>([]);
@@ -88,14 +90,21 @@ export function LanguageSelect({
     }
   };
 
-  const selectedLang = languages.find(
-    (l) => l.languageId === value || l.language.toLowerCase() === value.toLowerCase()
-  );
+  const stringValue = value !== undefined && value !== null ? String(value) : "";
+  const lowerVal = stringValue.trim().toLowerCase();
+
+  const selectedLang = languages.find((l) => {
+    if (!lowerVal) return false;
+    const lId = String(l.languageId || "").toLowerCase();
+    const lName = String(l.language || "").toLowerCase();
+    const lCode = String(l.languageCode || "").toLowerCase();
+    return lId === lowerVal || lName === lowerVal || lCode === lowerVal;
+  });
 
   const displayText = selectedLang
     ? `${selectedLang.nativeName ? `${selectedLang.nativeName} (${selectedLang.language})` : selectedLang.language} Language | Change`
-    : value
-    ? `${value} Language | Change`
+    : stringValue
+    ? `${stringValue} Language | Change`
     : "Select Language | Change";
 
   return (
@@ -144,15 +153,18 @@ export function LanguageSelect({
           ) : (
             <div className="space-y-0.5">
               {languages.map((lang) => {
+                const lId = String(lang.languageId || "").toLowerCase();
+                const lName = String(lang.language || "").toLowerCase();
+                const lCode = String(lang.languageCode || "").toLowerCase();
                 const isSelected =
-                  lang.languageId === value ||
-                  lang.language.toLowerCase() === value.toLowerCase();
+                  Boolean(lowerVal) &&
+                  (lId === lowerVal || lName === lowerVal || lCode === lowerVal);
                 return (
                   <button
                     key={lang.languageId}
                     type="button"
                     onClick={() => {
-                      onChange(lang.languageId, lang.language);
+                      onChange(lang.languageId, lang.language, lang.languageCode);
                       setOpen(false);
                     }}
                     className={cn(
@@ -165,7 +177,7 @@ export function LanguageSelect({
                         {lang.nativeName ? `${lang.nativeName} (${lang.language})` : lang.language}
                       </span>
                       <span className="font-mono text-[10px] text-slate-400">
-                        {lang.languageId} {lang.languageCode ? `• ${lang.languageCode}` : ""}
+                        {lang.languageCode ? lang.languageCode.toLowerCase() : ""}
                       </span>
                     </div>
                     {isSelected && <Check className="h-4 w-4 shrink-0 text-blue-600 ml-2" />}

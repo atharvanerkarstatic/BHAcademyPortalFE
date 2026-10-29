@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, BookOpen, Languages, Loader2 } from "lucide-react";
@@ -88,6 +88,21 @@ export default function NewCoursePage() {
     courseLevelTa: "",
     courseLevelTe: "",
   });
+
+  useEffect(() => {
+    // Reset form state on mount to avoid stale cached inputs
+    setCategoryId("");
+    setCourseName("");
+    setCourseLevel("Beginner");
+    setDuration("");
+    setMode("virtual");
+    setPoints(0);
+    setNoOfVideos(0);
+    setNoOfCertifications("1");
+    setImageUrl("");
+    setCourseDetails("");
+    setError(null);
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

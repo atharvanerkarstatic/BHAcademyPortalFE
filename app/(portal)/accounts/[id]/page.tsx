@@ -10,6 +10,7 @@ import {
   Edit,
   ExternalLink,
   FileSpreadsheet,
+  Image as ImageIcon,
   List,
   Loader2,
   Upload,
@@ -33,6 +34,8 @@ import {
 } from "@/features/accounts/action";
 import type { AccountItem } from "@/features/accounts/types";
 import { cn } from "@/lib/utils";
+
+const ALLOWED_IMAGE_EXTS = ["jpg", "jpeg", "png", "gif", "webp", "bmp"];
 
 export default function AccountDetailPage() {
   const params = useParams();
@@ -66,6 +69,8 @@ export default function AccountDetailPage() {
   useEffect(() => {
     let mounted = true;
     setFetching(true);
+    setIsEditing(false);
+    setImageFile(null);
 
     getAccountByIdAction(idOrBhBp)
       .then((res) => {
@@ -93,13 +98,30 @@ export default function AccountDetailPage() {
 
   const populateForm = (acc: AccountItem) => {
     setName(acc.name || "");
-    setMobileNumber(acc.mobileNumber || acc.mobile || "");
+    const rawMobile = (acc.mobileNumber || acc.mobile || "").replace(/\D/g, "").slice(0, 10);
+    setMobileNumber(rawMobile);
     setState(acc.state || "");
     setDistrict(acc.district || "");
     setCity(acc.city || "");
     setBhBp(acc.bhBp || acc.id || "");
     setEmailId(acc.emailId || acc.email || "");
     setActive(acc.active !== false && acc.status?.toLowerCase() !== "inactive");
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setImageFile(null);
+      return;
+    }
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    if (!ALLOWED_IMAGE_EXTS.includes(ext)) {
+      toastError("Please upload a valid image file (.jpg, .jpeg, .png, .gif, .webp, .bmp)");
+      e.target.value = "";
+      setImageFile(null);
+      return;
+    }
+    setImageFile(file);
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -109,8 +131,13 @@ export default function AccountDetailPage() {
       toastError("Full Name is required");
       return;
     }
-    if (!mobileNumber.trim()) {
-      toastError("Mobile is required");
+    const cleanedMobile = mobileNumber.replace(/\D/g, "");
+    if (!cleanedMobile) {
+      toastError("Mobile number is required");
+      return;
+    }
+    if (cleanedMobile.length !== 10) {
+      toastError("Mobile number must be exactly 10 digits");
       return;
     }
 
@@ -133,23 +160,11 @@ export default function AccountDetailPage() {
         }
       }
 
-      // JSON payload matching PUT /api/v1/account/{idOrBhBp}:
-      // {
-      //   "name": "Example 3",
-      //   "mobile": "7999875496",
-      //   "state": "testing",
-      //   "district": "Nagpur",
-      //   "city": "testing",
-      //   "emailId": "testing",
-      //   "image": "...",
-      //   "bhBp": "Bh_999",
-      //   "active": "false"
-      // }
       const finalBhBp = (bhBp.trim() || account?.bhBp || idOrBhBp);
       const payload: Record<string, unknown> = {
         name: name.trim(),
-        mobile: mobileNumber.trim(),
-        mobileNumber: mobileNumber.trim(),
+        mobile: cleanedMobile,
+        mobileNumber: cleanedMobile,
         state: state.trim(),
         district: district.trim(),
         city: city.trim(),
@@ -216,6 +231,16 @@ export default function AccountDetailPage() {
 
   return (
     <div className="w-full space-y-4 pb-12">
+      {/* Back button to Accounts page */}
+      <div>
+        <Button variant="ghost" size="sm" asChild className="gap-1.5 text-slate-600 hover:text-slate-900">
+          <Link href="/accounts">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Accounts
+          </Link>
+        </Button>
+      </div>
+
       {/* Top Header & Breadcrumbs */}
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-bold tracking-tight text-slate-900">
@@ -248,14 +273,13 @@ export default function AccountDetailPage() {
         {/* ========================================================== */}
         <div className="lg:col-span-4 xl:col-span-3 space-y-4">
           <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            {/* Header: Name */}
-            <div className="border-b px-4 py-3 bg-white">
-              <h2 className="text-base font-bold text-slate-900">{account.name}</h2>
-            </div>
+            <CardHeader className="border-b px-4 py-3 bg-white">
+              <CardTitle className="text-base font-semibold text-slate-900">Account Details</CardTitle>
+            </CardHeader>
 
             <CardContent className="p-4 space-y-4">
-              {/* Profile Image Box */}
-              <div className="mx-auto w-28 h-28 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden relative shadow-2xs">
+              {/* Profile Image Preview Box (Matches Course Image Preview) */}
+              <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center">
                 {account.profileImage || account.image || account.profilePicture ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -264,64 +288,65 @@ export default function AccountDetailPage() {
                     alt={account.name}
                     className="h-full w-full object-cover"
                     onError={(e) => {
-                      const img = e.currentTarget;
-                      img.style.display = "none";
-                      const fallback = img.parentElement?.querySelector(".avatar-fallback");
-                      if (fallback) (fallback as HTMLElement).style.display = "flex";
+                      (e.target as HTMLElement).style.display = "none";
                     }}
                   />
-                ) : null}
-                <div
-                  className="avatar-fallback flex items-center justify-center w-full h-full text-slate-300"
-                  style={{
-                    display: account.profileImage || account.image || account.profilePicture ? "none" : "flex",
-                  }}
-                >
-                  <User className="h-16 w-16" />
-                </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-1 text-slate-400">
+                    <User className="h-10 w-10 text-slate-400" />
+                    <span className="text-[10px] font-medium text-slate-400">No Profile Image</span>
+                  </div>
+                )}
               </div>
 
-              {/* Account Meta Grid (Matches screenshot 2) */}
-              <div className="divide-y divide-slate-100 text-xs">
-                <div className="grid grid-cols-3 py-1.5">
+              {/* Title below image */}
+              <div className="text-center font-semibold text-slate-800 text-sm border-b pb-3">
+                {account.name}
+              </div>
+
+              {/* Account Meta Info */}
+              <div className="space-y-2 text-xs">
+                <div className="grid grid-cols-3 gap-1">
                   <span className="font-semibold text-slate-700">Mobile:</span>
-                  <span className="col-span-2 font-mono text-slate-600">
+                  <span className="col-span-2 font-mono text-slate-600 truncate">
                     {account.mobileNumber || account.mobile || "—"}
                   </span>
                 </div>
-                <div className="grid grid-cols-3 py-1.5">
-                  <span className="font-semibold text-slate-700">OTP:</span>
-                  <span className="col-span-2 font-mono text-slate-600">{account.otp || "—"}</span>
+                <div className="grid grid-cols-3 gap-1">
+                  <span className="font-semibold text-slate-700">BP Number:</span>
+                  <span className="col-span-2 font-mono text-slate-700">
+                    {account.bhBp || "—"}
+                  </span>
                 </div>
-                <div className="grid grid-cols-3 py-1.5">
+                <div className="grid grid-cols-3 gap-1">
                   <span className="font-semibold text-slate-700">Email:</span>
                   <span className="col-span-2 text-slate-600 truncate">
                     {account.emailId || account.email || "—"}
                   </span>
                 </div>
-                <div className="grid grid-cols-3 py-1.5">
-                  <span className="font-semibold text-slate-700">BP Number:</span>
-                  <span className="col-span-2 font-mono text-slate-600">{account.bhBp || "—"}</span>
+                <div className="grid grid-cols-3 gap-1">
+                  <span className="font-semibold text-slate-700">OTP:</span>
+                  <span className="col-span-2 font-mono text-slate-600">{account.otp || "—"}</span>
                 </div>
-                <div className="grid grid-cols-3 py-1.5">
+                <div className="grid grid-cols-3 gap-1">
                   <span className="font-semibold text-slate-700">State:</span>
-                  <span className="col-span-2 text-slate-600">{account.state || "—"}</span>
+                  <span className="col-span-2 text-slate-600 truncate">{account.state || "—"}</span>
                 </div>
-                <div className="grid grid-cols-3 py-1.5">
-                  <span className="font-semibold text-slate-700">District:</span>
-                  <span className="col-span-2 text-slate-600">{account.district || "—"}</span>
-                </div>
-                <div className="grid grid-cols-3 py-1.5">
+                <div className="grid grid-cols-3 gap-1">
                   <span className="font-semibold text-slate-700">City:</span>
-                  <span className="col-span-2 text-slate-600">{account.city || "—"}</span>
+                  <span className="col-span-2 text-slate-600 truncate">{account.city || "—"}</span>
                 </div>
-                <div className="grid grid-cols-3 py-1.5">
+                <div className="grid grid-cols-3 gap-1">
+                  <span className="font-semibold text-slate-700">District:</span>
+                  <span className="col-span-2 text-slate-600 truncate">{account.district || "—"}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1">
                   <span className="font-semibold text-slate-700">Signup Date:</span>
-                  <span className="col-span-2 text-slate-600">{account.signupDate || "—"}</span>
+                  <span className="col-span-2 text-slate-600 truncate">{account.signupDate || "—"}</span>
                 </div>
-                <div className="grid grid-cols-3 py-1.5">
+                <div className="grid grid-cols-3 gap-1">
                   <span className="font-semibold text-slate-700">Signup IP:</span>
-                  <span className="col-span-2 font-mono text-slate-600">{account.signupIp || "—"}</span>
+                  <span className="col-span-2 font-mono text-slate-600 truncate">{account.signupIp || "—"}</span>
                 </div>
               </div>
 
@@ -498,8 +523,14 @@ export default function AccountDetailPage() {
                       <Input
                         id="edit-mobile"
                         value={mobileNumber}
-                        onChange={(e) => setMobileNumber(e.target.value)}
-                        placeholder="Mobile"
+                        onChange={(e) => {
+                          const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
+                          setMobileNumber(digitsOnly);
+                        }}
+                        maxLength={10}
+                        inputMode="numeric"
+                        pattern="\d{10}"
+                        placeholder="10-digit mobile number"
                         className="h-9 text-xs font-mono"
                         required
                       />
@@ -621,10 +652,11 @@ export default function AccountDetailPage() {
                       <Input
                         id="edit-pic"
                         type="file"
-                        accept="image/*"
-                        onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                        accept=".jpg,.jpeg,.png,.gif,.webp,.bmp"
+                        onChange={handleImageChange}
                         className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
                       />
+                      <p className="mt-1 text-[11px] text-slate-500">Allowed formats: JPG, JPEG, PNG, GIF, WebP, BMP</p>
                     </div>
                   </div>
 

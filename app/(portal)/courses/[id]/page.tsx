@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, useTransition, useRef } from "react";
+import { useParams, useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
+  AlertTriangle,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -47,9 +48,23 @@ import {
   getCourseByIdAction,
   deleteCourseAction,
   getCourseVideosAction,
+  getCourseVideosByLangAction,
+  createCourseVideoAction,
+  updateSingleVideoAction,
+  deleteCourseVideoAction,
+  getCourseQuizzesAction,
+  createQuizAction,
+  updateQuizAction,
+  deleteQuizAction,
   getCourseTranslationByLanguageAction,
   updateCourseTranslationAction,
+  importCourseTranslationsAction,
+  importCourseVideosAction,
+  importCourseQuizzesAction,
   type CourseVideoItem,
+  type CourseQuizItem,
+  type CreateQuizPayload,
+  type CourseImportResponse,
 } from "@/features/courses/action";
 import { getSampleImportAction } from "@/features/accounts/action";
 import { LanguageSelect } from "@/features/languages/components/language-select";
@@ -96,6 +111,7 @@ const LANGUAGES_META: Array<{
 export default function CourseDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const pathname = usePathname();
   const id = params.id as string;
 
   const { can } = useAuth();
@@ -136,9 +152,14 @@ export default function CourseDetailPage() {
   const [videosList, setVideosList] = useState<CourseVideoItem[]>([]);
   const [loadingVideos, setLoadingVideos] = useState(false);
 
-  // Add Video Form State
+  // Add/Edit Video Form State
+  const [editingVideoId, setEditingVideoId] = useState<number | string | null>(null);
   const [videoTitle, setVideoTitle] = useState("");
   const [videoYoutubeId, setVideoYoutubeId] = useState("");
+  const [videoThumbnail, setVideoThumbnail] = useState("");
+  const [videoDuration, setVideoDuration] = useState("");
+  const [videoPoints, setVideoPoints] = useState<number>(10);
+  const [videoIsQuizPresent, setVideoIsQuizPresent] = useState(false);
   const [videoDesc, setVideoDesc] = useState("");
   const [videoOrder, setVideoOrder] = useState("");
   const [videoStatus, setVideoStatus] = useState(true);
@@ -147,6 +168,12 @@ export default function CourseDetailPage() {
   // Questionnaire active subtab: "standard" | "interactive"
   const [questionnaireSubTab, setQuestionnaireSubTab] = useState<"standard" | "interactive">("standard");
 
+  // Real backend quiz state
+  const [quizzesList, setQuizzesList] = useState<CourseQuizItem[]>([]);
+  const [loadingQuizzes, setLoadingQuizzes] = useState(false);
+  const [isSavingQuiz, setIsSavingQuiz] = useState(false);
+  const [editingQuizId, setEditingQuizId] = useState<number | string | null>(null);
+
   // Add Questionnaire Question Form State (Standard)
   const [questionText, setQuestionText] = useState("");
   const [opt1, setOpt1] = useState("");
@@ -154,21 +181,16 @@ export default function CourseDetailPage() {
   const [opt3, setOpt3] = useState("");
   const [opt4, setOpt4] = useState("");
   const [rightAnswer, setRightAnswer] = useState<number>(1);
+  const [quizNameInput, setQuizNameInput] = useState("");
+  const [quizPointsInput, setQuizPointsInput] = useState<number>(10);
+  const [quizVideoIdInput, setQuizVideoIdInput] = useState<string>("");
   const [questionsList, setQuestionsList] = useState<Array<{
     sNo: number;
     question: string;
     options: string[];
     correctIndex: number;
     status: boolean;
-  }>>([
-    {
-      sNo: 1,
-      question: "lasnndlkasldmaskmd",
-      options: ["1", "2", "3", "4"],
-      correctIndex: 1,
-      status: true,
-    },
-  ]);
+  }>>([]);
 
   // Interactive Questionnaire State (Matches newly attached screenshot)
   const [interactiveQuestionsList, setInteractiveQuestionsList] = useState<Array<{
@@ -181,13 +203,88 @@ export default function CourseDetailPage() {
   const [interactiveAfterVideo, setInteractiveAfterVideo] = useState("");
   const [interactiveQType, setInteractiveQType] = useState("");
 
-  // Upload XLSX states
-  const [uploadMode, setUploadMode] = useState<"append" | "replace">("append");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
   const [downloadingSample, setDownloadingSample] = useState<string | null>(null);
 
-  const handleDownloadCourseSample = async (type: "COURSE_TRANSLATIONS" | "COURSE_VIDEOS") => {
+  // Upload Translations state
+  const [uploadCourseId, setUploadCourseId] = useState("");
+  const [uploadLangCode, setUploadLangCode] = useState("en");
+  const [uploadLangName, setUploadLangName] = useState("English");
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isImportingTrans, setIsImportingTrans] = useState(false);
+
+  // Upload Videos state
+  const [uploadVideosCourseId, setUploadVideosCourseId] = useState("");
+  const [uploadVideosLangCode, setUploadVideosLangCode] = useState("en");
+  const [uploadVideosLangName, setUploadVideosLangName] = useState("English");
+  const [uploadVideosFile, setUploadVideosFile] = useState<File | null>(null);
+  const [isImportingVideos, setIsImportingVideos] = useState(false);
+
+  // Upload Questions state
+  const [uploadQuestionsCourseId, setUploadQuestionsCourseId] = useState("");
+  const [uploadQuestionsLangCode, setUploadQuestionsLangCode] = useState("en");
+  const [uploadQuestionsLangName, setUploadQuestionsLangName] = useState("English");
+  const [uploadQuestionsFile, setUploadQuestionsFile] = useState<File | null>(null);
+  const [isImportingQuestions, setIsImportingQuestions] = useState(false);
+
+  // File input refs to ensure native DOM file inputs are completely cleared upon upload/cancel
+  const transFileInputRef = useRef<HTMLInputElement>(null);
+  const videosFileInputRef = useRef<HTMLInputElement>(null);
+  const questionsFileInputRef = useRef<HTMLInputElement>(null);
+
+  const resetUploadQuestionsForm = () => {
+    setUploadQuestionsFile(null);
+    setUploadQuestionsLangCode("en");
+    setUploadQuestionsLangName("English");
+    if (questionsFileInputRef.current) {
+      questionsFileInputRef.current.value = "";
+    }
+  };
+
+  const resetUploadTranslationsForm = () => {
+    setUploadFile(null);
+    setUploadLangCode("en");
+    setUploadLangName("English");
+    if (transFileInputRef.current) {
+      transFileInputRef.current.value = "";
+    }
+  };
+
+  const resetUploadVideosForm = () => {
+    setUploadVideosFile(null);
+    setUploadVideosLangCode("en");
+    setUploadVideosLangName("English");
+    if (videosFileInputRef.current) {
+      videosFileInputRef.current.value = "";
+    }
+  };
+
+  const resetTranslationForm = () => {
+    setTransCourseName("");
+    setTransDescription("");
+    setTransDuration("");
+    setTransCourseLevel("BEGINNER");
+    setCurrentTransData(null);
+  };
+
+  const resetQuestionForm = () => {
+    setEditingQuizId(null);
+    setQuestionText("");
+    setOpt1("");
+    setOpt2("");
+    setOpt3("");
+    setOpt4("");
+    setRightAnswer(1);
+    setQuizNameInput("");
+    setQuizVideoIdInput("");
+  };
+
+  // Import Dialog State
+  const [importResult, setImportResult] = useState<CourseImportResponse | null>(null);
+  const [importDialogTitle, setImportDialogTitle] = useState("Import Validation Issues");
+  const [importDialogDesc, setImportDialogDesc] = useState("Some rows in your file could not be processed due to validation or mapping issues.");
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
+
+  const handleDownloadCourseSample = async (type: "COURSE_TRANSLATIONS" | "COURSE_VIDEOS" | "QUIZ") => {
     setDownloadingSample(type);
     try {
       const res = await getSampleImportAction(type);
@@ -218,15 +315,48 @@ export default function CourseDetailPage() {
   const canUpdate = can("courses.update");
   const canDelete = can("courses.delete");
 
+  // Listen for browser navigation (popstate/pageshow) and route cleanup so no cached tabs persist
+  useEffect(() => {
+    const handleReset = () => {
+      setViewMode("details");
+      setActiveDetailsTab("languages");
+      setQuestionnaireSubTab("standard");
+      resetUploadQuestionsForm();
+      resetUploadTranslationsForm();
+      resetUploadVideosForm();
+      resetTranslationForm();
+      resetQuestionForm();
+      resetVideoForm();
+    };
+
+    window.addEventListener("popstate", handleReset);
+    window.addEventListener("pageshow", handleReset);
+    return () => {
+      window.removeEventListener("popstate", handleReset);
+      window.removeEventListener("pageshow", handleReset);
+      handleReset();
+    };
+  }, []);
+
   useEffect(() => {
     let mounted = true;
     setFetching(true);
+    setViewMode("details");
+    setActiveDetailsTab("languages");
+    setQuestionnaireSubTab("standard");
+    resetVideoForm();
 
     getCourseByIdAction(id)
       .then((res) => {
         if (!mounted) return;
         if (res.success && res.data) {
           setCourse(res.data);
+
+          // Populate default uploadCourseId
+          const initialCourseCode = res.data.courseLevel || String(res.data.id || id);
+          setUploadCourseId(initialCourseCode);
+          setUploadVideosCourseId(initialCourseCode);
+          setUploadQuestionsCourseId(initialCourseCode);
 
           // Initialize toggles from course
           const initialPortal: Record<number, boolean> = {};
@@ -257,46 +387,59 @@ export default function CourseDetailPage() {
   }, [id]);
 
   // Fetch videos whenever entering videos view or changing language
+  const fetchVideosForCurrentView = async () => {
+    if (!course) return;
+    setLoadingVideos(true);
+    try {
+      const code = selectedLangCode || "en";
+      const res = await getCourseVideosByLangAction(course.id, code);
+      if (res.success && res.data) {
+        setVideosList(res.data);
+      } else {
+        // Fallback to post endpoint if language endpoint returns error
+        const fallback = await getCourseVideosAction({ courseId: course.id, languageId: selectedLangId });
+        if (fallback.success && fallback.data) {
+          setVideosList(fallback.data);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch videos:", err);
+    } finally {
+      setLoadingVideos(false);
+    }
+  };
+
   useEffect(() => {
     if (viewMode === "videos_view" && course) {
-      setLoadingVideos(true);
-      getCourseVideosAction({ courseId: course.id, languageId: selectedLangId })
-        .then((res) => {
-          if (res.success && res.data && res.data.length > 0) {
-            setVideosList(res.data);
-          } else {
-            // Sample demo fallback records matching screenshot
-            setVideosList([
-              {
-                videoId: 101,
-                sequenceNo: 1,
-                title: "Video 1- Covid-19 Safety",
-                videoUrl: "https://youtu.be/ibPgQ0zwoxs",
-                thumbnail: "",
-                duration: "10m",
-                points: 20,
-                isQuizPresent: true,
-                courseId: course.id,
-                languageId: selectedLangId,
-              },
-              {
-                videoId: 102,
-                sequenceNo: 2,
-                title: "Video 2 - Introduction to Waterproofing",
-                videoUrl: "https://youtu.be/RJqV4fHkML0",
-                thumbnail: "",
-                duration: "15m",
-                points: 30,
-                isQuizPresent: true,
-                courseId: course.id,
-                languageId: selectedLangId,
-              },
-            ]);
-          }
-        })
-        .finally(() => setLoadingVideos(false));
+      fetchVideosForCurrentView();
     }
-  }, [viewMode, selectedLangId, course]);
+  }, [viewMode, selectedLangId, selectedLangCode, course]);
+
+  // Fetch quizzes whenever entering questionnaire view or changing language
+  const fetchQuizzesForCurrentView = async () => {
+    if (!course) return;
+    setLoadingQuizzes(true);
+    try {
+      const code = selectedLangCode || "en";
+      const res = await getCourseQuizzesAction(course.id, code);
+      if (res.success && res.data) {
+        setQuizzesList(res.data);
+      } else {
+        setQuizzesList([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch quizzes:", err);
+      setQuizzesList([]);
+    } finally {
+      setLoadingQuizzes(false);
+    }
+  };
+
+  useEffect(() => {
+    if (viewMode === "questionnaire_view" && course) {
+      fetchQuizzesForCurrentView();
+    }
+  }, [viewMode, selectedLangId, selectedLangCode, course]);
 
   const confirmDelete = async () => {
     if (!course) return;
@@ -346,27 +489,20 @@ export default function CourseDetailPage() {
     }
   };
 
-  const handleOpenTranslation = (meta: (typeof LANGUAGES_META)[0], isEdit: boolean) => {
+  const handleOpenTranslation = (meta: (typeof LANGUAGES_META)[0]) => {
     setSelectedLangId(meta.languageId);
     setSelectedLangName(meta.language);
     const code = meta.code.toLowerCase();
     setSelectedLangCode(code);
 
     if (course) {
-      if (isEdit || meta.code.toLowerCase() === "en") {
-        fetchTranslationForLanguage(course.id, code, meta.language);
-      } else {
-        setCurrentTransData(null);
-        setTransCourseName("");
-        setTransDescription("");
-        setTransDuration(course.duration || "");
-        setTransCourseLevel(course.courseLevel || "BEGINNER");
-      }
+      fetchTranslationForLanguage(course.id, code, meta.language);
     }
     setViewMode("translation_form");
   };
 
   const handleOpenVideos = (meta: (typeof LANGUAGES_META)[0]) => {
+    resetVideoForm();
     setSelectedLangId(meta.languageId);
     setSelectedLangName(meta.language);
     setSelectedLangCode(meta.code.toLowerCase());
@@ -405,12 +541,16 @@ export default function CourseDetailPage() {
 
       if (res.success) {
         success(res.message || `Translation for ${selectedLangName} saved successfully!`);
-        // If data updated, refresh course state
-        if (res.data) {
-          setCourse(res.data);
-          setCurrentTransData(res.data);
-        }
+        resetTranslationForm();
         setViewMode("details");
+        setActiveDetailsTab("languages");
+        // Refresh full course data from server so tables and details reflect latest translations
+        const fresh = await getCourseByIdAction(id);
+        if (fresh.success && fresh.data) {
+          setCourse(fresh.data);
+        } else if (res.data) {
+          setCourse(res.data);
+        }
       } else {
         toastError(res.error || "Failed to update course translation.");
       }
@@ -421,73 +561,413 @@ export default function CourseDetailPage() {
     }
   };
 
-  const handleAddVideo = (e: React.FormEvent) => {
+  const handleAddVideo = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!course) return;
     if (!videoTitle.trim()) {
       toastError("Video Title is required");
       return;
     }
+    if (!videoYoutubeId.trim()) {
+      toastError("Video URL or YouTube ID is required");
+      return;
+    }
+
     setIsSavingVideo(true);
-    setTimeout(() => {
+    try {
+      const code = selectedLangCode || "en";
+      const newSeq = Number(videoOrder) || (videosList.length + 1);
+      const payload = {
+        sequenceNo: newSeq,
+        title: videoTitle.trim(),
+        videoUrl: videoYoutubeId.trim(),
+        thumbnail: videoThumbnail.trim() || undefined,
+        duration: videoDuration.trim() || "10m",
+        points: videoPoints || 10,
+        isQuizPresent: videoIsQuizPresent,
+        courseId: course.id,
+        languageId: code,
+      };
+
+      if (editingVideoId) {
+        // Edit existing video
+        const res = await updateSingleVideoAction(course.id, code, editingVideoId, payload);
+        if (res.success) {
+          success(res.message || "Video updated successfully!");
+          resetVideoForm();
+          fetchVideosForCurrentView();
+        } else {
+          toastError(res.error || "Failed to update video.");
+        }
+      } else {
+        // Create new video
+        const res = await createCourseVideoAction(course.id, code, payload);
+        if (res.success) {
+          success(res.message || "Video added successfully!");
+          resetVideoForm();
+          fetchVideosForCurrentView();
+        } else {
+          toastError(res.error || "Failed to add video.");
+        }
+      }
+    } catch (err) {
+      console.error("Error saving video:", err);
+      toastError("An unexpected error occurred while saving the video.");
+    } finally {
       setIsSavingVideo(false);
-      const newSeq = videosList.length + 1;
-      setVideosList((prev) => [
-        ...prev,
-        {
-          videoId: Date.now(),
-          sequenceNo: Number(videoOrder) || newSeq,
-          title: videoTitle.trim(),
-          videoUrl: videoYoutubeId.trim(),
-          duration: "10m",
-          points: 10,
-          courseId: course?.id || 0,
-        },
-      ]);
-      setVideoTitle("");
-      setVideoYoutubeId("");
-      setVideoDesc("");
-      setVideoOrder("");
-      success("Video added successfully!");
-    }, 600);
+    }
   };
 
-  const handleAddQuestion = (e: React.FormEvent) => {
+  const resetVideoForm = () => {
+    setEditingVideoId(null);
+    setVideoTitle("");
+    setVideoYoutubeId("");
+    setVideoThumbnail("");
+    setVideoDuration("");
+    setVideoPoints(10);
+    setVideoIsQuizPresent(false);
+    setVideoDesc("");
+    setVideoOrder("");
+    setVideoStatus(true);
+  };
+
+  const handleDeleteVideo = async (videoId: number | string) => {
+    if (!window.confirm("Are you sure you want to delete this video?")) {
+      return;
+    }
+    try {
+      const res = await deleteCourseVideoAction(videoId, course?.id);
+      if (res.success) {
+        success(res.message || "Video deleted successfully");
+        setVideosList((prev) => prev.filter((v) => (v.id || v.videoId) !== videoId));
+      } else {
+        toastError(res.error || "Failed to delete video");
+      }
+    } catch (err) {
+      console.error("Failed to delete video:", err);
+      toastError("An error occurred while deleting the video");
+    }
+  };
+
+  const handleAddQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!course) return;
+
     if (!questionText.trim()) {
       toastError("Question is required");
       return;
     }
-    setQuestionsList((prev) => [
-      ...prev,
-      {
-        sNo: prev.length + 1,
-        question: questionText.trim(),
-        options: [opt1, opt2, opt3, opt4].filter(Boolean),
-        correctIndex: rightAnswer,
-        status: true,
-      },
-    ]);
-    setQuestionText("");
-    setOpt1("");
-    setOpt2("");
-    setOpt3("");
-    setOpt4("");
-    success("Question added successfully!");
-  };
-
-  const handleUploadSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedFile) {
-      toastError("Please choose an XLSX file to upload.");
+    if (!opt1.trim() || !opt2.trim() || !opt3.trim() || !opt4.trim()) {
+      toastError("All 4 answer options are required");
       return;
     }
 
-    setIsUploading(true);
-    setTimeout(() => {
-      setIsUploading(false);
-      success(`${selectedFile.name} uploaded successfully!`);
-      setSelectedFile(null);
-    }, 1000);
+    // Resolve numeric language ID matching whichever language is selected in the dropdown
+    let numericLangId: number = 1;
+    if (selectedLangId && !isNaN(Number(selectedLangId))) {
+      numericLangId = Number(selectedLangId);
+    } else {
+      const matchedLang = LANGUAGES_META.find(
+        (m) =>
+          m.languageId === selectedLangId ||
+          m.code.toLowerCase() === selectedLangCode.toLowerCase() ||
+          m.language.toLowerCase() === selectedLangName.toLowerCase()
+      );
+      if (matchedLang) {
+        numericLangId = matchedLang.num;
+      }
+    }
+
+    const payload: CreateQuizPayload = {
+      question: questionText.trim(),
+      answer1: opt1.trim(),
+      answer2: opt2.trim(),
+      answer3: opt3.trim(),
+      answer4: opt4.trim(),
+      quizName: course.courseName || "Course Quiz",
+      questionType: "MCQ",
+      answer1Desc: "",
+      answer2Desc: "",
+      answer3Desc: "",
+      answer4Desc: "",
+      answer1Url: "",
+      answer2Url: "",
+      answer3Url: "",
+      answer4Url: "",
+      correctAnswer: `answer${rightAnswer}`,
+      points: 10,
+      assessmentFlag: true,
+      quizId: `QUIZ_${course.id}_${Date.now()}`,
+      questionImageUrl: "",
+      status: "ACTIVE",
+      courseId: course.id,
+      videoId: null,
+      languageId: numericLangId,
+    };
+
+    setIsSavingQuiz(true);
+    try {
+      if (editingQuizId) {
+        const res = await updateQuizAction(editingQuizId, payload);
+        if (res.success) {
+          success(res.message || "Question updated successfully!");
+          resetQuestionForm();
+          fetchQuizzesForCurrentView();
+        } else {
+          toastError(res.error || "Failed to update question");
+        }
+      } else {
+        const res = await createQuizAction(payload);
+        if (res.success) {
+          success(res.message || "Question created successfully!");
+          resetQuestionForm();
+          fetchQuizzesForCurrentView();
+          getCourseByIdAction(id).then((fresh) => {
+            if (fresh.success && fresh.data) {
+              setCourse(fresh.data);
+            }
+          });
+        } else {
+          toastError(res.error || "Failed to create question");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to save quiz question:", err);
+      toastError("An unexpected error occurred while saving question");
+    } finally {
+      setIsSavingQuiz(false);
+    }
+  };
+
+  const handleDeleteQuiz = async (quizId: number | string) => {
+    if (!window.confirm("Are you sure you want to delete this quiz question?")) {
+      return;
+    }
+    try {
+      const res = await deleteQuizAction(quizId, course?.id);
+      if (res.success) {
+        success(res.message || "Quiz question deleted successfully");
+        setQuizzesList((prev) => prev.filter((q) => (q.quizId || q.id) !== quizId));
+        if (editingQuizId === quizId) {
+          resetQuestionForm();
+        }
+        getCourseByIdAction(id).then((fresh) => {
+          if (fresh.success && fresh.data) {
+            setCourse(fresh.data);
+          }
+        });
+      } else {
+        toastError(res.error || "Failed to delete quiz question");
+      }
+    } catch (err) {
+      console.error("Failed to delete quiz question:", err);
+      toastError("An error occurred while deleting the quiz question");
+    }
+  };
+
+  const handleImportTranslationsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadFile) {
+      toastError("Please choose a CSV / Excel file to upload.");
+      return;
+    }
+
+    const effectiveCourseId = course?.id ? String(course.id) : (uploadCourseId.trim() || course?.courseLevel || String(id));
+    if (!effectiveCourseId) {
+      toastError("Course ID is required.");
+      return;
+    }
+
+    const effectiveLangCode = uploadLangCode.trim();
+    if (!effectiveLangCode) {
+      toastError("Language code is required. Please select a language.");
+      return;
+    }
+
+    setIsImportingTrans(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", uploadFile);
+
+      const res = await importCourseTranslationsAction(effectiveCourseId, effectiveLangCode, formData);
+      if (res.success) {
+        const data = res.data;
+        const hasErrors = data && data.errors && data.errors.length > 0;
+
+        if (hasErrors) {
+          setImportDialogTitle("Course Translations Import Issues");
+          setImportDialogDesc("Some rows in your translation file could not be processed due to validation or mapping issues.");
+          setImportResult(data);
+          setErrorDialogOpen(true);
+          toastError(
+            `Import processed with ${data.errors?.length ?? 0} error(s). Please review the errors.`
+          );
+        } else {
+          success(
+            res.message ||
+              `Course translations imported successfully! (${data?.successCount ?? data?.totalRows ?? 0} rows processed)`
+          );
+          resetUploadTranslationsForm();
+          setActiveDetailsTab("languages");
+          setViewMode("details");
+          // Reload course details to refresh translation badges / data
+          getCourseByIdAction(id).then((fresh) => {
+            if (fresh.success && fresh.data) {
+              setCourse(fresh.data);
+            }
+          });
+        }
+      } else {
+        if (res.data && res.data.errors && res.data.errors.length > 0) {
+          setImportDialogTitle("Course Translations Import Issues");
+          setImportDialogDesc("Some rows in your translation file could not be processed due to validation or mapping issues.");
+          setImportResult(res.data);
+          setErrorDialogOpen(true);
+        }
+        toastError(res.error || "Failed to import course translations. Please check file and parameters.");
+      }
+    } catch {
+      toastError("An unexpected error occurred during course translation upload.");
+    } finally {
+      setIsImportingTrans(false);
+    }
+  };
+
+  const handleImportVideosSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadVideosFile) {
+      toastError("Please choose a CSV / Excel file to upload.");
+      return;
+    }
+
+    const effectiveCourseId = course?.id ? String(course.id) : (uploadVideosCourseId.trim() || course?.courseLevel || String(id));
+    if (!effectiveCourseId) {
+      toastError("Course ID is required.");
+      return;
+    }
+
+    const effectiveLangCode = uploadVideosLangCode.trim();
+    if (!effectiveLangCode) {
+      toastError("Language code is required. Please select a language.");
+      return;
+    }
+
+    setIsImportingVideos(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", uploadVideosFile);
+
+      const res = await importCourseVideosAction(effectiveCourseId, effectiveLangCode, formData);
+      if (res.success) {
+        const data = res.data;
+        const hasErrors = data && data.errors && data.errors.length > 0;
+
+        if (hasErrors) {
+          setImportDialogTitle("Course Videos Import Issues");
+          setImportDialogDesc("Some rows in your video file could not be processed due to validation or duplicate video issues.");
+          setImportResult(data);
+          setErrorDialogOpen(true);
+          toastError(
+            `Import processed with ${data.errors?.length ?? 0} error(s). Please review the errors.`
+          );
+        } else {
+          success(
+            res.message ||
+              `Course videos imported successfully! (${data?.successCount ?? data?.totalRows ?? 0} rows processed)`
+          );
+          resetUploadVideosForm();
+          setActiveDetailsTab("languages");
+          setViewMode("details");
+          // Reload course details to refresh video counts / badges
+          getCourseByIdAction(id).then((fresh) => {
+            if (fresh.success && fresh.data) {
+              setCourse(fresh.data);
+            }
+          });
+        }
+      } else {
+        if (res.data && res.data.errors && res.data.errors.length > 0) {
+          setImportDialogTitle("Course Videos Import Issues");
+          setImportDialogDesc("Some rows in your video file could not be processed due to validation or duplicate video issues.");
+          setImportResult(res.data);
+          setErrorDialogOpen(true);
+        }
+        toastError(res.error || "Failed to import course videos. Please check file and parameters.");
+      }
+    } catch {
+      toastError("An unexpected error occurred during course videos upload.");
+    } finally {
+      setIsImportingVideos(false);
+    }
+  };
+
+  const handleImportQuestionsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadQuestionsFile) {
+      toastError("Please choose a CSV / Excel file to upload.");
+      return;
+    }
+
+    const effectiveCourseId = course?.id ? String(course.id) : (uploadQuestionsCourseId.trim() || course?.courseLevel || String(id));
+    if (!effectiveCourseId) {
+      toastError("Course ID is required.");
+      return;
+    }
+
+    const effectiveLangCode = uploadQuestionsLangCode.trim();
+    if (!effectiveLangCode) {
+      toastError("Language code is required. Please select a language.");
+      return;
+    }
+
+    setIsImportingQuestions(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", uploadQuestionsFile);
+
+      const res = await importCourseQuizzesAction(effectiveCourseId, effectiveLangCode, formData);
+      if (res.success) {
+        const data = res.data;
+        const hasErrors = data && data.errors && data.errors.length > 0;
+
+        if (hasErrors) {
+          setImportDialogTitle("Quiz Questions Import Issues");
+          setImportDialogDesc("Some rows in your quiz file could not be processed due to validation or mapping issues.");
+          setImportResult(data);
+          setErrorDialogOpen(true);
+          toastError(
+            `Import processed with ${data.errors?.length ?? 0} error(s). Please review the errors.`
+          );
+        } else {
+          success(
+            res.message ||
+              `Quiz questions imported successfully! (${data?.successCount ?? data?.totalRows ?? 0} rows processed)`
+          );
+          resetUploadQuestionsForm();
+          setActiveDetailsTab("languages");
+          setViewMode("details");
+          // Reload course details to refresh questions count and badges
+          getCourseByIdAction(id).then((fresh) => {
+            if (fresh.success && fresh.data) {
+              setCourse(fresh.data);
+            }
+          });
+          fetchQuizzesForCurrentView();
+        }
+      } else {
+        if (res.data && res.data.errors && res.data.errors.length > 0) {
+          setImportDialogTitle("Quiz Questions Import Issues");
+          setImportDialogDesc("Some rows in your quiz file could not be processed due to validation or mapping issues.");
+          setImportResult(res.data);
+          setErrorDialogOpen(true);
+        }
+        toastError(res.error || "Failed to import quiz questions. Please check file and parameters.");
+      }
+    } catch {
+      toastError("An unexpected error occurred during quiz questions upload.");
+    } finally {
+      setIsImportingQuestions(false);
+    }
   };
 
   if (fetching) {
@@ -556,8 +1036,10 @@ export default function CourseDetailPage() {
             variant="ghost"
             size="icon-sm"
             onClick={() => {
-              if (viewMode !== "details") setViewMode("details");
-              else router.push("/courses");
+              resetVideoForm();
+              setViewMode("details");
+              setActiveDetailsTab("languages");
+              router.push("/courses");
             }}
             className="text-slate-600"
           >
@@ -577,7 +1059,15 @@ export default function CourseDetailPage() {
             </li>
             <li>/</li>
             <li>
-              <Link href="/courses" className="text-blue-600 hover:underline">
+              <Link
+                href="/courses"
+                onClick={() => {
+                  resetVideoForm();
+                  setViewMode("details");
+                  setActiveDetailsTab("languages");
+                }}
+                className="text-blue-600 hover:underline"
+              >
                 Courses
               </Link>
             </li>
@@ -865,25 +1355,15 @@ export default function CourseDetailPage() {
                             </button>
                           </td>
 
-                          {/* Translation: Edit Translation or (Add Now) */}
+                          {/* Translation: Edit Translation only */}
                           <td className="py-2.5 px-3 text-center">
-                            {row.hasTranslation ? (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenTranslation(LANGUAGES_META[row.num - 1], true)}
-                                className="text-xs text-blue-600 hover:underline font-medium"
-                              >
-                                Edit Translation
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenTranslation(LANGUAGES_META[row.num - 1], false)}
-                                className="text-xs text-rose-500 hover:underline font-medium"
-                              >
-                                (Add Now)
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenTranslation(LANGUAGES_META[row.num - 1])}
+                              className="text-xs text-blue-600 hover:underline font-medium"
+                            >
+                              Edit Translation
+                            </button>
                           </td>
 
                           {/* Videos: View Videos(X) or (Add Now) */}
@@ -940,7 +1420,7 @@ export default function CourseDetailPage() {
                   <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4 space-y-2 text-xs text-slate-700">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <p className="text-slate-700">
-                        Upload a file with course translations for multiple languages.
+                        Upload a CSV / Excel file with course translations for the selected language.
                       </p>
                       <Button
                         type="button"
@@ -964,64 +1444,84 @@ export default function CourseDetailPage() {
                     </p>
                   </div>
 
-                  <form onSubmit={handleUploadSubmit} className="space-y-5 max-w-2xl">
+                  <form onSubmit={handleImportTranslationsSubmit} className="space-y-5 max-w-2xl">
+                    {/* Course Name (Prepopulated, Readonly Context) */}
                     <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
                       <Label className="text-xs font-semibold text-slate-700 sm:text-right">
-                        Upload XLSX File
+                        Course
                       </Label>
                       <div className="sm:col-span-3">
-                        <Input
-                          type="file"
-                          accept=".xlsx, .xls, .csv"
-                          onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                          className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
-                        />
+                        <div className="flex h-9 w-full items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-800">
+                          {course.courseName}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-3">
-                      <Label className="text-xs font-semibold text-slate-700 sm:text-right pt-0.5">
-                        Old Records
+                    {/* Language Picklist */}
+                    <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                      <Label className="text-xs font-semibold text-slate-700 sm:text-right">
+                        Language <span className="text-rose-500">*</span>
                       </Label>
-                      <div className="sm:col-span-3 space-y-2 text-xs text-slate-700">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="oldRecordsTrans"
-                            value="append"
-                            checked={uploadMode === "append"}
-                            onChange={() => setUploadMode("append")}
-                            className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span>Append New records. (Keep Existing as it is.)</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="oldRecordsTrans"
-                            value="replace"
-                            checked={uploadMode === "replace"}
-                            onChange={() => setUploadMode("replace")}
-                            className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span>Remove All Old Records and Add New from Excel</span>
-                        </label>
+                      <div className="sm:col-span-3 flex items-center gap-3 flex-wrap">
+                        <LanguageSelect
+                          value={uploadLangCode}
+                          showCodeOnly
+                          onChange={(newId, newName, newCode) => {
+                            setUploadLangName(newName);
+                            const matchedMeta = LANGUAGES_META.find(
+                              (m) => m.languageId === newId || m.language.toLowerCase() === newName.toLowerCase()
+                            );
+                            const finalCode = (newCode || matchedMeta?.code || newId).toLowerCase();
+                            setUploadLangCode(finalCode);
+                          }}
+                          buttonClassName="h-9 text-xs bg-slate-900 hover:bg-slate-800"
+                        />
+                        <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2.5 py-1.5 rounded border border-slate-200">
+                          <span className="text-slate-500">Selected Code:</span>
+                          <span className="font-mono font-bold text-blue-700 uppercase">{uploadLangCode}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Upload File */}
+                    <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                      <Label className="text-xs font-semibold text-slate-700 sm:text-right">
+                        Upload File (.csv, .xlsx) <span className="text-rose-500">*</span>
+                      </Label>
+                      <div className="sm:col-span-3">
+                        <Input
+                          ref={transFileInputRef}
+                          type="file"
+                          accept=".csv, .xlsx, .xls"
+                          onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                          className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+                          required
+                        />
+                        {uploadFile && (
+                          <p className="text-[11px] text-emerald-600 mt-1 font-medium">
+                            Selected: {uploadFile.name} ({(uploadFile.size / 1024).toFixed(1)} KB)
+                          </p>
+                        )}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 sm:pl-36 pt-2">
                       <Button
                         type="submit"
-                        disabled={isUploading}
+                        disabled={isImportingTrans || !uploadFile}
                         className="bg-blue-600 hover:bg-blue-700 text-white min-w-24 h-8 text-xs font-semibold"
                       >
-                        {isUploading && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                        Upload
+                        {isImportingTrans && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                        Upload Translations
                       </Button>
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setSelectedFile(null)}
+                        onClick={() => {
+                          resetUploadTranslationsForm();
+                          setActiveDetailsTab("languages");
+                          setViewMode("details");
+                        }}
                         className="h-8 text-xs font-medium uppercase border-slate-300"
                       >
                         CANCEL
@@ -1061,64 +1561,84 @@ export default function CourseDetailPage() {
                     </p>
                   </div>
 
-                  <form onSubmit={handleUploadSubmit} className="space-y-5 max-w-2xl">
+                  <form onSubmit={handleImportVideosSubmit} className="space-y-5 max-w-2xl">
+                    {/* Course Name (Prepopulated, Readonly Context) */}
                     <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
                       <Label className="text-xs font-semibold text-slate-700 sm:text-right">
-                        Upload XLSX File
+                        Course
                       </Label>
                       <div className="sm:col-span-3">
-                        <Input
-                          type="file"
-                          accept=".xlsx, .xls"
-                          onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                          className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
-                        />
+                        <div className="flex h-9 w-full items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-800">
+                          {course.courseName}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-3">
-                      <Label className="text-xs font-semibold text-slate-700 sm:text-right pt-0.5">
-                        Old Records
+                    {/* Language Picklist */}
+                    <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                      <Label className="text-xs font-semibold text-slate-700 sm:text-right">
+                        Language <span className="text-rose-500">*</span>
                       </Label>
-                      <div className="sm:col-span-3 space-y-2 text-xs text-slate-700">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="oldRecordsVideos"
-                            value="append"
-                            checked={uploadMode === "append"}
-                            onChange={() => setUploadMode("append")}
-                            className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span>Append New records. (Keep Existing as it is.)</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="oldRecordsVideos"
-                            value="replace"
-                            checked={uploadMode === "replace"}
-                            onChange={() => setUploadMode("replace")}
-                            className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span>Remove All Old Records and Add New from Excel</span>
-                        </label>
+                      <div className="sm:col-span-3 flex items-center gap-3 flex-wrap">
+                        <LanguageSelect
+                          value={uploadVideosLangCode}
+                          showCodeOnly
+                          onChange={(newId, newName, newCode) => {
+                            setUploadVideosLangName(newName);
+                            const matchedMeta = LANGUAGES_META.find(
+                              (m) => m.languageId === newId || m.language.toLowerCase() === newName.toLowerCase()
+                            );
+                            const finalCode = (newCode || matchedMeta?.code || newId).toLowerCase();
+                            setUploadVideosLangCode(finalCode);
+                          }}
+                          buttonClassName="h-9 text-xs bg-slate-900 hover:bg-slate-800"
+                        />
+                        <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2.5 py-1.5 rounded border border-slate-200">
+                          <span className="text-slate-500">Selected Code:</span>
+                          <span className="font-mono font-bold text-blue-700 uppercase">{uploadVideosLangCode}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Upload File */}
+                    <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                      <Label className="text-xs font-semibold text-slate-700 sm:text-right">
+                        Upload File (.csv, .xlsx) <span className="text-rose-500">*</span>
+                      </Label>
+                      <div className="sm:col-span-3">
+                        <Input
+                          ref={videosFileInputRef}
+                          type="file"
+                          accept=".csv, .xlsx, .xls"
+                          onChange={(e) => setUploadVideosFile(e.target.files?.[0] || null)}
+                          className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+                          required
+                        />
+                        {uploadVideosFile && (
+                          <p className="text-[11px] text-emerald-600 mt-1 font-medium">
+                            Selected: {uploadVideosFile.name} ({(uploadVideosFile.size / 1024).toFixed(1)} KB)
+                          </p>
+                        )}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 sm:pl-36 pt-2">
                       <Button
                         type="submit"
-                        disabled={isUploading}
+                        disabled={isImportingVideos || !uploadVideosFile}
                         className="bg-blue-600 hover:bg-blue-700 text-white min-w-24 h-8 text-xs font-semibold"
                       >
-                        {isUploading && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                        Upload
+                        {isImportingVideos && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                        Upload Videos
                       </Button>
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setSelectedFile(null)}
+                        onClick={() => {
+                          resetUploadVideosForm();
+                          setActiveDetailsTab("languages");
+                          setViewMode("details");
+                        }}
                         className="h-8 text-xs font-medium uppercase border-slate-300"
                       >
                         CANCEL
@@ -1131,85 +1651,111 @@ export default function CourseDetailPage() {
               {/* TAB 4: Upload Questions */}
               {activeDetailsTab === "questions" && (
                 <div className="p-6 space-y-6">
-                  <div className="space-y-1.5 text-xs text-slate-700">
-                    <p>
-                      You can download the sample excel file here. The order of columns should be exactly
-                      as in{" "}
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          success("Sample questions Excel template downloaded.");
-                        }}
-                        className="text-blue-600 underline font-medium"
+                  <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4 space-y-2 text-xs text-slate-700">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <p className="text-slate-700">
+                        Upload a file with quiz questions and answer options for this course.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={downloadingSample === "QUIZ"}
+                        onClick={() => handleDownloadCourseSample("QUIZ")}
+                        className="h-7 text-xs font-medium gap-1.5 border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
                       >
-                        sample file.
-                      </a>
-                    </p>
-                    <p>
-                      <span className="font-bold text-slate-900">Columns in Excel File:</span> Language
-                      ID, Question, Option 1, Option 2, Option 3, Option 4, Answer Option Number, Status
+                        <Download className="h-3 w-3" />
+                        {downloadingSample === "QUIZ"
+                          ? "Downloading…"
+                          : "Download Sample File"}
+                      </Button>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      <span className="font-semibold text-slate-800">Columns in Sample File:</span>{" "}
+                      <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 text-blue-800 font-mono break-all">
+                        video_id,question,answer_1,answer_2,answer_3,answer_4,question_type,answer1_url,answer2_url,answer3_url,answer4_url,correct_answer,points,quiz_name,question_image_url,assessmentFlag,courseId,id,isDeleted,languageId,quizId,status
+                      </code>
                     </p>
                   </div>
 
-                  <form onSubmit={handleUploadSubmit} className="space-y-5 max-w-2xl">
+                  <form onSubmit={handleImportQuestionsSubmit} className="space-y-5 max-w-2xl">
+                    {/* Course Context (Prepopulated, Read-only) */}
                     <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
                       <Label className="text-xs font-semibold text-slate-700 sm:text-right">
-                        Upload XLSX File
+                        Course
                       </Label>
                       <div className="sm:col-span-3">
-                        <Input
-                          type="file"
-                          accept=".xlsx, .xls"
-                          onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                          className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
-                        />
+                        <div className="flex h-9 w-full items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-800">
+                          {course.courseName}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-3">
-                      <Label className="text-xs font-semibold text-slate-700 sm:text-right pt-0.5">
-                        Old Records
+                    {/* Language Picklist */}
+                    <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                      <Label className="text-xs font-semibold text-slate-700 sm:text-right">
+                        Language <span className="text-rose-500">*</span>
                       </Label>
-                      <div className="sm:col-span-3 space-y-2 text-xs text-slate-700">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="oldRecordsQuestions"
-                            value="append"
-                            checked={uploadMode === "append"}
-                            onChange={() => setUploadMode("append")}
-                            className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span>Append New records. (Keep Existing as it is.)</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="oldRecordsQuestions"
-                            value="replace"
-                            checked={uploadMode === "replace"}
-                            onChange={() => setUploadMode("replace")}
-                            className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span>Remove All Old Records and Add New from Excel</span>
-                        </label>
+                      <div className="sm:col-span-3 flex items-center gap-3 flex-wrap">
+                        <LanguageSelect
+                          value={uploadQuestionsLangCode}
+                          showCodeOnly
+                          onChange={(newId, newName, newCode) => {
+                            setUploadQuestionsLangName(newName);
+                            const matchedMeta = LANGUAGES_META.find(
+                              (m) => m.languageId === newId || m.language.toLowerCase() === newName.toLowerCase()
+                            );
+                            const finalCode = (newCode || matchedMeta?.code || newId).toLowerCase();
+                            setUploadQuestionsLangCode(finalCode);
+                          }}
+                          buttonClassName="h-9 text-xs bg-slate-900 hover:bg-slate-800"
+                        />
+                        <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2.5 py-1.5 rounded border border-slate-200">
+                          <span className="text-slate-500">Selected Code:</span>
+                          <span className="font-mono font-bold text-blue-700 uppercase">{uploadQuestionsLangCode}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Upload File */}
+                    <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                      <Label className="text-xs font-semibold text-slate-700 sm:text-right">
+                        Upload File (.csv, .xlsx, .xls) <span className="text-rose-500">*</span>
+                      </Label>
+                      <div className="sm:col-span-3">
+                        <Input
+                          ref={questionsFileInputRef}
+                          type="file"
+                          accept=".csv, .xlsx, .xls"
+                          onChange={(e) => setUploadQuestionsFile(e.target.files?.[0] || null)}
+                          className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+                          required
+                        />
+                        {uploadQuestionsFile && (
+                          <p className="text-[11px] text-emerald-600 mt-1 font-medium">
+                            Selected: {uploadQuestionsFile.name} ({(uploadQuestionsFile.size / 1024).toFixed(1)} KB)
+                          </p>
+                        )}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 sm:pl-36 pt-2">
                       <Button
                         type="submit"
-                        disabled={isUploading}
+                        disabled={isImportingQuestions || !uploadQuestionsFile}
                         className="bg-blue-600 hover:bg-blue-700 text-white min-w-24 h-8 text-xs font-semibold"
                       >
-                        {isUploading && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                        Upload
+                        {isImportingQuestions && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                        Upload Questions
                       </Button>
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setSelectedFile(null)}
+                        onClick={() => {
+                          resetUploadQuestionsForm();
+                          setActiveDetailsTab("languages");
+                          setViewMode("details");
+                        }}
                         className="h-8 text-xs font-medium uppercase border-slate-300"
                       >
                         CANCEL
@@ -1230,7 +1776,11 @@ export default function CourseDetailPage() {
           <div className="flex border-b border-slate-200 bg-slate-50/70 px-2 pt-2 gap-1 text-sm font-medium">
             <button
               type="button"
-              onClick={() => setViewMode("details")}
+              onClick={() => {
+                resetVideoForm();
+                setViewMode("details");
+                setActiveDetailsTab("languages");
+              }}
               className="flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-medium border-t-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100"
             >
               <List className="h-4 w-4" />
@@ -1240,8 +1790,8 @@ export default function CourseDetailPage() {
               type="button"
               className="flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-semibold border-t-2 border-blue-600 bg-white text-blue-600 shadow-xs"
             >
-              <Plus className="h-4 w-4" />
-              Course Translation
+              <Pencil className="h-4 w-4" />
+              Edit Translation
             </button>
           </div>
 
@@ -1249,14 +1799,15 @@ export default function CourseDetailPage() {
             {/* Language Dropdown Pill with Change option */}
             <div className="flex items-center justify-between flex-wrap gap-3">
               <LanguageSelect
-                value={selectedLangId}
-                onChange={(newId, newName) => {
+                value={selectedLangCode}
+                showCodeOnly
+                onChange={(newId, newName, newCode) => {
                   setSelectedLangId(newId);
                   setSelectedLangName(newName);
                   const meta = LANGUAGES_META.find(
-                    (m) => m.languageId === newId || m.language === newName
+                    (m) => m.languageId === newId || m.language.toLowerCase() === newName.toLowerCase()
                   );
-                  const code = meta?.code?.toLowerCase() || "en";
+                  const code = (newCode || meta?.code || "en").toLowerCase();
                   setSelectedLangCode(code);
                   if (course) {
                     fetchTranslationForLanguage(course.id, code, newName);
@@ -1362,7 +1913,11 @@ export default function CourseDetailPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setViewMode("details")}
+                  onClick={() => {
+                    resetTranslationForm();
+                    setActiveDetailsTab("languages");
+                    setViewMode("details");
+                  }}
                   className="min-w-20 h-8 text-xs font-medium uppercase border-slate-300"
                 >
                   CANCEL
@@ -1383,7 +1938,11 @@ export default function CourseDetailPage() {
             <div className="flex border-b border-slate-200 bg-slate-50/70 px-2 pt-2 gap-1 text-sm font-medium">
               <button
                 type="button"
-                onClick={() => setViewMode("details")}
+                onClick={() => {
+                  resetVideoForm();
+                  setViewMode("details");
+                  setActiveDetailsTab("languages");
+                }}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-medium border-t-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               >
                 <List className="h-4 w-4" />
@@ -1400,14 +1959,24 @@ export default function CourseDetailPage() {
 
             <div className="p-6 space-y-5">
               {/* Language Dropdown Pill */}
-              <div>
+              <div className="flex items-center justify-between flex-wrap gap-3">
                 <LanguageSelect
-                  value={selectedLangId}
-                  onChange={(newId, newName) => {
+                  value={selectedLangCode}
+                  showCodeOnly
+                  onChange={(newId, newName, newCode) => {
+                    resetVideoForm();
                     setSelectedLangId(newId);
                     setSelectedLangName(newName);
+                    const meta = LANGUAGES_META.find(
+                      (m) => m.languageId === newId || m.language.toLowerCase() === newName.toLowerCase()
+                    );
+                    const code = (newCode || meta?.code || "en").toLowerCase();
+                    setSelectedLangCode(code);
                   }}
                 />
+                <span className="text-xs text-slate-500">
+                  Language Code: <strong className="font-mono text-slate-700 uppercase">{selectedLangCode}</strong>
+                </span>
               </div>
 
               <h2 className="text-lg font-bold text-slate-900">
@@ -1420,9 +1989,11 @@ export default function CourseDetailPage() {
                   <thead className="bg-slate-50 border-b text-slate-800 font-bold">
                     <tr>
                       <th className="py-2.5 px-3 w-8"></th>
+                      <th className="py-2.5 px-3 w-16 font-mono">ID</th>
                       <th className="py-2.5 px-3 min-w-44">Title</th>
-                      <th className="py-2.5 px-3 min-w-36">Youtube ID</th>
-                      <th className="py-2.5 px-3">Desc.</th>
+                      <th className="py-2.5 px-3 min-w-36">Video URL / YouTube</th>
+                      <th className="py-2.5 px-3 text-center">Duration</th>
+                      <th className="py-2.5 px-3 text-center">Points</th>
                       <th className="py-2.5 px-3 text-center">Order</th>
                       <th className="py-2.5 px-3 text-center">Status</th>
                       <th className="py-2.5 px-3 text-center">Edit</th>
@@ -1432,41 +2003,63 @@ export default function CourseDetailPage() {
                   <tbody className="divide-y divide-slate-100">
                     {loadingVideos ? (
                       <tr>
-                        <td colSpan={8} className="p-6 text-center text-slate-400">
+                        <td colSpan={10} className="p-6 text-center text-slate-400">
                           <Loader2 className="h-5 w-5 animate-spin mx-auto text-blue-600" />
                         </td>
                       </tr>
                     ) : videosList.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="p-6 text-center text-slate-400">
+                        <td colSpan={10} className="p-6 text-center text-slate-400">
                           No videos added yet for {selectedLangName}.
                         </td>
                       </tr>
                     ) : (
                       videosList.map((vid, idx) => (
-                        <tr key={vid.videoId || idx} className="hover:bg-slate-50/80 transition-colors">
+                        <tr key={vid.id || vid.videoId || idx} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-2.5 px-2 text-slate-400 text-center cursor-move">
                             <GripVertical className="h-4 w-4" />
                           </td>
-                          <td className="py-2.5 px-3 font-medium text-slate-800">{vid.title}</td>
-                          <td className="py-2.5 px-3 font-mono text-slate-600">{vid.videoUrl}</td>
-                          <td className="py-2.5 px-3 text-slate-400">—</td>
+                          <td className="py-2.5 px-3 font-mono text-slate-600">{vid.id || vid.videoId || "—"}</td>
+                          <td className="py-2.5 px-3 font-medium text-slate-800">
+                            <div>{vid.title}</div>
+                            {vid.isQuizPresent && (
+                              <span className="inline-block mt-0.5 text-[10px] bg-blue-100 text-blue-700 font-semibold px-1.5 py-0.2 rounded">
+                                Quiz Included
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-slate-600 truncate max-w-[200px]" title={vid.videoUrl}>
+                            {vid.videoUrl}
+                          </td>
+                          <td className="py-2.5 px-3 text-center text-slate-600">{vid.duration || "—"}</td>
+                          <td className="py-2.5 px-3 text-center font-semibold text-slate-700">{vid.points ?? 10}</td>
                           <td className="py-2.5 px-3 text-center font-mono">{vid.sequenceNo ?? idx + 1}</td>
                           <td className="py-2.5 px-3 text-center">
-                            <span className="inline-block rounded bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider">
-                              Active
+                            <span className={cn(
+                              "inline-block rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                              String(vid.status).toUpperCase() === "ACTIVE"
+                                ? "bg-emerald-600 text-white"
+                                : "bg-slate-200 text-slate-700"
+                            )}>
+                              {vid.status || "Active"}
                             </span>
                           </td>
                           <td className="py-2.5 px-3 text-center">
                             <button
                               type="button"
                               onClick={() => {
-                                setVideoTitle(vid.title);
-                                setVideoYoutubeId(vid.videoUrl);
+                                setEditingVideoId(vid.id || vid.videoId);
+                                setVideoTitle(vid.title || "");
+                                setVideoYoutubeId(vid.videoUrl || "");
+                                setVideoThumbnail(vid.thumbnail || "");
+                                setVideoDuration(vid.duration || "");
+                                setVideoPoints(vid.points ?? 10);
+                                setVideoIsQuizPresent(Boolean(vid.isQuizPresent));
                                 setVideoOrder(String(vid.sequenceNo || ""));
-                                success(`Editing video ${vid.title}`);
+                                setVideoStatus(vid.status ? String(vid.status).toUpperCase() === "ACTIVE" : true);
+                                success(`Editing video: ${vid.title}`);
                               }}
-                              className="text-xs text-blue-600 hover:underline"
+                              className="text-xs text-blue-600 hover:underline font-medium"
                             >
                               Edit
                             </button>
@@ -1474,11 +2067,8 @@ export default function CourseDetailPage() {
                           <td className="py-2.5 px-3 text-center">
                             <button
                               type="button"
-                              onClick={() => {
-                                setVideosList((prev) => prev.filter((v) => v.videoId !== vid.videoId));
-                                success("Video removed from list");
-                              }}
-                              className="text-xs text-blue-600 hover:underline"
+                              onClick={() => handleDeleteVideo(vid.id || vid.videoId)}
+                              className="text-xs text-rose-600 hover:underline font-medium"
                             >
                               Delete
                             </button>
@@ -1496,10 +2086,30 @@ export default function CourseDetailPage() {
             </div>
           </Card>
 
-          {/* Add Video Form Card */}
+          {/* Add / Edit Video Form Card */}
           <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <CardHeader className="border-b px-6 py-3 bg-white">
-              <CardTitle className="text-base font-bold text-slate-900">Add Video</CardTitle>
+            <CardHeader className="border-b px-6 py-3 bg-white flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-bold text-slate-900">
+                  {editingVideoId ? `Edit Video (ID: ${editingVideoId})` : `Add Video - ${selectedLangName}`}
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500">
+                  {editingVideoId
+                    ? "Modify video details and update the record."
+                    : `Add a new video in ${selectedLangName} (${selectedLangCode.toUpperCase()}) for this course.`}
+                </CardDescription>
+              </div>
+              {editingVideoId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={resetVideoForm}
+                  className="h-7 text-xs"
+                >
+                  + Switch to Add New
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="p-6">
               <form onSubmit={handleAddVideo} className="mx-auto max-w-2xl space-y-4">
@@ -1521,30 +2131,61 @@ export default function CourseDetailPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
                   <Label htmlFor="v-url" className="text-xs font-bold text-slate-800 sm:text-right">
-                    YouTube ID or URL <span className="text-rose-500">*</span>
+                    Video URL / YouTube <span className="text-rose-500">*</span>
                   </Label>
                   <div className="sm:col-span-3">
                     <Input
                       id="v-url"
                       value={videoYoutubeId}
                       onChange={(e) => setVideoYoutubeId(e.target.value)}
-                      placeholder="e.g. dQw4w9WgXcQ or https://youtu.be/..."
-                      className="h-9 text-xs"
+                      placeholder="e.g. https://www.youtube.com/watch?v=... or URL"
+                      className="h-9 text-xs font-mono"
                       required
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                  <Label htmlFor="v-desc" className="text-xs font-bold text-slate-800 sm:text-right">
-                    Description
+                  <Label htmlFor="v-thumbnail" className="text-xs font-bold text-slate-800 sm:text-right">
+                    Thumbnail URL
                   </Label>
                   <div className="sm:col-span-3">
                     <Input
-                      id="v-desc"
-                      value={videoDesc}
-                      onChange={(e) => setVideoDesc(e.target.value)}
-                      placeholder="Description"
+                      id="v-thumbnail"
+                      value={videoThumbnail}
+                      onChange={(e) => setVideoThumbnail(e.target.value)}
+                      placeholder="https://img.youtube.com/vi/.../0.jpg"
+                      className="h-9 text-xs font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                  <Label htmlFor="v-duration" className="text-xs font-bold text-slate-800 sm:text-right">
+                    Duration
+                  </Label>
+                  <div className="sm:col-span-3">
+                    <Input
+                      id="v-duration"
+                      value={videoDuration}
+                      onChange={(e) => setVideoDuration(e.target.value)}
+                      placeholder="e.g. 12:45 or 10m"
+                      className="h-9 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                  <Label htmlFor="v-points" className="text-xs font-bold text-slate-800 sm:text-right">
+                    Points
+                  </Label>
+                  <div className="sm:col-span-3">
+                    <Input
+                      id="v-points"
+                      type="number"
+                      value={videoPoints}
+                      onChange={(e) => setVideoPoints(Number(e.target.value) || 0)}
+                      placeholder="10"
                       className="h-9 text-xs"
                     />
                   </div>
@@ -1552,7 +2193,7 @@ export default function CourseDetailPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
                   <Label htmlFor="v-order" className="text-xs font-bold text-slate-800 sm:text-right">
-                    Display Order
+                    Sequence / Order
                   </Label>
                   <div className="sm:col-span-3">
                     <Input
@@ -1562,6 +2203,20 @@ export default function CourseDetailPage() {
                       placeholder="Auto-assigned if blank"
                       className="h-9 text-xs"
                     />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                  <Label className="text-xs font-bold text-slate-800 sm:text-right">Quiz Present</Label>
+                  <div className="sm:col-span-3 flex items-center space-x-2">
+                    <Checkbox
+                      id="v-quiz"
+                      checked={videoIsQuizPresent}
+                      onCheckedChange={(c) => setVideoIsQuizPresent(Boolean(c))}
+                    />
+                    <Label htmlFor="v-quiz" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                      Is Quiz Present
+                    </Label>
                   </div>
                 </div>
 
@@ -1586,17 +2241,12 @@ export default function CourseDetailPage() {
                     className="bg-blue-600 hover:bg-blue-700 text-white min-w-20 h-8 text-xs font-semibold uppercase"
                   >
                     {isSavingVideo && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                    SAVE
+                    {editingVideoId ? "UPDATE VIDEO" : "SAVE VIDEO"}
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => {
-                      setVideoTitle("");
-                      setVideoYoutubeId("");
-                      setVideoDesc("");
-                      setVideoOrder("");
-                    }}
+                    onClick={resetVideoForm}
                     className="min-w-20 h-8 text-xs font-medium uppercase border-slate-300"
                   >
                     CANCEL
@@ -1618,7 +2268,11 @@ export default function CourseDetailPage() {
             <div className="flex border-b border-slate-200 bg-slate-50/70 px-2 pt-2 gap-1 text-sm font-medium">
               <button
                 type="button"
-                onClick={() => setViewMode("details")}
+                onClick={() => {
+                  resetVideoForm();
+                  setViewMode("details");
+                  setActiveDetailsTab("languages");
+                }}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-medium border-t-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               >
                 <List className="h-4 w-4" />
@@ -1654,14 +2308,24 @@ export default function CourseDetailPage() {
 
             <div className="p-6 space-y-5">
               {/* Language Dropdown Pill */}
-              <div>
+              <div className="flex items-center justify-between flex-wrap gap-3">
                 <LanguageSelect
-                  value={selectedLangId}
-                  onChange={(newId, newName) => {
+                  value={selectedLangCode}
+                  showCodeOnly
+                  onChange={(newId, newName, newCode) => {
+                    resetVideoForm();
                     setSelectedLangId(newId);
                     setSelectedLangName(newName);
+                    const meta = LANGUAGES_META.find(
+                      (m) => m.languageId === newId || m.language.toLowerCase() === newName.toLowerCase()
+                    );
+                    const code = (newCode || meta?.code || "en").toLowerCase();
+                    setSelectedLangCode(code);
                   }}
                 />
+                <span className="text-xs text-slate-500">
+                  Language Code: <strong className="font-mono text-slate-700 uppercase">{selectedLangCode}</strong>
+                </span>
               </div>
 
               <h2 className="text-lg font-bold text-slate-900">
@@ -1676,64 +2340,128 @@ export default function CourseDetailPage() {
                       <tr>
                         <th className="py-2.5 px-3 w-16">S.No.</th>
                         <th className="py-2.5 px-3 min-w-72">Question</th>
+                        <th className="py-2.5 px-3 min-w-28 text-center">Correct Answer</th>
+                        <th className="py-2.5 px-3 text-center w-20">Points</th>
                         <th className="py-2.5 px-3 text-center w-24">Status</th>
                         <th className="py-2.5 px-3 text-center w-16">Edit</th>
                         <th className="py-2.5 px-3 text-center w-16">Delete</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {questionsList.map((q) => (
-                        <tr key={q.sNo} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-2.5 px-3 text-slate-500 font-mono">{q.sNo}</td>
-                          <td className="py-2.5 px-3 text-slate-800">
-                            <p className="font-medium">{q.question}</p>
-                            <div className="pl-2 pt-1 space-y-0.5 text-slate-600 text-[11px]">
-                              {q.options.map((opt, oIdx) => (
-                                <p key={oIdx} className="flex items-center gap-1.5">
-                                  <span>{oIdx + 1}. {opt}</span>
-                                  {oIdx + 1 === q.correctIndex && (
-                                    <Check className="h-3 w-3 text-emerald-600 font-bold" />
-                                  )}
-                                </p>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-3 text-center">
-                            <span className="inline-block rounded bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider">
-                              Active
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 text-center">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setQuestionText(q.question);
-                                setOpt1(q.options[0] || "");
-                                setOpt2(q.options[1] || "");
-                                setOpt3(q.options[2] || "");
-                                setOpt4(q.options[3] || "");
-                                setRightAnswer(q.correctIndex);
-                                success("Loaded question for editing");
-                              }}
-                              className="text-xs text-blue-600 hover:underline"
-                            >
-                              Edit
-                            </button>
-                          </td>
-                          <td className="py-2.5 px-3 text-center">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setQuestionsList((prev) => prev.filter((item) => item.sNo !== q.sNo));
-                                success("Question deleted");
-                              }}
-                              className="text-xs text-blue-600 hover:underline"
-                            >
-                              Delete
-                            </button>
+                      {loadingQuizzes ? (
+                        <tr>
+                          <td colSpan={7} className="p-8 text-center text-slate-400">
+                            <Loader2 className="h-5 w-5 animate-spin mx-auto text-blue-600 mb-2" />
+                            Loading quizzes in {selectedLangName}…
                           </td>
                         </tr>
-                      ))}
+                      ) : quizzesList.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="p-8 text-center text-slate-400">
+                            No quiz questions found for {selectedLangName}. You can add one below.
+                          </td>
+                        </tr>
+                      ) : (
+                        quizzesList.map((q, idx) => {
+                          const options = [
+                            { key: "answer1", val: q.answer1 },
+                            { key: "answer2", val: q.answer2 },
+                            { key: "answer3", val: q.answer3 },
+                            { key: "answer4", val: q.answer4 },
+                          ];
+                          const isCorrect = (key: string) =>
+                            q.correctAnswer?.toLowerCase() === key.toLowerCase();
+
+                          return (
+                            <tr key={q.quizId || q.id || idx} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="py-2.5 px-3 text-slate-500 font-mono">{idx + 1}</td>
+                              <td className="py-2.5 px-3 text-slate-800">
+                                <p className="font-semibold text-slate-900">{q.question}</p>
+                                <div className="pl-2 pt-1.5 space-y-1 text-slate-600 text-[11px]">
+                                  {options.map((opt, oIdx) => (
+                                    <p
+                                      key={oIdx}
+                                      className={cn(
+                                        "flex items-center gap-1.5",
+                                        isCorrect(opt.key) && "font-semibold text-emerald-700"
+                                      )}
+                                    >
+                                      <span>
+                                        {oIdx + 1}. {opt.val}
+                                      </span>
+                                      {isCorrect(opt.key) && (
+                                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                      )}
+                                    </p>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-mono font-medium text-emerald-700 uppercase">
+                                {q.correctAnswer}
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-mono text-slate-700">
+                                {q.points ?? 10}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <span
+                                  className={cn(
+                                    "inline-block rounded px-2 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider",
+                                    q.status?.toUpperCase() === "ACTIVE"
+                                      ? "bg-emerald-600"
+                                      : "bg-slate-500"
+                                  )}
+                                >
+                                  {q.status || "Active"}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const qId = q.quizId ?? q.id;
+                                    if (!qId) return;
+                                    setEditingQuizId(qId);
+                                    setQuestionText(q.question || "");
+                                    setOpt1(q.answer1 || "");
+                                    setOpt2(q.answer2 || "");
+                                    setOpt3(q.answer3 || "");
+                                    setOpt4(q.answer4 || "");
+                                    const cAns = String(q.correctAnswer || "").toLowerCase();
+                                    if (cAns === "answer1" || cAns === String(q.answer1 || "").toLowerCase()) {
+                                      setRightAnswer(1);
+                                    } else if (cAns === "answer2" || cAns === String(q.answer2 || "").toLowerCase()) {
+                                      setRightAnswer(2);
+                                    } else if (cAns === "answer3" || cAns === String(q.answer3 || "").toLowerCase()) {
+                                      setRightAnswer(3);
+                                    } else if (cAns === "answer4" || cAns === String(q.answer4 || "").toLowerCase()) {
+                                      setRightAnswer(4);
+                                    } else {
+                                      setRightAnswer(1);
+                                    }
+                                    setQuizNameInput(q.quizName || "");
+                                    success(`Loaded question ${qId} for editing`);
+                                  }}
+                                  className="text-xs text-blue-600 hover:underline font-medium"
+                                >
+                                  Edit
+                                </button>
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const qId = q.quizId ?? q.id;
+                                    if (qId) handleDeleteQuiz(qId);
+                                  }}
+                                  className="text-xs text-rose-600 hover:underline font-medium"
+                                >
+                                  Delete
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1813,7 +2541,9 @@ export default function CourseDetailPage() {
             <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
               <CardHeader className="border-b px-6 py-3 bg-white">
                 <CardTitle className="text-base font-bold text-slate-900">
-                  Add Question - {selectedLangName}
+                  {editingQuizId
+                    ? `Edit Question (ID: ${editingQuizId}) - ${selectedLangName}`
+                    : `Add Question - ${selectedLangName}`}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
@@ -1868,20 +2598,18 @@ export default function CourseDetailPage() {
                   <div className="flex items-center justify-center gap-2 pt-4">
                     <Button
                       type="submit"
-                      className="bg-blue-600 hover:bg-blue-700 text-white min-w-20 h-8 text-xs font-semibold uppercase"
+                      disabled={isSavingQuiz || loadingQuizzes}
+                      className="bg-blue-600 hover:bg-blue-700 text-white min-w-20 h-8 text-xs font-semibold uppercase gap-1.5"
                     >
-                      SAVE
+                      {isSavingQuiz && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      {isSavingQuiz
+                        ? (editingQuizId ? "UPDATING…" : "SAVING…")
+                        : (editingQuizId ? "UPDATE" : "SAVE")}
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => {
-                        setQuestionText("");
-                        setOpt1("");
-                        setOpt2("");
-                        setOpt3("");
-                        setOpt4("");
-                      }}
+                      onClick={resetQuestionForm}
                       className="min-w-20 h-8 text-xs font-medium uppercase border-slate-300"
                     >
                       CANCEL
@@ -1897,7 +2625,7 @@ export default function CourseDetailPage() {
             <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
               <CardHeader className="border-b px-6 py-3 bg-white">
                 <CardTitle className="text-base font-bold text-slate-900">
-                  Add Question - {selectedLangName}
+                  Add Interactive Question - {selectedLangName}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
@@ -1997,6 +2725,103 @@ export default function CourseDetailPage() {
       )}
         </div>
       </div>
+
+      {/* Bulk Import Error Dialog */}
+      <AlertDialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
+        <AlertDialogContent size="xl" className="max-h-[85vh] flex flex-col p-6">
+          <AlertDialogHeader className="space-y-2 pb-2 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <AlertDialogTitle className="text-base font-semibold text-slate-900">
+                  {importDialogTitle}
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-xs text-slate-500">
+                  {importDialogDesc}
+                </AlertDialogDescription>
+              </div>
+            </div>
+
+            {/* Counts Summary Cards */}
+            {importResult && (
+              <div className="grid grid-cols-3 gap-3 pt-3 w-full">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-center">
+                  <div className="text-[11px] font-medium text-slate-500 uppercase">Total Rows</div>
+                  <div className="text-lg font-bold text-slate-800">{importResult.totalRows ?? 0}</div>
+                </div>
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-2.5 text-center">
+                  <div className="text-[11px] font-medium text-emerald-700 uppercase">Success</div>
+                  <div className="text-lg font-bold text-emerald-700">{importResult.successCount ?? 0}</div>
+                </div>
+                <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-2.5 text-center">
+                  <div className="text-[11px] font-medium text-rose-700 uppercase">Failures</div>
+                  <div className="text-lg font-bold text-rose-700">{importResult.failureCount ?? importResult.errors?.length ?? 0}</div>
+                </div>
+              </div>
+            )}
+          </AlertDialogHeader>
+
+          {/* Errors Table */}
+          <div className="flex-1 overflow-y-auto my-3 border border-slate-200 rounded-lg">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-slate-50 text-slate-700 font-semibold sticky top-0 border-b border-slate-200">
+                <tr>
+                  <th className="py-2 px-3 w-16">Row #</th>
+                  <th className="py-2 px-3 w-28">Identifier</th>
+                  <th className="py-2 px-3 w-28">Field</th>
+                  <th className="py-2 px-3 w-32">Rejected Value</th>
+                  <th className="py-2 px-3">Error Message</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {importResult?.errors && importResult.errors.length > 0 ? (
+                  importResult.errors.map((err, idx) => (
+                    <tr key={idx} className="hover:bg-rose-50/30 transition-colors">
+                      <td className="py-2 px-3 font-mono font-medium text-slate-700">
+                        {err.rowNumber || "—"}
+                      </td>
+                      <td className="py-2 px-3 font-mono text-slate-600 truncate max-w-[120px]">
+                        {err.identifier || "—"}
+                      </td>
+                      <td className="py-2 px-3 font-medium text-slate-800">
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px]">
+                          {err.field || "—"}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 font-mono text-rose-700 truncate max-w-[140px]">
+                        {err.rejectedValue !== undefined && err.rejectedValue !== null ? `"${err.rejectedValue}"` : "—"}
+                      </td>
+                      <td className="py-2 px-3 text-rose-600 font-medium">
+                        {err.errorMessage}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="py-6 text-center text-slate-400">
+                      No errors to display
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <AlertDialogFooter className="border-t border-slate-100 pt-3">
+            <AlertDialogCancel
+              onClick={() => {
+                setErrorDialogOpen(false);
+                setImportResult(null);
+              }}
+              className="text-xs"
+            >
+              Close
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Course Confirmation Dialog */}
       <AlertDialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>

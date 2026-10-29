@@ -103,8 +103,8 @@ export default function CategoriesPage() {
     const query = search.toLowerCase();
     return pageData.content.filter(
       (item) =>
-        item.category.toLowerCase().includes(query) ||
-        item.categoryId.toLowerCase().includes(query) ||
+        Boolean(item.category && item.category.toLowerCase().includes(query)) ||
+        item.categoryId !== undefined && item.categoryId !== null && String(item.categoryId).toLowerCase().includes(query) ||
         (item.categoryHi && item.categoryHi.toLowerCase().includes(query))
     );
   }, [pageData.content, search]);

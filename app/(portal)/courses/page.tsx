@@ -257,7 +257,7 @@ export default function CoursesPage() {
             size="xs"
             className="bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-none h-6 px-2.5 text-xs"
           >
-            <Link href={`/courses/${r.id}`}>Manage</Link>
+            <Link href={`/courses/${r.id}`} prefetch={false}>Manage</Link>
           </Button>
         ),
         className: "w-24 text-center",
