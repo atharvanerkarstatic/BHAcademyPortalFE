@@ -42,10 +42,12 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       errBody = await res.json();
       if (errBody && typeof errBody === "object") {
         const obj = errBody as Record<string, unknown>;
-        if (typeof obj.message === "string") {
+        if (typeof obj.message === "string" && obj.message) {
           errorDetails = obj.message;
-        } else if (typeof obj.error === "string") {
+        } else if (typeof obj.error === "string" && obj.error) {
           errorDetails = obj.error;
+        } else if (typeof obj.details === "string" && obj.details) {
+          errorDetails = obj.details;
         }
       }
     } catch {

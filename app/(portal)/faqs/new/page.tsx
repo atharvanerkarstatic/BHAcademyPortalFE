@@ -101,19 +101,43 @@ export default function NewFaqPage() {
     e.preventDefault();
     setError(null);
 
-    if (!question.trim()) {
+    const cleanQuestion = question.trim();
+    if (!cleanQuestion) {
       setError("Question is required.");
       return;
     }
 
-    if (!answer.trim()) {
+    if (cleanQuestion.length > 500) {
+      setError("Character size limit exceeded: Question must not exceed 500 characters.");
+      return;
+    }
+
+    const cleanAnswer = answer.trim();
+    if (!cleanAnswer) {
       setError("Answer is required.");
       return;
     }
 
+    if (cleanAnswer.length > 5000) {
+      setError("Character size limit exceeded: Answer must not exceed 5000 characters.");
+      return;
+    }
+
+    for (const [key, val] of Object.entries(translations)) {
+      if (!val) continue;
+      if (key.startsWith("question") && val.length > 500) {
+        setError(`Character size limit exceeded: ${key} must not exceed 500 characters.`);
+        return;
+      }
+      if (key.startsWith("answer") && val.length > 5000) {
+        setError(`Character size limit exceeded: ${key} must not exceed 5000 characters.`);
+        return;
+      }
+    }
+
     const payload: CreateFaqPayload = {
-      question: question.trim(),
-      answer: answer.trim(),
+      question: cleanQuestion,
+      answer: cleanAnswer,
       displayOrder: Number(displayOrder) || 1,
       status,
       ...translations,
@@ -126,9 +150,22 @@ export default function NewFaqPage() {
         resetForm();
         router.push("/faqs");
       } else {
-        const msg = res.error || "Failed to create FAQ. Please check the fields and try again.";
-        setError(msg);
-        toastError(msg);
+        console.error("Backend error from createFaqAction:", res.error);
+
+        const errText = (res.error || "").toLowerCase();
+        let displayMsg = "Failed to create FAQ. Please check all fields and try again.";
+        if (
+          errText.includes("character") ||
+          errText.includes("size") ||
+          errText.includes("limit") ||
+          errText.includes("too long") ||
+          errText.includes("length")
+        ) {
+          displayMsg = "Character size limit exceeded. Please ensure all inputs are within the allowed limit.";
+        }
+
+        setError(displayMsg);
+        toastError(displayMsg);
       }
     });
   };
@@ -157,8 +194,7 @@ export default function NewFaqPage() {
         ]}
       />
 
-      <form key={formKey} onSubmit={handleSubmit} autoComplete="off" className="w-full space-y-6">
-
+      <form key={formKey} onSubmit={handleSubmit} noValidate autoComplete="off" className="w-full space-y-6">
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {error}
@@ -187,6 +223,7 @@ export default function NewFaqPage() {
                   placeholder="e.g. How do I reset my password?"
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
+                  maxLength={500}
                   required
                 />
               </div>
@@ -233,6 +270,7 @@ export default function NewFaqPage() {
                 placeholder="e.g. Go to Settings > Account > Reset Password and follow the steps."
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
+                maxLength={5000}
                 required
               />
             </div>
@@ -274,6 +312,7 @@ export default function NewFaqPage() {
                         placeholder={`Question in ${lang.name}`}
                         value={translations[qKey] || ""}
                         onChange={(e) => handleTranslationChange(qKey, e.target.value)}
+                        maxLength={500}
                         className="bg-white"
                       />
                     </div>
@@ -288,6 +327,7 @@ export default function NewFaqPage() {
                         placeholder={`Answer in ${lang.name}`}
                         value={translations[aKey] || ""}
                         onChange={(e) => handleTranslationChange(aKey, e.target.value)}
+                        maxLength={5000}
                         className="bg-white min-h-[60px]"
                       />
                     </div>
@@ -308,7 +348,6 @@ export default function NewFaqPage() {
           >
             Cancel
           </Button>
-
 
           <Button
             type="submit"

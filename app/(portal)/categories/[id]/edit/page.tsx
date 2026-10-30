@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, useTransition } from "react";
+import { Suspense, useEffect, useState, useTransition, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Layers, Languages, Loader2 } from "lucide-react";
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/toast";
 import { getCategoryByIdAction, updateCategoryAction } from "@/features/categories/action";
-import type { UpdateCategoryPayload } from "@/features/categories/types";
+import type { CategoryItem, UpdateCategoryPayload } from "@/features/categories/types";
 
 const TRANSLATION_LANGUAGES = [
   { code: "Hi", name: "Hindi (हिन्दी)" },
@@ -58,36 +58,63 @@ function EditCategoryContent() {
     categoryTe: "",
   });
 
+  const populateFromItem = useCallback((item: CategoryItem) => {
+    setCategory(item.category || "");
+    setImageUrl((item.imageUrl || "").trim());
+    setDisplayOrder(typeof item.displayOrder === "number" ? item.displayOrder : 0);
+    setStatus(item.status === "INACTIVE" ? "INACTIVE" : "ACTIVE");
+    setFeatured(Boolean(item.featured));
+
+    setTranslations({
+      categoryAs: item.categoryAs || "",
+      categoryBn: item.categoryBn || "",
+      categoryGu: item.categoryGu || "",
+      categoryHi: item.categoryHi || "",
+      categoryKn: item.categoryKn || "",
+      categoryMl: item.categoryMl || "",
+      categoryMr: item.categoryMr || "",
+      categoryOr: item.categoryOr || "",
+      categoryTa: item.categoryTa || "",
+      categoryTe: item.categoryTe || "",
+    });
+  }, []);
+
   useEffect(() => {
     if (!id) return;
 
+    let hasPopulatedFromCache = false;
+
+    // 1. Immediately try to populate from category data table list stored in sessionStorage
+    try {
+      const stored =
+        sessionStorage.getItem(`category_${id}`) ||
+        sessionStorage.getItem("selected_category");
+      if (stored) {
+        const parsed = JSON.parse(stored) as CategoryItem;
+        if (String(parsed.categoryId) === String(id)) {
+          populateFromItem(parsed);
+          hasPopulatedFromCache = true;
+          setFetching(false);
+        }
+      }
+    } catch {
+      // ignore storage error
+    }
+
+    // 2. Fetch category from category list action as source of truth / fallback
     let mounted = true;
     (async () => {
-      setFetching(true);
+      if (!hasPopulatedFromCache) {
+        setFetching(true);
+      }
+
       const res = await getCategoryByIdAction(id);
       if (!mounted) return;
 
       if (res.success && res.data) {
-        const item = res.data;
-        setCategory(item.category || "");
-        setImageUrl((item.imageUrl || "").trim());
-        setDisplayOrder(item.displayOrder ?? 0);
-        setStatus(item.status === "INACTIVE" ? "INACTIVE" : "ACTIVE");
-        setFeatured(Boolean(item.featured));
-
-        setTranslations({
-          categoryAs: item.categoryAs || "",
-          categoryBn: item.categoryBn || "",
-          categoryGu: item.categoryGu || "",
-          categoryHi: item.categoryHi || "",
-          categoryKn: item.categoryKn || "",
-          categoryMl: item.categoryMl || "",
-          categoryMr: item.categoryMr || "",
-          categoryOr: item.categoryOr || "",
-          categoryTa: item.categoryTa || "",
-          categoryTe: item.categoryTe || "",
-        });
-      } else {
+        populateFromItem(res.data);
+        setError(null);
+      } else if (!hasPopulatedFromCache) {
         const msg = res.error || "Failed to load category details";
         setError(msg);
         toastError(msg);
@@ -99,23 +126,50 @@ function EditCategoryContent() {
       mounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, populateFromItem]);
 
   const handleTranslationChange = (key: string, value: string) => {
     setTranslations((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const cleanupStorage = () => {
+    try {
+      sessionStorage.removeItem(`category_${id}`);
+      sessionStorage.removeItem("selected_category");
+    } catch {
+      // ignore
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!category.trim()) {
+    const cleanCategory = category.trim();
+    if (!cleanCategory) {
       setError("Category name is required.");
       return;
     }
 
+    if (cleanCategory.length > 255) {
+      setError("Character size limit exceeded: Category Name must not exceed 255 characters.");
+      return;
+    }
+
+    if (imageUrl.trim().length > 500) {
+      setError("Character size limit exceeded: Image URL must not exceed 500 characters.");
+      return;
+    }
+
+    for (const [key, val] of Object.entries(translations)) {
+      if (val && val.length > 255) {
+        setError(`Character size limit exceeded: ${key} must not exceed 255 characters.`);
+        return;
+      }
+    }
+
     const payload: UpdateCategoryPayload = {
-      category: category.trim(),
+      category: cleanCategory,
       imageUrl: imageUrl.trim() || undefined,
       displayOrder: Number(displayOrder) || 0,
       status,
@@ -126,12 +180,26 @@ function EditCategoryContent() {
     startTransition(async () => {
       const res = await updateCategoryAction(id, payload);
       if (res.success) {
+        cleanupStorage();
         success(res.message || "Category updated successfully");
         router.push("/categories");
       } else {
-        const msg = res.error || "Failed to update category. Please check the fields and try again.";
-        setError(msg);
-        toastError(msg);
+        console.error("Backend error from updateCategoryAction:", res.error);
+
+        const errText = (res.error || "").toLowerCase();
+        let displayMsg = "Failed to update category. Please check all fields and try again.";
+        if (
+          errText.includes("character") ||
+          errText.includes("size") ||
+          errText.includes("limit") ||
+          errText.includes("too long") ||
+          errText.includes("length")
+        ) {
+          displayMsg = "Character size limit exceeded. Please ensure all inputs are within the allowed limit.";
+        }
+
+        setError(displayMsg);
+        toastError(displayMsg);
       }
     });
   };
@@ -155,7 +223,7 @@ function EditCategoryContent() {
           asChild
           className="gap-1.5 text-slate-600 hover:text-slate-900"
         >
-          <Link href="/categories">
+          <Link href="/categories" onClick={cleanupStorage}>
             <ArrowLeft className="h-4 w-4" />
             Back to Categories
           </Link>
@@ -171,7 +239,7 @@ function EditCategoryContent() {
         ]}
       />
 
-      <form onSubmit={handleSubmit} className="w-full space-y-6">
+      <form onSubmit={handleSubmit} noValidate className="w-full space-y-6">
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {error}
@@ -200,6 +268,7 @@ function EditCategoryContent() {
                   placeholder="e.g. Interior Textures"
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
+                  maxLength={255}
                   required
                 />
               </div>
@@ -211,6 +280,7 @@ function EditCategoryContent() {
                   placeholder="e.g. https://domain.com/category-image.png"
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
+                  maxLength={500}
                 />
               </div>
             </div>
@@ -289,6 +359,7 @@ function EditCategoryContent() {
                       placeholder={`Category in ${lang.name}`}
                       value={translations[key] || ""}
                       onChange={(e) => handleTranslationChange(key, e.target.value)}
+                      maxLength={255}
                       className="bg-white"
                     />
                   </div>
@@ -306,7 +377,7 @@ function EditCategoryContent() {
             asChild
             disabled={isPending}
           >
-            <Link href="/categories">
+            <Link href="/categories" onClick={cleanupStorage}>
               Cancel
             </Link>
           </Button>

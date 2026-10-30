@@ -39,24 +39,59 @@ export default function EditCoursePage() {
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Primary Course Fields
-  const [categoryId, setCategoryId] = useState("");
-  const [courseName, setCourseName] = useState("");
-  const [courseLevel, setCourseLevel] = useState("Beginner");
-  const [duration, setDuration] = useState("");
-  const [mode, setMode] = useState("virtual");
+  // Primary Course Fields - always stored as strings/numbers
+  const [categoryId, setCategoryId] = useState<string>("");
+  const [courseName, setCourseName] = useState<string>("");
+  const [courseLevel, setCourseLevel] = useState<string>("Beginner");
+  const [duration, setDuration] = useState<string>("");
+  const [mode, setMode] = useState<string>("virtual");
   const [points, setPoints] = useState<number | "">(0);
   const [noOfVideos, setNoOfVideos] = useState<number | "">(0);
-  const [noOfCertifications, setNoOfCertifications] = useState("1");
-  const [imageUrl, setImageUrl] = useState("");
-  const [courseDetails, setCourseDetails] = useState("");
+  const [noOfCertifications, setNoOfCertifications] = useState<string>("1");
+  const [imageUrl, setImageUrl] = useState<string>("");
+  const [courseDetails, setCourseDetails] = useState<string>("");
 
   // Multilingual courseName
-  const [names, setNames] = useState<Record<string, string>>({});
+  const [names, setNames] = useState<Record<string, string>>({
+    courseNameAs: "",
+    courseNameBn: "",
+    courseNameGu: "",
+    courseNameHi: "",
+    courseNameKn: "",
+    courseNameMl: "",
+    courseNameMr: "",
+    courseNameOr: "",
+    courseNameTa: "",
+    courseNameTe: "",
+  });
+
   // Multilingual courseDetails
-  const [details, setDetails] = useState<Record<string, string>>({});
+  const [details, setDetails] = useState<Record<string, string>>({
+    courseDetailsAs: "",
+    courseDetailsBn: "",
+    courseDetailsGu: "",
+    courseDetailsHi: "",
+    courseDetailsKn: "",
+    courseDetailsMl: "",
+    courseDetailsMr: "",
+    courseDetailsOr: "",
+    courseDetailsTa: "",
+    courseDetailsTe: "",
+  });
+
   // Multilingual courseLevel
-  const [levels, setLevels] = useState<Record<string, string>>({});
+  const [levels, setLevels] = useState<Record<string, string>>({
+    courseLevelAs: "",
+    courseLevelBn: "",
+    courseLevelGu: "",
+    courseLevelHi: "",
+    courseLevelKn: "",
+    courseLevelMl: "",
+    courseLevelMr: "",
+    courseLevelOr: "",
+    courseLevelTa: "",
+    courseLevelTe: "",
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -68,18 +103,19 @@ export default function EditCoursePage() {
 
       if (res.success && res.data) {
         const item: CourseItem = res.data;
-        setCategoryId(item.categoryId || "");
-        setCourseName(item.courseName || "");
-        setCourseLevel(item.courseLevel || "Beginner");
-        setDuration(item.duration || "");
-        setMode(item.mode || "virtual");
+        const rawCatId = item.categoryId != null ? String(item.categoryId) : "";
+        setCategoryId(rawCatId);
+        setCourseName(item.courseName ? String(item.courseName) : "");
+        setCourseLevel(item.courseLevel ? String(item.courseLevel) : "Beginner");
+        setDuration(item.duration ? String(item.duration) : "");
+        setMode(item.mode ? String(item.mode) : "virtual");
         setPoints(item.points ?? 0);
         setNoOfVideos(item.noOfVideos ?? 0);
-        setNoOfCertifications(item.noOfCertifications || "1");
-        setImageUrl(item.imageUrl || "");
-        setCourseDetails(item.courseDetails || "");
+        setNoOfCertifications(item.noOfCertifications != null ? String(item.noOfCertifications) : "1");
+        setImageUrl(item.imageUrl ? String(item.imageUrl) : "");
+        setCourseDetails(item.courseDetails ? String(item.courseDetails) : "");
 
-        // Populate multilingual fields
+        // Populate multilingual fields safely
         const loadedNames: Record<string, string> = {};
         const loadedDetails: Record<string, string> = {};
         const loadedLevels: Record<string, string> = {};
@@ -89,16 +125,16 @@ export default function EditCoursePage() {
           const dKey = `courseDetails${lang.code}` as keyof CourseItem;
           const lKey = `courseLevel${lang.code}` as keyof CourseItem;
 
-          if (item[nKey]) loadedNames[`courseName${lang.code}`] = String(item[nKey]);
-          if (item[dKey]) loadedDetails[`courseDetails${lang.code}`] = String(item[dKey]);
-          if (item[lKey]) loadedLevels[`courseLevel${lang.code}`] = String(item[lKey]);
+          if (item[nKey] != null) loadedNames[`courseName${lang.code}`] = String(item[nKey]);
+          if (item[dKey] != null) loadedDetails[`courseDetails${lang.code}`] = String(item[dKey]);
+          if (item[lKey] != null) loadedLevels[`courseLevel${lang.code}`] = String(item[lKey]);
         }
 
         setNames(loadedNames);
         setDetails(loadedDetails);
         setLevels(loadedLevels);
       } else {
-        const msg = res.error || "Failed to load course details.";
+        const msg = res.error || "Failed to load course details";
         setError(msg);
         toastError(msg);
       }
@@ -115,27 +151,85 @@ export default function EditCoursePage() {
     e.preventDefault();
     setError(null);
 
-    if (!categoryId.trim()) {
+    // Guaranteed string conversions preventing any *.trim is not a function error
+    const cleanCategoryId = String(categoryId ?? "").trim();
+    if (!cleanCategoryId) {
       setError("Please select a Category from the picklist.");
       return;
     }
 
-    if (!courseName.trim()) {
+    const cleanCourseName = String(courseName ?? "").trim();
+    if (!cleanCourseName) {
       setError("Course Name is required.");
       return;
     }
 
+    if (cleanCourseName.length > 255) {
+      setError("Character size limit exceeded: Course Name must not exceed 255 characters.");
+      return;
+    }
+
+    const cleanCourseLevel = String(courseLevel ?? "Beginner").trim();
+    if (cleanCourseLevel.length > 100) {
+      setError("Character size limit exceeded: Course Level must not exceed 100 characters.");
+      return;
+    }
+
+    const cleanDuration = String(duration ?? "").trim();
+    if (cleanDuration.length > 100) {
+      setError("Character size limit exceeded: Duration must not exceed 100 characters.");
+      return;
+    }
+
+    const cleanCertifications = String(noOfCertifications ?? "1").trim();
+    if (cleanCertifications.length > 50) {
+      setError("Character size limit exceeded: Number of Certifications must not exceed 50 characters.");
+      return;
+    }
+
+    const cleanImageUrl = String(imageUrl ?? "").trim();
+    if (cleanImageUrl.length > 500) {
+      setError("Character size limit exceeded: Image URL must not exceed 500 characters.");
+      return;
+    }
+
+    const cleanCourseDetails = String(courseDetails ?? "").trim();
+    if (cleanCourseDetails.length > 5000) {
+      setError("Character size limit exceeded: Course Details must not exceed 5000 characters.");
+      return;
+    }
+
+    // Check translation limits
+    for (const [key, val] of Object.entries(names)) {
+      if (val && String(val).length > 255) {
+        setError(`Character size limit exceeded: ${key} must not exceed 255 characters.`);
+        return;
+      }
+    }
+    for (const [key, val] of Object.entries(levels)) {
+      if (val && String(val).length > 100) {
+        setError(`Character size limit exceeded: ${key} must not exceed 100 characters.`);
+        return;
+      }
+    }
+    for (const [key, val] of Object.entries(details)) {
+      if (val && String(val).length > 5000) {
+        setError(`Character size limit exceeded: ${key} must not exceed 5000 characters.`);
+        return;
+      }
+    }
+
     const payload: UpdateCoursePayload = {
-      categoryId: categoryId.trim(),
-      courseName: courseName.trim(),
+      categoryId: cleanCategoryId,
+      courseName: cleanCourseName,
       points: points === "" ? 0 : Number(points),
       noOfVideos: noOfVideos === "" ? 0 : Number(noOfVideos),
-      noOfCertifications: noOfCertifications.trim() || "1",
-      courseLevel: courseLevel.trim() || "Beginner",
-      duration: duration.trim() || undefined,
-      imageUrl: imageUrl.trim() || undefined,
-      mode: mode.trim() || "virtual",
-      courseDetails: courseDetails.trim() || undefined,
+      noOfCertifications: cleanCertifications || "1",
+      courseLevel: cleanCourseLevel || "Beginner",
+      duration: cleanDuration || undefined,
+      imageUrl: cleanImageUrl || undefined,
+      mode: String(mode ?? "virtual").trim() || "virtual",
+      courseDetails: cleanCourseDetails || undefined,
       ...names,
       ...details,
       ...levels,
@@ -147,9 +241,22 @@ export default function EditCoursePage() {
         success(res.message || "Course updated successfully");
         router.push("/courses");
       } else {
-        const msg = res.error || "Failed to update course. Please check the fields and try again.";
-        setError(msg);
-        toastError(msg);
+        console.error("Backend error from updateCourseAction:", res.error);
+
+        const errText = (res.error || "").toLowerCase();
+        let displayMsg = "Failed to update course. Please check all fields and try again.";
+        if (
+          errText.includes("character") ||
+          errText.includes("size") ||
+          errText.includes("limit") ||
+          errText.includes("too long") ||
+          errText.includes("length")
+        ) {
+          displayMsg = "Character size limit exceeded. Please ensure all inputs are within the allowed length.";
+        }
+
+        setError(displayMsg);
+        toastError(displayMsg);
       }
     });
   };
@@ -189,7 +296,7 @@ export default function EditCoursePage() {
         ]}
       />
 
-      <form onSubmit={handleSubmit} className="w-full space-y-6">
+      <form onSubmit={handleSubmit} noValidate className="w-full space-y-6">
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {error}
@@ -215,9 +322,8 @@ export default function EditCoursePage() {
                   Category <span className="text-red-500">*</span>
                 </Label>
                 <CategorySelect
-                  value={categoryId}
-                  onChange={(id) => setCategoryId(id)}
-                  required
+                  value={String(categoryId || "")}
+                  onChange={(catId) => setCategoryId(String(catId || ""))}
                 />
               </div>
 
@@ -230,6 +336,7 @@ export default function EditCoursePage() {
                   value={courseName}
                   onChange={(e) => setCourseName(e.target.value)}
                   placeholder="e.g. Introduction to Digital Education"
+                  maxLength={255}
                   required
                 />
               </div>
@@ -243,6 +350,7 @@ export default function EditCoursePage() {
                   value={courseLevel}
                   onChange={(e) => setCourseLevel(e.target.value)}
                   placeholder="e.g. Beginner, Intermediate, Advanced"
+                  maxLength={100}
                 />
               </div>
 
@@ -253,16 +361,7 @@ export default function EditCoursePage() {
                   value={duration}
                   onChange={(e) => setDuration(e.target.value)}
                   placeholder="e.g. 4 weeks, 30m"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="mode">Mode</Label>
-                <Input
-                  id="mode"
-                  value={mode}
-                  onChange={(e) => setMode(e.target.value)}
-                  placeholder="e.g. virtual, offline"
+                  maxLength={100}
                 />
               </div>
 
@@ -273,55 +372,71 @@ export default function EditCoursePage() {
                   type="number"
                   min="0"
                   value={points}
-                  onChange={(e) => setPoints(e.target.value === "" ? "" : Number(e.target.value))}
+                  onChange={(e) => setPoints(e.target.value === "" ? "" : parseInt(e.target.value, 10))}
                   placeholder="0"
                 />
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
-                <Label htmlFor="noOfVideos">Number of Videos</Label>
+                <Label htmlFor="noOfVideos">No. of Videos</Label>
                 <Input
                   id="noOfVideos"
                   type="number"
                   min="0"
                   value={noOfVideos}
-                  onChange={(e) => setNoOfVideos(e.target.value === "" ? "" : Number(e.target.value))}
+                  onChange={(e) => setNoOfVideos(e.target.value === "" ? "" : parseInt(e.target.value, 10))}
                   placeholder="0"
                 />
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="grid gap-2">
-                <Label htmlFor="noOfCertifications">Number of Certifications</Label>
+                <Label htmlFor="noOfCertifications">No. of Certifications</Label>
                 <Input
                   id="noOfCertifications"
                   value={noOfCertifications}
                   onChange={(e) => setNoOfCertifications(e.target.value)}
-                  placeholder="1"
+                  placeholder="e.g. 1"
+                  maxLength={50}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="mode">Mode</Label>
+                <select
+                  id="mode"
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  <option value="virtual">Virtual</option>
+                  <option value="classroom">Classroom</option>
+                  <option value="hybrid">Hybrid</option>
+                </select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="imageUrl">Image URL</Label>
+                <Input
+                  id="imageUrl"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://..."
+                  maxLength={500}
                 />
               </div>
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="imageUrl">Image URL</Label>
-              <Input
-                id="imageUrl"
-                type="url"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://example.com/images/course.jpg"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="courseDetails">Course Details / Overview (English)</Label>
+              <Label htmlFor="courseDetails">Course Details / Overview</Label>
               <Textarea
                 id="courseDetails"
                 rows={3}
                 value={courseDetails}
                 onChange={(e) => setCourseDetails(e.target.value)}
-                placeholder="Detailed description of the course..."
+                placeholder="Detailed description of the course content..."
+                maxLength={5000}
               />
             </div>
           </CardContent>
@@ -331,11 +446,11 @@ export default function EditCoursePage() {
         <Card className="w-full shadow-sm">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Languages className="h-5 w-5 text-blue-600" />
-              <CardTitle>Regional Language Translations</CardTitle>
+              <Languages className="h-5 w-5 text-indigo-600" />
+              <CardTitle>Multilingual Course Info</CardTitle>
             </div>
             <CardDescription>
-              Optional translations for Course Name, Course Level, and Details across Indian regional languages.
+              Translations for Course Name, Level, and Details across regional languages.
             </CardDescription>
           </CardHeader>
 
@@ -356,6 +471,7 @@ export default function EditCoursePage() {
                         value={names[nameKey] || ""}
                         onChange={(e) => setNames((prev) => ({ ...prev, [nameKey]: e.target.value }))}
                         placeholder={`Course Name in ${lang.name}`}
+                        maxLength={255}
                         className="bg-white"
                       />
                     </div>
@@ -367,6 +483,7 @@ export default function EditCoursePage() {
                         value={levels[levelKey] || ""}
                         onChange={(e) => setLevels((prev) => ({ ...prev, [levelKey]: e.target.value }))}
                         placeholder={`Level in ${lang.name}`}
+                        maxLength={100}
                         className="bg-white"
                       />
                     </div>
@@ -380,6 +497,7 @@ export default function EditCoursePage() {
                       value={details[detailKey] || ""}
                       onChange={(e) => setDetails((prev) => ({ ...prev, [detailKey]: e.target.value }))}
                       placeholder={`Course Details in ${lang.name}`}
+                      maxLength={5000}
                       className="bg-white text-sm"
                     />
                   </div>
@@ -395,9 +513,15 @@ export default function EditCoursePage() {
             <Link href="/courses">Cancel</Link>
           </Button>
 
-          <Button type="submit" disabled={isPending} className="bg-blue-600 text-white hover:bg-blue-700">
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save Changes
+          <Button type="submit" disabled={isPending} className="bg-blue-600 text-white hover:bg-blue-700 min-w-32">
+            {isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              "Save Changes"
+            )}
           </Button>
         </div>
       </form>

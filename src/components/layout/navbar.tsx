@@ -56,8 +56,8 @@ export function Navbar({ user }: { user: ReactNode }) {
               <p className="truncate text-sm font-semibold text-slate-800">{user}</p>
             </div>
           </div>
+{/*           
           <DropdownMenuSeparator />
-
           <DropdownMenuItem onClick={() => router.push("/profile")} className="cursor-pointer gap-2">
             <Pencil className="h-4 w-4" /> Edit Profile
           </DropdownMenuItem>
@@ -66,7 +66,7 @@ export function Navbar({ user }: { user: ReactNode }) {
             className="cursor-pointer gap-2"
           >
             <KeyRound className="h-4 w-4" /> Change Password
-          </DropdownMenuItem>
+          </DropdownMenuItem> */}
 
           <DropdownMenuSeparator />
           <DropdownMenuItem

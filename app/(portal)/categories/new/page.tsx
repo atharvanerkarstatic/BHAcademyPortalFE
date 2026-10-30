@@ -93,13 +93,31 @@ export default function NewCategoryPage() {
     e.preventDefault();
     setError(null);
 
-    if (!category.trim()) {
+    const cleanCategory = category.trim();
+    if (!cleanCategory) {
       setError("Category name is required.");
       return;
     }
 
+    if (cleanCategory.length > 255) {
+      setError("Character size limit exceeded: Category Name must not exceed 255 characters.");
+      return;
+    }
+
+    if (imageUrl.trim().length > 500) {
+      setError("Character size limit exceeded: Image URL must not exceed 500 characters.");
+      return;
+    }
+
+    for (const [key, val] of Object.entries(translations)) {
+      if (val && val.length > 255) {
+        setError(`Character size limit exceeded: ${key} must not exceed 255 characters.`);
+        return;
+      }
+    }
+
     const payload: CreateCategoryPayload = {
-      category: category.trim(),
+      category: cleanCategory,
       imageUrl: imageUrl.trim() || undefined,
       displayOrder: Number(displayOrder) || 1,
       status,
@@ -114,9 +132,22 @@ export default function NewCategoryPage() {
         resetForm();
         router.push("/categories");
       } else {
-        const msg = res.error || "Failed to create category. Please check the fields and try again.";
-        setError(msg);
-        toastError(msg);
+        console.error("Backend error from createCategoryAction:", res.error);
+
+        const errText = (res.error || "").toLowerCase();
+        let displayMsg = "Failed to create category. Please check all fields and try again.";
+        if (
+          errText.includes("character") ||
+          errText.includes("size") ||
+          errText.includes("limit") ||
+          errText.includes("too long") ||
+          errText.includes("length")
+        ) {
+          displayMsg = "Character size limit exceeded. Please ensure all inputs are within the allowed limit.";
+        }
+
+        setError(displayMsg);
+        toastError(displayMsg);
       }
     });
   };
@@ -145,8 +176,7 @@ export default function NewCategoryPage() {
         ]}
       />
 
-      <form key={formKey} onSubmit={handleSubmit} autoComplete="off" className="w-full space-y-6">
-
+      <form key={formKey} onSubmit={handleSubmit} noValidate autoComplete="off" className="w-full space-y-6">
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {error}
@@ -175,6 +205,7 @@ export default function NewCategoryPage() {
                   placeholder="e.g. Interior Textures"
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
+                  maxLength={255}
                   required
                 />
               </div>
@@ -186,6 +217,7 @@ export default function NewCategoryPage() {
                   placeholder="e.g. https://domain.com/category-image.png"
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
+                  maxLength={500}
                 />
               </div>
             </div>
@@ -264,6 +296,7 @@ export default function NewCategoryPage() {
                       placeholder={`Category in ${lang.name}`}
                       value={translations[key] || ""}
                       onChange={(e) => handleTranslationChange(key, e.target.value)}
+                      maxLength={255}
                       className="bg-white"
                     />
                   </div>
@@ -283,7 +316,6 @@ export default function NewCategoryPage() {
           >
             Cancel
           </Button>
-
 
           <Button
             type="submit"

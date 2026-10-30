@@ -1,5 +1,5 @@
 export type CategoryItem = {
-  categoryId: string;
+  categoryId: string | number;
   category: string;
   imageUrl?: string;
   displayOrder: number;

@@ -7,7 +7,7 @@ export type CourseLanguageItem = {
 
 export type CourseItem = {
   id: number;
-  categoryId: string;
+  categoryId: string | number;
   categoryName: string;
   courseName: string;
   courseDetails?: string;
@@ -77,7 +77,7 @@ export type ApiResponse<T> = {
 };
 
 export type CreateCoursePayload = {
-  categoryId: string;
+  categoryId: string | number;
   courseName: string;
   points?: number;
   noOfVideos?: number;

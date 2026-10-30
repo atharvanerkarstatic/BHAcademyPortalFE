@@ -88,7 +88,7 @@ export function CategorySelect({
     }
   };
 
-  const selectedCategory = categories.find((c) => c.categoryId === value);
+  const selectedCategory = categories.find((c) => String(c.categoryId) === String(value));
 
   return (
     <div ref={dropdownRef} className="relative w-full">
@@ -118,17 +118,7 @@ export function CategorySelect({
         <ChevronDown className={cn("h-4 w-4 shrink-0 text-slate-500 transition-transform", open && "rotate-180")} />
       </button>
 
-      {/* Hidden input for HTML5 form validation if required */}
-      {required && (
-        <input
-          tabIndex={-1}
-          autoComplete="off"
-          style={{ opacity: 0, height: 0, width: 0, position: "absolute" }}
-          value={value}
-          onChange={() => {}}
-          required
-        />
-      )}
+
 
       {open && (
         <div className="absolute left-0 top-full z-50 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
@@ -142,13 +132,13 @@ export function CategorySelect({
           ) : (
             <div className="space-y-0.5">
               {categories.map((cat) => {
-                const isSelected = cat.categoryId === value;
+                const isSelected = String(cat.categoryId) === String(value);
                 return (
                   <button
                     key={cat.categoryId}
                     type="button"
                     onClick={() => {
-                      onChange(cat.categoryId, cat.category);
+                      onChange(String(cat.categoryId), cat.category);
                       setOpen(false);
                     }}
                     className={cn(

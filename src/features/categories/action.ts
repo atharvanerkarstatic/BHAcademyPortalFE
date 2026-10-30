@@ -134,22 +134,9 @@ export async function getCategoryByIdAction(id: string) {
   }
 
   try {
-    // Try direct endpoint if supported
-    try {
-      const res = await apiFetch<ApiResponse<CategoryItem>>(`/v1/category/${id}`);
-      if (res?.data) {
-        return {
-          success: true,
-          data: res.data,
-          message: res.message,
-        };
-      }
-    } catch {
-      // Fallback: fetch list and find by categoryId
-    }
-
-    const listRes = await apiFetch<ApiResponse<CategoryPageResponse>>("/v1/category?page=0&size=100");
-    const found = listRes?.data?.content?.find((item) => item.categoryId === id);
+    // Note: /v1/category/{id} is removed on backend; fetch from the category list endpoint
+    const listRes = await apiFetch<ApiResponse<CategoryPageResponse>>("/v1/category?page=0&size=200");
+    const found = listRes?.data?.content?.find((item) => String(item.categoryId) === String(id));
     if (found) {
       return {
         success: true,

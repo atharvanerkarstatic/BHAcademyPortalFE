@@ -108,27 +108,84 @@ export default function NewCoursePage() {
     e.preventDefault();
     setError(null);
 
-    if (!categoryId.trim()) {
+    const cleanCategoryId = String(categoryId || "").trim();
+    if (!cleanCategoryId) {
       setError("Please select a Category from the picklist.");
       return;
     }
 
-    if (!courseName.trim()) {
+    const cleanCourseName = String(courseName ?? "").trim();
+    if (!cleanCourseName) {
       setError("Course Name is required.");
       return;
     }
 
+    if (cleanCourseName.length > 255) {
+      setError("Character size limit exceeded: Course Name must not exceed 255 characters.");
+      return;
+    }
+
+    const cleanCourseLevel = String(courseLevel ?? "Beginner").trim();
+    if (cleanCourseLevel.length > 100) {
+      setError("Character size limit exceeded: Course Level must not exceed 100 characters.");
+      return;
+    }
+
+    const cleanDuration = String(duration ?? "").trim();
+    if (cleanDuration.length > 100) {
+      setError("Character size limit exceeded: Duration must not exceed 100 characters.");
+      return;
+    }
+
+    const cleanCertifications = String(noOfCertifications ?? "1").trim();
+    if (cleanCertifications.length > 50) {
+      setError("Character size limit exceeded: Number of Certifications must not exceed 50 characters.");
+      return;
+    }
+
+    const cleanImageUrl = String(imageUrl ?? "").trim();
+    if (cleanImageUrl.length > 500) {
+      setError("Character size limit exceeded: Image URL must not exceed 500 characters.");
+      return;
+    }
+
+    const cleanCourseDetails = String(courseDetails ?? "").trim();
+    if (cleanCourseDetails.length > 5000) {
+      setError("Character size limit exceeded: Course Details must not exceed 5000 characters.");
+      return;
+    }
+
+    // Check translation limits
+    for (const [key, val] of Object.entries(names)) {
+      if (val && String(val).length > 255) {
+        setError(`Character size limit exceeded: ${key} must not exceed 255 characters.`);
+        return;
+      }
+    }
+    for (const [key, val] of Object.entries(levels)) {
+      if (val && String(val).length > 100) {
+        setError(`Character size limit exceeded: ${key} must not exceed 100 characters.`);
+        return;
+      }
+    }
+    for (const [key, val] of Object.entries(details)) {
+      if (val && String(val).length > 5000) {
+        setError(`Character size limit exceeded: ${key} must not exceed 5000 characters.`);
+        return;
+      }
+    }
+
     const payload: CreateCoursePayload = {
-      categoryId: categoryId.trim(),
-      courseName: courseName.trim(),
+      categoryId: cleanCategoryId,
+      courseName: cleanCourseName,
       points: points === "" ? 0 : Number(points),
       noOfVideos: noOfVideos === "" ? 0 : Number(noOfVideos),
-      noOfCertifications: noOfCertifications.trim() || "1",
-      courseLevel: courseLevel.trim() || "Beginner",
-      duration: duration.trim() || undefined,
-      imageUrl: imageUrl.trim() || undefined,
-      mode: mode.trim() || "virtual",
-      courseDetails: courseDetails.trim() || undefined,
+      noOfCertifications: cleanCertifications || "1",
+      courseLevel: cleanCourseLevel || "Beginner",
+      duration: cleanDuration || undefined,
+      imageUrl: cleanImageUrl || undefined,
+      mode: String(mode ?? "virtual").trim() || "virtual",
+      courseDetails: cleanCourseDetails || undefined,
       ...names,
       ...details,
       ...levels,
@@ -140,9 +197,23 @@ export default function NewCoursePage() {
         success(res.message || "Course created successfully");
         router.push("/courses");
       } else {
-        const msg = res.error || "Failed to create course. Please check the fields and try again.";
-        setError(msg);
-        toastError(msg);
+        // Log exact backend error to console as requested
+        console.error("Backend error from createCourseAction:", res.error);
+
+        const errText = (res.error || "").toLowerCase();
+        let displayMsg = "Failed to create course. Please check all fields and try again.";
+        if (
+          errText.includes("character") ||
+          errText.includes("size") ||
+          errText.includes("limit") ||
+          errText.includes("too long") ||
+          errText.includes("length")
+        ) {
+          displayMsg = "Character size limit exceeded. Please ensure all inputs are within the allowed limit.";
+        }
+
+        setError(displayMsg);
+        toastError(displayMsg);
       }
     });
   };
@@ -173,7 +244,7 @@ export default function NewCoursePage() {
         ]}
       />
 
-      <form onSubmit={handleSubmit} className="w-full space-y-6">
+      <form onSubmit={handleSubmit} noValidate className="w-full space-y-6">
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {error}
@@ -185,10 +256,10 @@ export default function NewCoursePage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <BookOpen className="h-5 w-5 text-blue-600" />
-              <CardTitle>Course Information</CardTitle>
+              <CardTitle>Basic Information</CardTitle>
             </div>
             <CardDescription>
-              Select category and enter course basics like name, duration, points, and mode.
+              Enter the core details of the new course.
             </CardDescription>
           </CardHeader>
 
@@ -200,8 +271,7 @@ export default function NewCoursePage() {
                 </Label>
                 <CategorySelect
                   value={categoryId}
-                  onChange={(id) => setCategoryId(id)}
-                  required
+                  onChange={(catId) => setCategoryId(catId)}
                 />
               </div>
 
@@ -214,6 +284,7 @@ export default function NewCoursePage() {
                   value={courseName}
                   onChange={(e) => setCourseName(e.target.value)}
                   placeholder="e.g. Introduction to Digital Education"
+                  maxLength={255}
                   required
                 />
               </div>
@@ -227,6 +298,7 @@ export default function NewCoursePage() {
                   value={courseLevel}
                   onChange={(e) => setCourseLevel(e.target.value)}
                   placeholder="e.g. Beginner, Intermediate, Advanced"
+                  maxLength={100}
                 />
               </div>
 
@@ -237,16 +309,7 @@ export default function NewCoursePage() {
                   value={duration}
                   onChange={(e) => setDuration(e.target.value)}
                   placeholder="e.g. 4 weeks, 30m"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="mode">Mode</Label>
-                <Input
-                  id="mode"
-                  value={mode}
-                  onChange={(e) => setMode(e.target.value)}
-                  placeholder="e.g. virtual, offline"
+                  maxLength={100}
                 />
               </div>
 
@@ -257,55 +320,71 @@ export default function NewCoursePage() {
                   type="number"
                   min="0"
                   value={points}
-                  onChange={(e) => setPoints(e.target.value === "" ? "" : Number(e.target.value))}
+                  onChange={(e) => setPoints(e.target.value === "" ? "" : parseInt(e.target.value, 10))}
                   placeholder="0"
                 />
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
-                <Label htmlFor="noOfVideos">Number of Videos</Label>
+                <Label htmlFor="noOfVideos">No. of Videos</Label>
                 <Input
                   id="noOfVideos"
                   type="number"
                   min="0"
                   value={noOfVideos}
-                  onChange={(e) => setNoOfVideos(e.target.value === "" ? "" : Number(e.target.value))}
+                  onChange={(e) => setNoOfVideos(e.target.value === "" ? "" : parseInt(e.target.value, 10))}
                   placeholder="0"
                 />
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="grid gap-2">
-                <Label htmlFor="noOfCertifications">Number of Certifications</Label>
+                <Label htmlFor="noOfCertifications">No. of Certifications</Label>
                 <Input
                   id="noOfCertifications"
                   value={noOfCertifications}
                   onChange={(e) => setNoOfCertifications(e.target.value)}
-                  placeholder="1"
+                  placeholder="e.g. 1"
+                  maxLength={50}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="mode">Mode</Label>
+                <select
+                  id="mode"
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  <option value="virtual">Virtual</option>
+                  <option value="classroom">Classroom</option>
+                  <option value="hybrid">Hybrid</option>
+                </select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="imageUrl">Image URL</Label>
+                <Input
+                  id="imageUrl"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://..."
+                  maxLength={500}
                 />
               </div>
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="imageUrl">Image URL</Label>
-              <Input
-                id="imageUrl"
-                type="url"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://example.com/images/course.jpg"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="courseDetails">Course Details / Overview (English)</Label>
+              <Label htmlFor="courseDetails">Course Details / Overview</Label>
               <Textarea
                 id="courseDetails"
                 rows={3}
                 value={courseDetails}
                 onChange={(e) => setCourseDetails(e.target.value)}
-                placeholder="Detailed description of the course..."
+                placeholder="Detailed description of the course content..."
+                maxLength={5000}
               />
             </div>
           </CardContent>
@@ -315,11 +394,11 @@ export default function NewCoursePage() {
         <Card className="w-full shadow-sm">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Languages className="h-5 w-5 text-blue-600" />
-              <CardTitle>Regional Language Translations</CardTitle>
+              <Languages className="h-5 w-5 text-indigo-600" />
+              <CardTitle>Multilingual Course Info</CardTitle>
             </div>
             <CardDescription>
-              Optional translations for Course Name, Course Level, and Details across Indian regional languages.
+              Provide regional translations for Course Name, Level, and Details (Optional).
             </CardDescription>
           </CardHeader>
 
@@ -340,6 +419,7 @@ export default function NewCoursePage() {
                         value={names[nameKey] || ""}
                         onChange={(e) => setNames((prev) => ({ ...prev, [nameKey]: e.target.value }))}
                         placeholder={`Course Name in ${lang.name}`}
+                        maxLength={255}
                         className="bg-white"
                       />
                     </div>
@@ -351,6 +431,7 @@ export default function NewCoursePage() {
                         value={levels[levelKey] || ""}
                         onChange={(e) => setLevels((prev) => ({ ...prev, [levelKey]: e.target.value }))}
                         placeholder={`Level in ${lang.name}`}
+                        maxLength={100}
                         className="bg-white"
                       />
                     </div>
@@ -364,6 +445,7 @@ export default function NewCoursePage() {
                       value={details[detailKey] || ""}
                       onChange={(e) => setDetails((prev) => ({ ...prev, [detailKey]: e.target.value }))}
                       placeholder={`Course Details in ${lang.name}`}
+                      maxLength={5000}
                       className="bg-white text-sm"
                     />
                   </div>
@@ -379,9 +461,15 @@ export default function NewCoursePage() {
             <Link href="/courses">Cancel</Link>
           </Button>
 
-          <Button type="submit" disabled={isPending} className="bg-blue-600 text-white hover:bg-blue-700">
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save Course
+          <Button type="submit" disabled={isPending} className="bg-blue-600 text-white hover:bg-blue-700 min-w-32">
+            {isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              "Save Course"
+            )}
           </Button>
         </div>
       </form>

@@ -97,7 +97,7 @@ export default function DashboardPage() {
   return (
     <>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
-        <PageHeader title="Dashboard" breadcrumbs={[{ label: "Dashboard" }]} />
+        <PageHeader title="Dashboard" />
         <div>
           <Button
             variant="outline"

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
-import { Plus, RefreshCw, Pencil, Trash2, Search, Layers, Image as ImageIcon } from "lucide-react";
+import { Plus, RefreshCw, Pencil, Trash2, Search, Image as ImageIcon } from "lucide-react";
 
 import { DataTable, type Column } from "@/components/common/data-table";
 import { PageHeader } from "@/components/common/page-header";
@@ -27,7 +27,8 @@ import type { CategoryItem, CategoryPageResponse } from "@/features/categories/t
 export default function CategoriesPage() {
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
-  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [activeSearch, setActiveSearch] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
@@ -81,11 +82,23 @@ export default function CategoriesPage() {
     setPage(newPage);
   };
 
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPage(1);
+    setActiveSearch(searchInput.trim());
+  };
+
+  const handleSearchClear = () => {
+    setSearchInput("");
+    setPage(1);
+    setActiveSearch("");
+  };
+
   const confirmDelete = async () => {
     if (!categoryToDelete) return;
     setIsDeleting(true);
 
-    const res = await deleteCategoryAction(categoryToDelete.categoryId);
+    const res = await deleteCategoryAction(String(categoryToDelete.categoryId));
     setIsDeleting(false);
     setCategoryToDelete(null);
 
@@ -97,17 +110,17 @@ export default function CategoriesPage() {
     }
   };
 
-  // Live client-side search filtering on current data
+  // Search filtering activates only when Enter is hit (activeSearch)
   const filteredData = useMemo(() => {
-    if (!search.trim()) return pageData.content;
-    const query = search.toLowerCase();
+    if (!activeSearch.trim()) return pageData.content;
+    const query = activeSearch.toLowerCase();
     return pageData.content.filter(
       (item) =>
         Boolean(item.category && item.category.toLowerCase().includes(query)) ||
-        item.categoryId !== undefined && item.categoryId !== null && String(item.categoryId).toLowerCase().includes(query) ||
-        (item.categoryHi && item.categoryHi.toLowerCase().includes(query))
+        (item.categoryId !== undefined && item.categoryId !== null && String(item.categoryId).toLowerCase().includes(query)) ||
+        Boolean(item.categoryHi && item.categoryHi.toLowerCase().includes(query))
     );
-  }, [pageData.content, search]);
+  }, [pageData.content, activeSearch]);
 
   const columns: Column<CategoryItem>[] = useMemo(() => {
     const cols: Column<CategoryItem>[] = [
@@ -201,7 +214,17 @@ export default function CategoriesPage() {
                 className="text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                 title="Edit Category"
               >
-                <Link href={`/categories/${r.categoryId}/edit`}>
+                <Link
+                  href={`/categories/${r.categoryId}/edit`}
+                  onClick={() => {
+                    try {
+                      sessionStorage.setItem(`category_${r.categoryId}`, JSON.stringify(r));
+                      sessionStorage.setItem("selected_category", JSON.stringify(r));
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                >
                   <Pencil className="h-4 w-4" />
                 </Link>
               </Button>
@@ -240,21 +263,33 @@ export default function CategoriesPage() {
         logoSrc="/logo.png"
         columns={columns}
         data={filteredData}
-        getRowId={(r) => r.categoryId}
+        getRowId={(r) => String(r.categoryId)}
         loading={isPending}
-        emptyMessage="No categories found"
+        emptyMessage={activeSearch ? `No categories matching "${activeSearch}"` : "No categories found"}
         action={
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Search Input beside Refresh */}
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            {/* Search Input beside Refresh - searches on Enter */}
+            <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <Input
                 placeholder="Search categories..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-8 w-44 pl-8 text-xs sm:w-56"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="h-8 w-44 pl-8 pr-14 text-xs sm:w-56"
               />
-            </div>
+              {searchInput && (
+                <button
+                  type="button"
+                  onClick={handleSearchClear}
+                  className="absolute right-8 text-[11px] text-slate-400 hover:text-slate-600"
+                >
+                  Clear
+                </button>
+              )}
+              <Button type="submit" variant="ghost" size="sm" className="hidden">
+                Search
+              </Button>
+            </form>
 
             {/* Refresh button */}
             <Button
