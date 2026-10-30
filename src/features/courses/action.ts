@@ -260,9 +260,10 @@ export type UpdateCourseTranslationPayload = {
   courseDetails: string;
   courseLevel?: string;
   duration?: string;
-  categoryId?: string;
+  categoryId?: string | number;
   categoryName?: string;
-  courseId?: string;
+  courseId?: string | number;
+  id?: string | number;
   points?: number;
   noOfVideos?: number;
   noOfCertifications?: string;
