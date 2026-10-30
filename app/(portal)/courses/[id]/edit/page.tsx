@@ -37,7 +37,6 @@ export default function EditCoursePage() {
   const { success, error: toastError } = useToast();
   const [isPending, startTransition] = useTransition();
   const [fetching, setFetching] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // Primary Course Fields - always stored as strings/numbers
   const [categoryId, setCategoryId] = useState<string>("");
@@ -149,72 +148,71 @@ export default function EditCoursePage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
 
     // Guaranteed string conversions preventing any *.trim is not a function error
     const cleanCategoryId = String(categoryId ?? "").trim();
     if (!cleanCategoryId) {
-      setError("Please select a Category from the picklist.");
+      toastError("Please select a Category from the picklist.");
       return;
     }
 
     const cleanCourseName = String(courseName ?? "").trim();
     if (!cleanCourseName) {
-      setError("Course Name is required.");
+      toastError("Course Name is required.");
       return;
     }
 
     if (cleanCourseName.length > 255) {
-      setError("Character size limit exceeded: Course Name must not exceed 255 characters.");
+      toastError("Character size limit exceeded: Course Name must not exceed 255 characters.");
       return;
     }
 
     const cleanCourseLevel = String(courseLevel ?? "Beginner").trim();
     if (cleanCourseLevel.length > 100) {
-      setError("Character size limit exceeded: Course Level must not exceed 100 characters.");
+      toastError("Character size limit exceeded: Course Level must not exceed 100 characters.");
       return;
     }
 
     const cleanDuration = String(duration ?? "").trim();
     if (cleanDuration.length > 100) {
-      setError("Character size limit exceeded: Duration must not exceed 100 characters.");
+      toastError("Character size limit exceeded: Duration must not exceed 100 characters.");
       return;
     }
 
     const cleanCertifications = String(noOfCertifications ?? "1").trim();
     if (cleanCertifications.length > 50) {
-      setError("Character size limit exceeded: Number of Certifications must not exceed 50 characters.");
+      toastError("Character size limit exceeded: Number of Certifications must not exceed 50 characters.");
       return;
     }
 
     const cleanImageUrl = String(imageUrl ?? "").trim();
     if (cleanImageUrl.length > 500) {
-      setError("Character size limit exceeded: Image URL must not exceed 500 characters.");
+      toastError("Character size limit exceeded: Image URL must not exceed 500 characters.");
       return;
     }
 
     const cleanCourseDetails = String(courseDetails ?? "").trim();
     if (cleanCourseDetails.length > 5000) {
-      setError("Character size limit exceeded: Course Details must not exceed 5000 characters.");
+      toastError("Character size limit exceeded: Course Details must not exceed 5000 characters.");
       return;
     }
 
     // Check translation limits
     for (const [key, val] of Object.entries(names)) {
       if (val && String(val).length > 255) {
-        setError(`Character size limit exceeded: ${key} must not exceed 255 characters.`);
+        toastError(`Character size limit exceeded: ${key} must not exceed 255 characters.`);
         return;
       }
     }
     for (const [key, val] of Object.entries(levels)) {
       if (val && String(val).length > 100) {
-        setError(`Character size limit exceeded: ${key} must not exceed 100 characters.`);
+        toastError(`Character size limit exceeded: ${key} must not exceed 100 characters.`);
         return;
       }
     }
     for (const [key, val] of Object.entries(details)) {
       if (val && String(val).length > 5000) {
-        setError(`Character size limit exceeded: ${key} must not exceed 5000 characters.`);
+        toastError(`Character size limit exceeded: ${key} must not exceed 5000 characters.`);
         return;
       }
     }
@@ -244,7 +242,7 @@ export default function EditCoursePage() {
         console.error("Backend error from updateCourseAction:", res.error);
 
         const errText = (res.error || "").toLowerCase();
-        let displayMsg = "Failed to update course. Please check all fields and try again.";
+        let displayMsg = res.error || "Failed to update course. Please check all fields and try again.";
         if (
           errText.includes("character") ||
           errText.includes("size") ||
@@ -255,7 +253,6 @@ export default function EditCoursePage() {
           displayMsg = "Character size limit exceeded. Please ensure all inputs are within the allowed length.";
         }
 
-        setError(displayMsg);
         toastError(displayMsg);
       }
     });
@@ -297,11 +294,6 @@ export default function EditCoursePage() {
       />
 
       <form onSubmit={handleSubmit} noValidate className="w-full space-y-6">
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
-          </div>
-        )}
 
         {/* Basic Course Information */}
         <Card className="w-full shadow-sm">

@@ -46,7 +46,6 @@ export default function NewCategoryPage() {
   const router = useRouter();
   const { success, error: toastError } = useToast();
   const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
 
   // Form key to force-clear any cached DOM input fields upon remount or reset
   const [formKey, setFormKey] = useState<number>(() => Date.now());
@@ -68,7 +67,6 @@ export default function NewCategoryPage() {
     setStatus("ACTIVE");
     setFeatured(false);
     setTranslations({ ...INITIAL_TRANSLATIONS });
-    setError(null);
     setFormKey(Date.now());
   };
 
@@ -91,27 +89,26 @@ export default function NewCategoryPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
 
     const cleanCategory = category.trim();
     if (!cleanCategory) {
-      setError("Category name is required.");
+      toastError("Category name is required.");
       return;
     }
 
     if (cleanCategory.length > 255) {
-      setError("Character size limit exceeded: Category Name must not exceed 255 characters.");
+      toastError("Character size limit exceeded: Category Name must not exceed 255 characters.");
       return;
     }
 
     if (imageUrl.trim().length > 500) {
-      setError("Character size limit exceeded: Image URL must not exceed 500 characters.");
+      toastError("Character size limit exceeded: Image URL must not exceed 500 characters.");
       return;
     }
 
     for (const [key, val] of Object.entries(translations)) {
       if (val && val.length > 255) {
-        setError(`Character size limit exceeded: ${key} must not exceed 255 characters.`);
+        toastError(`Character size limit exceeded: ${key} must not exceed 255 characters.`);
         return;
       }
     }
@@ -135,7 +132,7 @@ export default function NewCategoryPage() {
         console.error("Backend error from createCategoryAction:", res.error);
 
         const errText = (res.error || "").toLowerCase();
-        let displayMsg = "Failed to create category. Please check all fields and try again.";
+        let displayMsg = res.error || "Failed to create category. Please check all fields and try again.";
         if (
           errText.includes("character") ||
           errText.includes("size") ||
@@ -146,7 +143,6 @@ export default function NewCategoryPage() {
           displayMsg = "Character size limit exceeded. Please ensure all inputs are within the allowed limit.";
         }
 
-        setError(displayMsg);
         toastError(displayMsg);
       }
     });
@@ -177,11 +173,6 @@ export default function NewCategoryPage() {
       />
 
       <form key={formKey} onSubmit={handleSubmit} noValidate autoComplete="off" className="w-full space-y-6">
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
-          </div>
-        )}
 
         {/* Basic Information Card */}
         <Card className="w-full shadow-sm">

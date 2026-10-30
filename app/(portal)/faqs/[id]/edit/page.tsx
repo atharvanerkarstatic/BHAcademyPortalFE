@@ -36,7 +36,6 @@ function EditFaqContent() {
   const { success, error: toastError } = useToast();
   const [fetching, setFetching] = useState(true);
   const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
 
   // Form state
   const [question, setQuestion] = useState("");
@@ -107,7 +106,6 @@ function EditFaqContent() {
         });
       } else {
         const msg = res.error || "Failed to load FAQ details";
-        setError(msg);
         toastError(msg);
       }
       setFetching(false);
@@ -125,38 +123,37 @@ function EditFaqContent() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
 
     const cleanQuestion = question.trim();
     if (!cleanQuestion) {
-      setError("Question is required.");
+      toastError("Question is required.");
       return;
     }
 
     if (cleanQuestion.length > 500) {
-      setError("Character size limit exceeded: Question must not exceed 500 characters.");
+      toastError("Character size limit exceeded: Question must not exceed 500 characters.");
       return;
     }
 
     const cleanAnswer = answer.trim();
     if (!cleanAnswer) {
-      setError("Answer is required.");
+      toastError("Answer is required.");
       return;
     }
 
     if (cleanAnswer.length > 5000) {
-      setError("Character size limit exceeded: Answer must not exceed 5000 characters.");
+      toastError("Character size limit exceeded: Answer must not exceed 5000 characters.");
       return;
     }
 
     for (const [key, val] of Object.entries(translations)) {
       if (!val) continue;
       if (key.startsWith("question") && val.length > 500) {
-        setError(`Character size limit exceeded: ${key} must not exceed 500 characters.`);
+        toastError(`Character size limit exceeded: ${key} must not exceed 500 characters.`);
         return;
       }
       if (key.startsWith("answer") && val.length > 5000) {
-        setError(`Character size limit exceeded: ${key} must not exceed 5000 characters.`);
+        toastError(`Character size limit exceeded: ${key} must not exceed 5000 characters.`);
         return;
       }
     }
@@ -178,7 +175,7 @@ function EditFaqContent() {
         console.error("Backend error from updateFaqAction:", res.error);
 
         const errText = (res.error || "").toLowerCase();
-        let displayMsg = "Failed to update FAQ. Please check all fields and try again.";
+        let displayMsg = res.error || "Failed to update FAQ. Please check all fields and try again.";
         if (
           errText.includes("character") ||
           errText.includes("size") ||
@@ -189,7 +186,6 @@ function EditFaqContent() {
           displayMsg = "Character size limit exceeded. Please ensure all inputs are within the allowed limit.";
         }
 
-        setError(displayMsg);
         toastError(displayMsg);
       }
     });
@@ -231,11 +227,6 @@ function EditFaqContent() {
       />
 
       <form onSubmit={handleSubmit} noValidate className="w-full space-y-6">
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
-          </div>
-        )}
 
         {/* Primary Information Card */}
         <Card className="w-full shadow-sm">

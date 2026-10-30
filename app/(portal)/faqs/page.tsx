@@ -294,7 +294,7 @@ export default function FaqsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete FAQ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this FAQ (ID: {faqToDelete?.id})?
+              Are you sure you want to delete this FAQ ?
               <br />
               <strong className="text-slate-800 line-clamp-2 mt-2">{faqToDelete?.question}</strong>
               <br />

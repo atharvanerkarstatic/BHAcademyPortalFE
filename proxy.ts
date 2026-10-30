@@ -27,7 +27,7 @@ const ROUTE_PERMISSIONS: { pattern: RegExp; permission: string | string[] }[] = 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isApi = pathname.startsWith("/api/");
-  const isLoginPage = pathname === "/login";
+  const isPublicAuthPage = pathname === "/login" || pathname === "/forgot-password";
 
   if (pathname.startsWith("/api/auth/")) return NextResponse.next();
 
@@ -51,10 +51,10 @@ export async function proxy(request: NextRequest) {
   let response: NextResponse;
 
   if (!isLoggedIn) {
-    if (isLoginPage) response = NextResponse.next();
+    if (isPublicAuthPage) response = NextResponse.next();
     else if (isApi) response = NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     else response = NextResponse.redirect(new URL("/login", request.url));
-  } else if (isLoginPage || pathname === "/") {
+  } else if (isPublicAuthPage || pathname === "/") {
     response = NextResponse.redirect(new URL("/dashboard", request.url));
   } else {
     // Route-level permission authorization check

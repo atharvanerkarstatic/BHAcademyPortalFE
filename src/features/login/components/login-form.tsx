@@ -7,13 +7,14 @@ import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
 import { loginAction } from "@/features/auth/action";
 
 export default function LoginForm({ ip }: { ip: ReactNode }) {
+  const { error: toastError, success: toastSuccess } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -25,23 +26,22 @@ export default function LoginForm({ ip }: { ip: ReactNode }) {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setError("");
 
     const cleanEmail = email.trim();
     const cleanPassword = password.trim();
 
     if (!cleanEmail) {
-      setError("Please enter your email ID");
+      toastError("Please enter your email ID");
       return;
     }
 
     if (!cleanPassword) {
-      setError("Please enter your password");
+      toastError("Please enter your password");
       return;
     }
 
     if (cleanPassword.length < 8) {
-      setError("Password must be at least 8 characters long");
+      toastError("Password must be at least 8 characters long");
       return;
     }
 
@@ -49,8 +49,10 @@ export default function LoginForm({ ip }: { ip: ReactNode }) {
     try {
       const result = await loginAction(cleanEmail, cleanPassword);
       if (result && !result.success) {
-        setError(result.error ?? "Login failed. Please try again.");
+        toastError(result.error ?? "Login failed. Please try again.");
         setLoading(false);
+      } else if (result && result.success) {
+        toastSuccess(result.message ?? "Logged in successfully");
       }
     } catch (err: unknown) {
       if (
@@ -67,7 +69,7 @@ export default function LoginForm({ ip }: { ip: ReactNode }) {
       ) {
         throw err;
       }
-      setError("Something went wrong. Please check your network and try again.");
+      toastError("Something went wrong. Please check your network and try again.");
       setLoading(false);
     }
   };
@@ -105,10 +107,7 @@ export default function LoginForm({ ip }: { ip: ReactNode }) {
               autoComplete="email"
               required
               value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (error) setError("");
-              }}
+              onChange={(e) => setEmail(e.target.value)}
               className="h-11 rounded-l-none bg-slate-50"
             />
           </div>
@@ -124,10 +123,7 @@ export default function LoginForm({ ip }: { ip: ReactNode }) {
               autoComplete="current-password"
               required
               value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (error) setError("");
-              }}
+              onChange={(e) => setPassword(e.target.value)}
               className="h-11 rounded-none border-x-0 bg-slate-50 focus-visible:ring-0 focus-visible:border-input"
             />
             <button
@@ -144,8 +140,6 @@ export default function LoginForm({ ip }: { ip: ReactNode }) {
               )}
             </button>
           </div>
-
-          {error && <p className="text-sm text-red-500">{error}</p>}
 
           <div className="flex items-center justify-center gap-4">
             <div className="flex flex-col items-center gap-4 pt-2">
