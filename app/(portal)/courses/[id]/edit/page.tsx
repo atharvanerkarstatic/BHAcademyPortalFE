@@ -134,7 +134,6 @@ export default function EditCoursePage() {
         setLevels(loadedLevels);
       } else {
         const msg = res.error || "Failed to load course details";
-        setError(msg);
         toastError(msg);
       }
       setFetching(false);

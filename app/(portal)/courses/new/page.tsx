@@ -100,7 +100,6 @@ export default function NewCoursePage() {
     setNoOfCertifications("1");
     setImageUrl("");
     setCourseDetails("");
-    setError(null);
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
