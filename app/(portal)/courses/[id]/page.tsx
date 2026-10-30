@@ -68,6 +68,8 @@ import {
 } from "@/features/courses/action";
 import { getSampleImportAction } from "@/features/accounts/action";
 import { LanguageSelect } from "@/features/languages/components/language-select";
+import { getAllLanguagesAction } from "@/features/languages/action";
+import type { LanguageItem } from "@/features/languages/types";
 import type { CourseItem } from "@/features/courses/types";
 import { cn } from "@/lib/utils";
 
@@ -129,6 +131,9 @@ export default function CourseDetailPage() {
 
   // Top tab in "details" mode
   const [activeDetailsTab, setActiveDetailsTab] = useState<"languages" | "translations" | "videos" | "questions">("languages");
+
+  // Available languages list from backend to resolve real backend numeric language IDs
+  const [allBackendLanguages, setAllBackendLanguages] = useState<LanguageItem[]>([]);
 
   // Selected language for sub-views
   const [selectedLangId, setSelectedLangId] = useState<string>("LANG_01");
@@ -346,30 +351,48 @@ export default function CourseDetailPage() {
     setQuestionnaireSubTab("standard");
     resetVideoForm();
 
-    getCourseByIdAction(id)
-      .then((res) => {
+    Promise.all([getAllLanguagesAction(), getCourseByIdAction(id)])
+      .then(([langRes, courseRes]) => {
         if (!mounted) return;
-        if (res.success && res.data) {
-          setCourse(res.data);
+
+        let langsList: LanguageItem[] = [];
+        if (langRes.success && langRes.data) {
+          langsList = langRes.data;
+          setAllBackendLanguages(langsList);
+        }
+
+        if (courseRes.success && courseRes.data) {
+          const courseData = courseRes.data;
+          setCourse(courseData);
 
           // Populate default uploadCourseId
-          const initialCourseCode = res.data.courseLevel || String(res.data.id || id);
+          const initialCourseCode = courseData.courseLevel || String(courseData.id || id);
           setUploadCourseId(initialCourseCode);
           setUploadVideosCourseId(initialCourseCode);
           setUploadQuestionsCourseId(initialCourseCode);
+
+          // Resolve English backend language ID
+          const enLang = langsList.find(
+            (l) =>
+              (l.languageCode && l.languageCode.toLowerCase() === "en") ||
+              (l.language && l.language.toLowerCase() === "english")
+          );
+          if (enLang?.languageId) {
+            setSelectedLangId(String(enLang.languageId));
+          }
 
           // Initialize toggles from course
           const initialPortal: Record<number, boolean> = {};
           const initialTraining: Record<number, boolean> = {};
           LANGUAGES_META.forEach((m) => {
             // English is active, others default per API/item
-            initialPortal[m.num] = m.code === "en" ? res.data?.status === "ACTIVE" : false;
+            initialPortal[m.num] = m.code === "en" ? courseData.status === "ACTIVE" : false;
             initialTraining[m.num] = m.code === "en";
           });
           setPortalToggles(initialPortal);
           setTrainingToggles(initialTraining);
         } else {
-          toastError(res.error || "Failed to load course details.");
+          toastError(courseRes.error || "Failed to load course details.");
         }
       })
       .catch((err) => {
@@ -489,30 +512,31 @@ export default function CourseDetailPage() {
     }
   };
 
-  const handleOpenTranslation = (meta: (typeof LANGUAGES_META)[0]) => {
-    setSelectedLangId(meta.languageId);
-    setSelectedLangName(meta.language);
-    const code = meta.code.toLowerCase();
+  const handleOpenTranslation = (row: CourseLangRow) => {
+    setSelectedLangId(String(row.languageId));
+    setSelectedLangName(row.language);
+    const code = row.code.toLowerCase();
     setSelectedLangCode(code);
 
     if (course) {
-      fetchTranslationForLanguage(course.id, code, meta.language);
+      fetchTranslationForLanguage(course.id, code, row.language);
     }
     setViewMode("translation_form");
   };
 
-  const handleOpenVideos = (meta: (typeof LANGUAGES_META)[0]) => {
+  const handleOpenVideos = (row: CourseLangRow) => {
     resetVideoForm();
-    setSelectedLangId(meta.languageId);
-    setSelectedLangName(meta.language);
-    setSelectedLangCode(meta.code.toLowerCase());
+    setSelectedLangId(String(row.languageId));
+    setSelectedLangName(row.language);
+    setSelectedLangCode(row.code.toLowerCase());
     setViewMode("videos_view");
   };
 
-  const handleOpenQuestionnaire = (meta: (typeof LANGUAGES_META)[0]) => {
-    setSelectedLangId(meta.languageId);
-    setSelectedLangName(meta.language);
-    setSelectedLangCode(meta.code.toLowerCase());
+  const handleOpenQuestionnaire = (row: CourseLangRow) => {
+    resetQuestionForm();
+    setSelectedLangId(String(row.languageId));
+    setSelectedLangName(row.language);
+    setSelectedLangCode(row.code.toLowerCase());
     setViewMode("questionnaire_view");
   };
 
@@ -662,19 +686,45 @@ export default function CourseDetailPage() {
       return;
     }
 
-    // Resolve numeric language ID matching whichever language is selected in the dropdown
+    // Resolve backend numeric language ID matching whichever language is selected
     let numericLangId: number = 1;
-    if (selectedLangId && !isNaN(Number(selectedLangId))) {
+
+    // 1. Check if selectedLangId is already a valid numeric ID from backend
+    if (selectedLangId && !isNaN(Number(selectedLangId)) && Number(selectedLangId) > 0) {
       numericLangId = Number(selectedLangId);
     } else {
-      const matchedLang = LANGUAGES_META.find(
-        (m) =>
-          m.languageId === selectedLangId ||
-          m.code.toLowerCase() === selectedLangCode.toLowerCase() ||
-          m.language.toLowerCase() === selectedLangName.toLowerCase()
+      // 2. Look up in allBackendLanguages fetched directly from /v1/languages API
+      const backendLang = allBackendLanguages.find(
+        (bl) =>
+          (bl.languageCode && bl.languageCode.toLowerCase() === selectedLangCode.toLowerCase()) ||
+          (bl.language && bl.language.toLowerCase() === selectedLangName.toLowerCase()) ||
+          String(bl.languageId) === String(selectedLangId)
       );
-      if (matchedLang) {
-        numericLangId = matchedLang.num;
+
+      if (backendLang && !isNaN(Number(backendLang.languageId))) {
+        numericLangId = Number(backendLang.languageId);
+      } else {
+        // 3. Look up in course.languages if populated from API
+        const courseLang = course.languages?.find(
+          (cl) =>
+            (cl.languageCode && cl.languageCode.toLowerCase() === selectedLangCode.toLowerCase()) ||
+            (cl.language && cl.language.toLowerCase() === selectedLangName.toLowerCase())
+        );
+
+        if (courseLang && !isNaN(Number(courseLang.languageId))) {
+          numericLangId = Number(courseLang.languageId);
+        } else {
+          // 4. Fallback matching
+          const matchedLang = LANGUAGES_META.find(
+            (m) =>
+              m.languageId === selectedLangId ||
+              m.code.toLowerCase() === selectedLangCode.toLowerCase() ||
+              m.language.toLowerCase() === selectedLangName.toLowerCase()
+          );
+          if (matchedLang) {
+            numericLangId = matchedLang.num;
+          }
+        }
       }
     }
 
@@ -762,7 +812,7 @@ export default function CourseDetailPage() {
     } catch (err) {
       console.error("Failed to delete quiz question:", err);
       toastError("An error occurred while deleting the quiz question");
-    }
+    } 
   };
 
   const handleImportTranslationsSubmit = async (e: React.FormEvent) => {
@@ -1359,7 +1409,7 @@ export default function CourseDetailPage() {
                           <td className="py-2.5 px-3 text-center">
                             <button
                               type="button"
-                              onClick={() => handleOpenTranslation(LANGUAGES_META[row.num - 1])}
+                              onClick={() => handleOpenTranslation(row)}
                               className="text-xs text-blue-600 hover:underline font-medium"
                             >
                               Edit Translation
@@ -1371,7 +1421,7 @@ export default function CourseDetailPage() {
                             {row.videosCount > 0 ? (
                               <button
                                 type="button"
-                                onClick={() => handleOpenVideos(LANGUAGES_META[row.num - 1])}
+                                onClick={() => handleOpenVideos(row)}
                                 className="text-xs text-blue-600 hover:underline font-medium"
                               >
                                 View Videos({row.videosCount})
@@ -1379,7 +1429,7 @@ export default function CourseDetailPage() {
                             ) : (
                               <button
                                 type="button"
-                                onClick={() => handleOpenVideos(LANGUAGES_META[row.num - 1])}
+                                onClick={() => handleOpenVideos(row)}
                                 className="text-xs text-rose-500 hover:underline font-medium"
                               >
                                 (Add Now)
@@ -1392,7 +1442,7 @@ export default function CourseDetailPage() {
                             {row.questionsCount > 0 ? (
                               <button
                                 type="button"
-                                onClick={() => handleOpenQuestionnaire(LANGUAGES_META[row.num - 1])}
+                                onClick={() => handleOpenQuestionnaire(row)}
                                 className="text-xs text-blue-600 hover:underline font-medium"
                               >
                                 {row.questionsCount} Questions
@@ -1400,7 +1450,7 @@ export default function CourseDetailPage() {
                             ) : (
                               <button
                                 type="button"
-                                onClick={() => handleOpenQuestionnaire(LANGUAGES_META[row.num - 1])}
+                                onClick={() => handleOpenQuestionnaire(row)}
                                 className="text-xs text-rose-500 hover:underline font-medium"
                               >
                                 (Add Now)
@@ -1958,14 +2008,14 @@ export default function CourseDetailPage() {
             </div>
 
             <div className="p-6 space-y-5">
-              {/* Language Dropdown Pill */}
+              {/* Videos Specific Language Dropdown Pill */}
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <LanguageSelect
                   value={selectedLangCode}
                   showCodeOnly
                   onChange={(newId, newName, newCode) => {
                     resetVideoForm();
-                    setSelectedLangId(newId);
+                    setSelectedLangId(String(newId));
                     setSelectedLangName(newName);
                     const meta = LANGUAGES_META.find(
                       (m) => m.languageId === newId || m.language.toLowerCase() === newName.toLowerCase()
@@ -2307,14 +2357,14 @@ export default function CourseDetailPage() {
             </div>
 
             <div className="p-6 space-y-5">
-              {/* Language Dropdown Pill */}
+              {/* Questionnaire Language Dropdown Pill */}
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <LanguageSelect
                   value={selectedLangCode}
                   showCodeOnly
                   onChange={(newId, newName, newCode) => {
-                    resetVideoForm();
-                    setSelectedLangId(newId);
+                    resetQuestionForm();
+                    setSelectedLangId(String(newId));
                     setSelectedLangName(newName);
                     const meta = LANGUAGES_META.find(
                       (m) => m.languageId === newId || m.language.toLowerCase() === newName.toLowerCase()

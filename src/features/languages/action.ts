@@ -18,7 +18,26 @@ export type GetLanguagesParams = {
   size?: number;
 };
 
+export async function getAllLanguagesAction() {
+  try {
+    const res = await apiFetch<ApiResponse<LanguagePageResponse>>(`/v1/languages?page=0&size=100`);
+    return {
+      success: true,
+      data: res.data?.content || [],
+      message: res.message,
+    };
+  } catch (error) {
+    console.error("Failed to fetch all languages:", error);
+    return {
+      success: false,
+      error: error instanceof ApiError ? error.message : "Failed to load languages.",
+      data: [] as LanguageItem[],
+    };
+  }
+}
+
 export async function getLanguagesAction(params: GetLanguagesParams = {}) {
+
   const user = await getCurrentUser();
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
