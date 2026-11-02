@@ -60,9 +60,6 @@ export default function CoursesPage() {
   const canDelete = can("courses.delete");
   const canExport = can("courses.export") || can("courses.read");
 
-
-
-
   const loadCourses = (
     targetPage = page,
     searchTerm = activeSearch,
@@ -86,6 +83,16 @@ export default function CoursesPage() {
       }
     });
   };
+
+  // Debounced search: as soon as typing stops, update activeSearch and query API
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+      setActiveSearch(searchInput.trim());
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   useEffect(() => {
     loadCourses(page, activeSearch);
@@ -301,11 +308,8 @@ export default function CoursesPage() {
       });
     }
 
-
     return cols;
   }, [canUpdate, canDelete]);
-
-
 
   const handleDownloadCourses = async () => {
     setIsExporting(true);
@@ -458,4 +462,4 @@ export default function CoursesPage() {
       </AlertDialog>
     </>
   );
-}
+}

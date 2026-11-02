@@ -16,6 +16,7 @@ import {
   Settings,
   ShieldCheck,
   Sliders,
+  SquarePlus,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -70,16 +71,18 @@ export const navSections: NavSection[] = [
       { label: "Virtual Training (Division)", href: "/reports/virtual-training-division", icon: BarChart3, permission: "audit.read" },
       { label: "Virtual Training (Region)", href: "/reports/virtual-training-region", icon: BarChart3, permission: "audit.read" },
       { label: "Module Wise Summary", href: "/reports/module-wise-summary", icon: BarChart3, permission: "audit.read" },
+      { label: "Assessment Summary", href: "/reports/assessment-summary", icon: BarChart3, permission: "audit.read" },
+      { label: "Trainer-wise Summary", href: "/reports/trainer-wise", icon: BarChart3, permission: "audit.read" },
     ],
   },
   {
     title: "Settings & Masters",
     collapsible: true,
-    icon: Settings,
+    icon: SquarePlus,
     items: [
       { label: "Admin Users", href: "/admin-users", icon: ArrowRight, permission: "users.read" },
       { label: "Roles & Permissions", href: "/roles", icon: ArrowRight, permission: "roles.read" },
-      { label: "Manage Cities", href: "/cities", icon: ArrowRight, permission: "system.all" },
+      { label: "Manage Cities", href: "/cities", icon: ArrowRight, permission: ["pincode.read", "system.all"] },
       { label: "Manage Languages", href: "/languages", icon: ArrowRight },
       { label: "Report Scheduler", href: "/report-scheduler", icon: ArrowRight, permission: "system.all" },
     ],

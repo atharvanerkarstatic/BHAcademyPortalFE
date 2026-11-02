@@ -22,24 +22,25 @@ export type Column<T> = {
 
 type PaginationProps = {
   page: number;
-  pageSize: number;
+  pageSize?: number;
   totalElements: number;
   totalPages: number;
   onPageChange: (newPage: number) => void;
 };
 
 type DataTableProps<T> = {
-  title: string;
+  title?: string;
   icon?: LucideIcon;
   logoSrc?: string;
   columns: Column<T>[];
   data: T[];
-  getRowId: (row: T) => string | number;
+  getRowId?: (row: T) => string | number;
   loading?: boolean;
   search?: string;
   onSearchChange?: (value: string) => void;
   emptyMessage?: string;
   action?: ReactNode;
+  headerRight?: ReactNode;
   pagination?: PaginationProps;
 };
 
@@ -55,6 +56,7 @@ export function DataTable<T>({
   onSearchChange,
   emptyMessage = "No records found",
   action,
+  headerRight,
   pagination,
 }: DataTableProps<T>) {
   return (
@@ -69,7 +71,7 @@ export function DataTable<T>({
           ) : null}
           {title}
         </div>
-        {action && <div className="px-3 pb-2">{action}</div>}
+        {(action || headerRight) && <div className="px-3 pb-2">{action || headerRight}</div>}
       </div>
 
       <div className="p-4 sm:p-6">
@@ -113,7 +115,7 @@ export function DataTable<T>({
               </TableRow>
             ) : (
               data.map((row) => (
-                <TableRow key={getRowId(row)}>
+                <TableRow key={getRowId ? getRowId(row) : ((row as any)?.id ?? (row as any)?.key ?? Math.random())}>
                   {columns.map((col) => (
                     <TableCell key={col.header} className={col.className}>
                       {col.cell(row)}
@@ -130,11 +132,11 @@ export function DataTable<T>({
             <div className="text-xs text-slate-500">
               Showing{" "}
               <span className="font-medium text-slate-700">
-                {Math.min((pagination.page - 1) * pagination.pageSize + 1, pagination.totalElements)}
+                {pagination.totalElements === 0 ? 0 : Math.min((pagination.page - 1) * (pagination.pageSize || 10) + 1, pagination.totalElements)}
               </span>{" "}
               to{" "}
               <span className="font-medium text-slate-700">
-                {Math.min(pagination.page * pagination.pageSize, pagination.totalElements)}
+                {Math.min(pagination.page * (pagination.pageSize || 10), pagination.totalElements)}
               </span>{" "}
               of <span className="font-medium text-slate-700">{pagination.totalElements}</span> entries
             </div>

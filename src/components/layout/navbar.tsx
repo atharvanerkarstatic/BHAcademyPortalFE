@@ -30,12 +30,15 @@ export function Navbar({ user }: { user: ReactNode }) {
 
   return (
     <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between border-b bg-white px-4">
-      <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle sidebar">
+      <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle sidebar" suppressHydrationWarning>
         <Menu className="h-5 w-5" />
       </Button>
 
       <DropdownMenu modal={false}>
-        <DropdownMenuTrigger className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-600 outline-none transition-colors hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-blue-500">
+        <DropdownMenuTrigger
+          suppressHydrationWarning
+          className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-600 outline-none transition-colors hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-blue-500"
+        >
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500">
             <UserRound className="h-4 w-4" />
           </span>
@@ -56,7 +59,7 @@ export function Navbar({ user }: { user: ReactNode }) {
               <p className="truncate text-sm font-semibold text-slate-800">{user}</p>
             </div>
           </div>
-{/*           
+          
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => router.push("/profile")} className="cursor-pointer gap-2">
             <Pencil className="h-4 w-4" /> Edit Profile
@@ -66,7 +69,7 @@ export function Navbar({ user }: { user: ReactNode }) {
             className="cursor-pointer gap-2"
           >
             <KeyRound className="h-4 w-4" /> Change Password
-          </DropdownMenuItem> */}
+          </DropdownMenuItem>
 
           <DropdownMenuSeparator />
           <DropdownMenuItem

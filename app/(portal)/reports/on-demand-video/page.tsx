@@ -7,6 +7,7 @@ export default function OnDemandVideosPendingAssessmentsPage() {
   return (
     <ReportPageLayout
       title="On-Demand Videos Pending Assessments"
+      defaultEmail="satyam.pattnaik@stetig.in"
       fields={["language", "course", "dateRange"]}
       onGenerate={async (filters) => {
         return exportOnDemandVideoAction({

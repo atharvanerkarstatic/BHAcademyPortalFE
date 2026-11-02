@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth-server";
 import { hasPermission } from "@/lib/auth-jwt";
 import { getAllLanguagesAction } from "@/features/languages/action";
 import { getCoursesAction } from "@/features/courses/action";
+import { getTrainersAction } from "@/features/trainers/action";
 
 export type ExportReportResult = {
   success: boolean;
@@ -185,12 +186,15 @@ export async function exportCourseWiseAssessmentAction(params: CourseWiseAssessm
 }
 
 export async function getReportFilterOptionsAction() {
-  const [langRes, coursesRes] = await Promise.all([
+  const user = await getCurrentUser();
+  const [langRes, coursesRes, trainersRes] = await Promise.all([
     getAllLanguagesAction(),
     getCoursesAction({ size: 200 }),
+    getTrainersAction({ size: 200 }),
   ]);
 
   return {
+    userEmail: user?.email || "satyam.pattnaik@stetig.in",
     languages:
       langRes.success && Array.isArray(langRes.data)
         ? langRes.data.map((l: any, idx: number) => {
@@ -208,6 +212,17 @@ export async function getReportFilterOptionsAction() {
             return {
               id: String(id),
               name: c.courseName || `Course #${id}`,
+            };
+          })
+        : [],
+    trainers:
+      trainersRes.success && trainersRes.data?.content
+        ? trainersRes.data.content.map((t: any, idx: number) => {
+            const id = t.id ?? String(idx + 1);
+            const name = [t.firstName, t.lastName].filter(Boolean).join(" ") || t.email || `Trainer #${id}`;
+            return {
+              id: String(id),
+              name,
             };
           })
         : [],

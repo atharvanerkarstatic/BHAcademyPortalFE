@@ -3,14 +3,13 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, User, Phone, MapPin, Building, ShieldCheck, Mail } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
 import { createAccountAction, uploadMediaAction } from "@/features/accounts/action";
@@ -23,13 +22,10 @@ export default function NewAccountPage() {
   const [formKey, setFormKey] = useState(0);
   const [name, setName] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
-  const [state, setState] = useState("");
-  const [district, setDistrict] = useState("");
-  const [city, setCity] = useState("");
   const [bhBp, setBhBp] = useState("");
   const [emailId, setEmailId] = useState("");
+  const [pincode, setPincode] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [active, setActive] = useState(true);
 
   const [isPending, startTransition] = useTransition();
 
@@ -39,23 +35,18 @@ export default function NewAccountPage() {
     // Prevent Next.js client caching on mount/revisit
     setName("");
     setMobileNumber("");
-    setState("");
-    setDistrict("");
-    setCity("");
     setBhBp("");
     setEmailId("");
+    setPincode("");
     setImageFile(null);
-    setActive(true);
     setFormKey((k) => k + 1);
 
     return () => {
       setName("");
       setMobileNumber("");
-      setState("");
-      setDistrict("");
-      setCity("");
       setBhBp("");
       setEmailId("");
+      setPincode("");
       setImageFile(null);
     };
   }, []);
@@ -63,13 +54,10 @@ export default function NewAccountPage() {
   const handleReset = () => {
     setName("");
     setMobileNumber("");
-    setState("");
-    setDistrict("");
-    setCity("");
     setBhBp("");
     setEmailId("");
+    setPincode("");
     setImageFile(null);
-    setActive(true);
     setFormKey((k) => k + 1);
   };
 
@@ -82,14 +70,6 @@ export default function NewAccountPage() {
     }
     if (!mobileNumber.trim()) {
       toastError("Mobile number is required.");
-      return;
-    }
-    if (!state.trim()) {
-      toastError("State is required.");
-      return;
-    }
-    if (!city.trim()) {
-      toastError("City is required.");
       return;
     }
 
@@ -112,27 +92,22 @@ export default function NewAccountPage() {
         }
       }
 
-      // JSON payload exactly matching:
+      // JSON payload exactly matching new request body:
       // {
-      //   "name": "string",
-      //   "mobileNumber": "stringstri",
-      //   "state": "string",
-      //   "district": "string",
-      //   "city": "string",
-      //   "bhBp": "string",
-      //   "emailId": "string",
-      //   "image": "string"
+      //   "name": "Rahul Sharma",
+      //   "mobileNumber": "1876543210",
+      //   "bhBp": "12345678",
+      //   "emailId": "rahul.sharma@example.com",
+      //   "image": "https://example.com/profile.jpg",
+      //   "pincode": "245101"
       // }
       const payload: Record<string, unknown> = {
         name: name.trim(),
         mobileNumber: mobileNumber.trim(),
-        state: state.trim(),
-        district: district.trim(),
-        city: city.trim(),
         bhBp: bhBp.trim(),
         emailId: emailId.trim(),
         image: imageUrl,
-        active: String(active),
+        pincode: pincode.trim(),
       };
 
       const res = await createAccountAction(payload);
@@ -205,7 +180,7 @@ export default function NewAccountPage() {
             {/* Mobile Number */}
             <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
               <Label htmlFor="acc-mobile" className="text-xs font-semibold text-slate-700 sm:text-right">
-                Mobile <span className="text-rose-500">*</span>
+                Mobile Number <span className="text-rose-500">*</span>
               </Label>
               <div className="sm:col-span-3">
                 <Input
@@ -214,56 +189,6 @@ export default function NewAccountPage() {
                   onChange={(e) => setMobileNumber(e.target.value)}
                   placeholder="10-digit mobile number"
                   className="h-9 text-xs font-mono"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* State */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label htmlFor="acc-state" className="text-xs font-semibold text-slate-700 sm:text-right">
-                State <span className="text-rose-500">*</span>
-              </Label>
-              <div className="sm:col-span-3">
-                <Input
-                  id="acc-state"
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
-                  placeholder="State"
-                  className="h-9 text-xs"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* District */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label htmlFor="acc-district" className="text-xs font-semibold text-slate-700 sm:text-right">
-                District
-              </Label>
-              <div className="sm:col-span-3">
-                <Input
-                  id="acc-district"
-                  value={district}
-                  onChange={(e) => setDistrict(e.target.value)}
-                  placeholder="District"
-                  className="h-9 text-xs"
-                />
-              </div>
-            </div>
-
-            {/* City */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label htmlFor="acc-city" className="text-xs font-semibold text-slate-700 sm:text-right">
-                City <span className="text-rose-500">*</span>
-              </Label>
-              <div className="sm:col-span-3">
-                <Input
-                  id="acc-city"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="City"
-                  className="h-9 text-xs"
                   required
                 />
               </div>
@@ -279,7 +204,7 @@ export default function NewAccountPage() {
                   id="acc-bp"
                   value={bhBp}
                   onChange={(e) => setBhBp(e.target.value)}
-                  placeholder="e.g. Bh_000011111111"
+                  placeholder="e.g. 12345678"
                   className="h-9 text-xs font-mono"
                 />
               </div>
@@ -296,8 +221,24 @@ export default function NewAccountPage() {
                   type="email"
                   value={emailId}
                   onChange={(e) => setEmailId(e.target.value)}
-                  placeholder="Email ID"
+                  placeholder="e.g. rahul.sharma@example.com"
                   className="h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Pincode */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <Label htmlFor="acc-pincode" className="text-xs font-semibold text-slate-700 sm:text-right">
+                Pincode
+              </Label>
+              <div className="sm:col-span-3">
+                <Input
+                  id="acc-pincode"
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value)}
+                  placeholder="e.g. 245101"
+                  className="h-9 text-xs font-mono"
                 />
               </div>
             </div>
@@ -315,21 +256,6 @@ export default function NewAccountPage() {
                   onChange={(e) => setImageFile(e.target.files?.[0] || null)}
                   className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
                 />
-              </div>
-            </div>
-
-            {/* Status Checkbox */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label className="text-xs font-semibold text-slate-700 sm:text-right">Status</Label>
-              <div className="sm:col-span-3 flex items-center space-x-2">
-                <Checkbox
-                  id="acc-active"
-                  checked={active}
-                  onCheckedChange={(c) => setActive(Boolean(c))}
-                />
-                <Label htmlFor="acc-active" className="text-xs font-semibold text-slate-700 cursor-pointer">
-                  Active
-                </Label>
               </div>
             </div>
 

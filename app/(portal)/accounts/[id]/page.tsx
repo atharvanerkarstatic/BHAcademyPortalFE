@@ -54,11 +54,9 @@ export default function AccountDetailPage() {
   // Edit form state
   const [name, setName] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
-  const [state, setState] = useState("");
-  const [district, setDistrict] = useState("");
-  const [city, setCity] = useState("");
   const [bhBp, setBhBp] = useState("");
   const [emailId, setEmailId] = useState("");
+  const [pincode, setPincode] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [active, setActive] = useState(true);
 
@@ -100,11 +98,9 @@ export default function AccountDetailPage() {
     setName(acc.name || "");
     const rawMobile = (acc.mobileNumber || acc.mobile || "").replace(/\D/g, "").slice(0, 10);
     setMobileNumber(rawMobile);
-    setState(acc.state || "");
-    setDistrict(acc.district || "");
-    setCity(acc.city || "");
     setBhBp(acc.bhBp || acc.id || "");
     setEmailId(acc.emailId || acc.email || "");
+    setPincode(acc.pincode || "");
     setActive(acc.active !== false && acc.status?.toLowerCase() !== "inactive");
   };
 
@@ -131,15 +127,6 @@ export default function AccountDetailPage() {
       toastError("Full Name is required");
       return;
     }
-    const cleanedMobile = mobileNumber.replace(/\D/g, "");
-    if (!cleanedMobile) {
-      toastError("Mobile number is required");
-      return;
-    }
-    if (cleanedMobile.length !== 10) {
-      toastError("Mobile number must be exactly 10 digits");
-      return;
-    }
 
     startSavingTransition(async () => {
       let imageString = account?.profileImage || account?.image || account?.profilePicture || "";
@@ -160,18 +147,27 @@ export default function AccountDetailPage() {
         }
       }
 
-      const finalBhBp = (bhBp.trim() || account?.bhBp || idOrBhBp);
+      const finalBhBp = bhBp.trim() || account?.bhBp || idOrBhBp;
+      const cleanedMobile = mobileNumber.replace(/\D/g, "");
+
+      // Payload matching:
+      // {
+      //   "name": "Rahul Sharma",
+      //   "mobileNumber": null,
+      //   "bhBp": "12345678",
+      //   "emailId": "rahul.sharma@example.com",
+      //   "image": "https://example.com/profile.jpg",
+      //   "active": true,
+      //   "pincode": "411002"
+      // }
       const payload: Record<string, unknown> = {
         name: name.trim(),
-        mobile: cleanedMobile,
-        mobileNumber: cleanedMobile,
-        state: state.trim(),
-        district: district.trim(),
-        city: city.trim(),
-        emailId: emailId.trim(),
-        image: imageString,
+        mobileNumber: cleanedMobile ? cleanedMobile : null,
         bhBp: finalBhBp,
-        active: String(active),
+        emailId: emailId.trim() || null,
+        image: imageString || null,
+        active: Boolean(active),
+        pincode: pincode.trim() || null,
       };
 
       const res = await updateAccountAction(finalBhBp, payload);
@@ -322,6 +318,12 @@ export default function AccountDetailPage() {
                   <span className="font-semibold text-slate-700">Email:</span>
                   <span className="col-span-2 text-slate-600 truncate">
                     {account.emailId || account.email || "—"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  <span className="font-semibold text-slate-700">Pincode:</span>
+                  <span className="col-span-2 font-mono text-slate-600 truncate">
+                    {account.pincode || "—"}
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-1">
@@ -514,10 +516,10 @@ export default function AccountDetailPage() {
                     </div>
                   </div>
 
-                  {/* Mobile */}
+                  {/* Mobile Number */}
                   <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
                     <Label htmlFor="edit-mobile" className="text-xs font-semibold text-slate-700 sm:text-right">
-                      Mobile
+                      Mobile Number
                     </Label>
                     <div className="sm:col-span-3">
                       <Input
@@ -529,99 +531,25 @@ export default function AccountDetailPage() {
                         }}
                         maxLength={10}
                         inputMode="numeric"
-                        pattern="\d{10}"
                         placeholder="10-digit mobile number"
                         className="h-9 text-xs font-mono"
-                        required
                       />
-                    </div>
-                  </div>
-
-                  {/* State (Picklist dropdown) */}
-                  <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                    <Label htmlFor="edit-state" className="text-xs font-semibold text-slate-700 sm:text-right">
-                      State
-                    </Label>
-                    <div className="sm:col-span-3">
-                      <select
-                        id="edit-state"
-                        value={state}
-                        onChange={(e) => setState(e.target.value)}
-                        className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      >
-                        <option value="">Select State...</option>
-                        <option value="Karnataka">Karnataka</option>
-                        <option value="Maharashtra">Maharashtra</option>
-                        <option value="Gujarat">Gujarat</option>
-                        <option value="Jharkhand">Jharkhand</option>
-                        <option value="Arunachal Pradesh">Arunachal Pradesh</option>
-                        <option value="Tamil Nadu">Tamil Nadu</option>
-                        <option value="Delhi">Delhi</option>
-                        <option value="West Bengal">West Bengal</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* District (Picklist dropdown) */}
-                  <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                    <Label htmlFor="edit-district" className="text-xs font-semibold text-slate-700 sm:text-right">
-                      District
-                    </Label>
-                    <div className="sm:col-span-3">
-                      <select
-                        id="edit-district"
-                        value={district}
-                        onChange={(e) => setDistrict(e.target.value)}
-                        className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      >
-                        <option value="">Select District...</option>
-                        <option value="Belgavi">Belgavi</option>
-                        <option value="Nagpur">Nagpur</option>
-                        <option value="Buldana">Buldana</option>
-                        <option value="Jamtara">Jamtara</option>
-                        <option value="East Kameng">East Kameng</option>
-                        <option value="Pune">Pune</option>
-                        <option value="Mumbai">Mumbai</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* City (Picklist dropdown) */}
-                  <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                    <Label htmlFor="edit-city" className="text-xs font-semibold text-slate-700 sm:text-right">
-                      City
-                    </Label>
-                    <div className="sm:col-span-3">
-                      <select
-                        id="edit-city"
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                        className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      >
-                        <option value="">Select City...</option>
-                        <option value="Belgavi">Belgavi</option>
-                        <option value="Nagpur">Nagpur</option>
-                        <option value="Buldana">Buldana</option>
-                        <option value="Jamtara">Jamtara</option>
-                        <option value="East Kameng">East Kameng</option>
-                        <option value="Pune">Pune</option>
-                        <option value="Mumbai">Mumbai</option>
-                      </select>
                     </div>
                   </div>
 
                   {/* BP Number */}
                   <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
                     <Label htmlFor="edit-bp" className="text-xs font-semibold text-slate-700 sm:text-right">
-                      BP Number
+                      BP Number <span className="text-rose-500">*</span>
                     </Label>
                     <div className="sm:col-span-3">
                       <Input
                         id="edit-bp"
                         value={bhBp}
                         onChange={(e) => setBhBp(e.target.value)}
-                        placeholder="BP Number"
+                        placeholder="e.g. 12345678"
                         className="h-9 text-xs font-mono"
+                        required
                       />
                     </div>
                   </div>
@@ -637,9 +565,42 @@ export default function AccountDetailPage() {
                         type="email"
                         value={emailId}
                         onChange={(e) => setEmailId(e.target.value)}
-                        placeholder="Email ID"
+                        placeholder="e.g. rahul.sharma@example.com"
                         className="h-9 text-xs"
                       />
+                    </div>
+                  </div>
+
+                  {/* Pincode */}
+                  <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                    <Label htmlFor="edit-pincode" className="text-xs font-semibold text-slate-700 sm:text-right">
+                      Pincode
+                    </Label>
+                    <div className="sm:col-span-3">
+                      <Input
+                        id="edit-pincode"
+                        value={pincode}
+                        onChange={(e) => setPincode(e.target.value)}
+                        placeholder="e.g. 411002"
+                        className="h-9 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Active Status */}
+                  <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                    <Label htmlFor="edit-active" className="text-xs font-semibold text-slate-700 sm:text-right">
+                      Status
+                    </Label>
+                    <div className="sm:col-span-3 flex items-center gap-2">
+                      <Checkbox
+                        id="edit-active"
+                        checked={active}
+                        onCheckedChange={(checked) => setActive(Boolean(checked))}
+                      />
+                      <Label htmlFor="edit-active" className="text-xs font-medium text-slate-700 cursor-pointer">
+                        Account is Active
+                      </Label>
                     </div>
                   </div>
 

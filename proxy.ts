@@ -21,6 +21,8 @@ const ROUTE_PERMISSIONS: { pattern: RegExp; permission: string | string[] }[] = 
   { pattern: /^\/courses(\/.*)?$/, permission: "courses.read" },
   { pattern: /^\/users(\/.*)?$/, permission: "users.read" },
   { pattern: /^\/accounts(\/.*)?$/, permission: "users.read" },
+  { pattern: /^\/trainers(\/.*)?$/, permission: "users.read" },
+  { pattern: /^\/cities(\/.*)?$/, permission: ["pincode.read", "system.all"] },
   { pattern: /^\/dashboard(\/.*)?$/, permission: "dashboard.read" },
 ];
 

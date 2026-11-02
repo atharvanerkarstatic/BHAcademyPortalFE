@@ -20,6 +20,7 @@ export type AccountItem = {
   state?: string;
   city?: string;
   district?: string;
+  pincode?: string;
   status?: "Active" | "Inactive" | "ACTIVE" | "INACTIVE" | string;
   active?: boolean | string;
   otp?: string;
@@ -33,29 +34,22 @@ export type AccountItem = {
 
 export type CreateAccountPayload = {
   name: string;
-  mobileNumber?: string;
-  mobile?: string;
-  state: string;
-  district?: string;
-  city: string;
+  mobileNumber: string;
   bhBp?: string;
   emailId?: string;
   image?: string;
-  active?: boolean | string;
+  pincode?: string;
   [key: string]: unknown;
 };
 
 export type UpdateAccountPayload = {
-  name?: string;
-  mobile?: string;
-  mobileNumber?: string;
-  state?: string;
-  district?: string;
-  city?: string;
-  emailId?: string;
-  image?: string;
-  bhBp?: string;
-  active?: string | boolean;
+  name: string;
+  mobileNumber?: string | null;
+  bhBp: string;
+  emailId?: string | null;
+  image?: string | null;
+  active?: boolean;
+  pincode?: string | null;
   [key: string]: unknown;
 };
 

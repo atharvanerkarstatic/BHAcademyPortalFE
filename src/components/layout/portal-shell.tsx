@@ -20,7 +20,7 @@ function ShellBody({ children, user }: { children: ReactNode; user: ReactNode })
       <div
         className={cn(
           "flex min-h-screen min-w-0 flex-col transition-[padding] duration-300",
-          desktopCollapsed ? "lg:pl-0" : "lg:pl-64"
+          desktopCollapsed ? "lg:pl-16" : "lg:pl-64"
         )}
       >
         <Navbar user={user} />

@@ -167,7 +167,7 @@ export default function CourseDetailPage() {
   const [videoIsQuizPresent, setVideoIsQuizPresent] = useState(false);
   const [videoDesc, setVideoDesc] = useState("");
   const [videoOrder, setVideoOrder] = useState("");
-  const [videoStatus, setVideoStatus] = useState(true);
+  const [videoStatus, setVideoStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
   const [isSavingVideo, setIsSavingVideo] = useState(false);
 
   // Questionnaire active subtab: "standard" | "interactive"
@@ -609,6 +609,7 @@ export default function CourseDetailPage() {
         duration: videoDuration.trim() || "10m",
         points: videoPoints || 10,
         isQuizPresent: videoIsQuizPresent,
+        status: videoStatus,
         courseId: course.id,
         languageId: code,
       };
@@ -652,7 +653,7 @@ export default function CourseDetailPage() {
     setVideoIsQuizPresent(false);
     setVideoDesc("");
     setVideoOrder("");
-    setVideoStatus(true);
+    setVideoStatus("ACTIVE");
   };
 
   const handleDeleteVideo = async (videoId: number | string) => {
@@ -1370,7 +1371,7 @@ export default function CourseDetailPage() {
                                   ...prev,
                                   [row.num]: !prev[row.num],
                                 }));
-                                success(`${row.language} portal status updated to ${!portalToggles[row.num] ? "Active" : "Inactive"}`);
+                                success(`${row.language} portal status updated to ${!portalToggles[row.num] ? "ACTIVE" : "INACTIVE"}`);
                               }}
                               className={cn(
                                 "inline-block rounded px-2.5 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider transition-transform active:scale-95",
@@ -1379,7 +1380,7 @@ export default function CourseDetailPage() {
                                   : "bg-rose-600 hover:bg-rose-700"
                               )}
                             >
-                              {portalToggles[row.num] ? "Active" : "Inactive"}
+                              {portalToggles[row.num] ? "ACTIVE" : "INACTIVE"}
                             </button>
                           </td>
 
@@ -1392,7 +1393,7 @@ export default function CourseDetailPage() {
                                   ...prev,
                                   [row.num]: !prev[row.num],
                                 }));
-                                success(`${row.language} training status updated to ${!trainingToggles[row.num] ? "Active" : "Inactive"}`);
+                                success(`${row.language} training status updated to ${!trainingToggles[row.num] ? "ACTIVE" : "INACTIVE"}`);
                               }}
                               className={cn(
                                 "inline-block rounded px-2.5 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider transition-transform active:scale-95",
@@ -1401,7 +1402,7 @@ export default function CourseDetailPage() {
                                   : "bg-rose-600 hover:bg-rose-700"
                               )}
                             >
-                              {trainingToggles[row.num] ? "Active" : "Inactive"}
+                              {trainingToggles[row.num] ? "ACTIVE" : "INACTIVE"}
                             </button>
                           </td>
 
@@ -2091,7 +2092,7 @@ export default function CourseDetailPage() {
                                 ? "bg-emerald-600 text-white"
                                 : "bg-slate-200 text-slate-700"
                             )}>
-                              {vid.status || "Active"}
+                              {vid.status || "ACTIVE"}
                             </span>
                           </td>
                           <td className="py-2.5 px-3 text-center">
@@ -2106,7 +2107,11 @@ export default function CourseDetailPage() {
                                 setVideoPoints(vid.points ?? 10);
                                 setVideoIsQuizPresent(Boolean(vid.isQuizPresent));
                                 setVideoOrder(String(vid.sequenceNo || ""));
-                                setVideoStatus(vid.status ? String(vid.status).toUpperCase() === "ACTIVE" : true);
+                                setVideoStatus(
+                                  vid.status && String(vid.status).toUpperCase() === "INACTIVE"
+                                    ? "INACTIVE"
+                                    : "ACTIVE"
+                                );
                                 success(`Editing video: ${vid.title}`);
                               }}
                               className="text-xs text-blue-600 hover:underline font-medium"
@@ -2271,16 +2276,17 @@ export default function CourseDetailPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                  <Label className="text-xs font-bold text-slate-800 sm:text-right">Status</Label>
-                  <div className="sm:col-span-3 flex items-center space-x-2">
-                    <Checkbox
-                      id="v-active"
-                      checked={videoStatus}
-                      onCheckedChange={(c) => setVideoStatus(Boolean(c))}
-                    />
-                    <Label htmlFor="v-active" className="text-xs font-semibold text-slate-700 cursor-pointer">
-                      Active
-                    </Label>
+                  <Label htmlFor="v-status" className="text-xs font-bold text-slate-800 sm:text-right">Status</Label>
+                  <div className="sm:col-span-3">
+                    <select
+                      id="v-status"
+                      value={videoStatus}
+                      onChange={(e) => setVideoStatus(e.target.value as "ACTIVE" | "INACTIVE")}
+                      className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="ACTIVE">ACTIVE</option>
+                      <option value="INACTIVE">INACTIVE</option>
+                    </select>
                   </div>
                 </div>
 
@@ -2461,7 +2467,7 @@ export default function CourseDetailPage() {
                                       : "bg-slate-500"
                                   )}
                                 >
-                                  {q.status || "Active"}
+                                  {q.status || "ACTIVE"}
                                 </span>
                               </td>
                               <td className="py-2.5 px-3 text-center">

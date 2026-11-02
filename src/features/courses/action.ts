@@ -534,6 +534,7 @@ export type SaveVideoPayload = {
   duration?: string;
   points?: number;
   isQuizPresent?: boolean;
+  status?: string;
   courseId: number | string;
   languageId?: number | string;
 };

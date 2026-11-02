@@ -127,6 +127,15 @@ export default function AccountsPage() {
   }, []);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+      setActiveSearch(searchInput.trim());
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
     loadAccounts(page, activeSearch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, activeSearch]);

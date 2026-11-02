@@ -28,7 +28,6 @@ export default function CategoriesPage() {
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
   const [searchInput, setSearchInput] = useState("");
-  const [activeSearch, setActiveSearch] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
@@ -82,16 +81,8 @@ export default function CategoriesPage() {
     setPage(newPage);
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setPage(1);
-    setActiveSearch(searchInput.trim());
-  };
-
   const handleSearchClear = () => {
     setSearchInput("");
-    setPage(1);
-    setActiveSearch("");
   };
 
   const confirmDelete = async () => {
@@ -110,17 +101,17 @@ export default function CategoriesPage() {
     }
   };
 
-  // Search filtering activates only when Enter is hit (activeSearch)
+  // Real-time live search filtering (matching FAQ behavior: filters immediately without hitting Enter)
   const filteredData = useMemo(() => {
-    if (!activeSearch.trim()) return pageData.content;
-    const query = activeSearch.toLowerCase();
+    if (!searchInput.trim()) return pageData.content;
+    const query = searchInput.trim().toLowerCase();
     return pageData.content.filter(
       (item) =>
         Boolean(item.category && item.category.toLowerCase().includes(query)) ||
         (item.categoryId !== undefined && item.categoryId !== null && String(item.categoryId).toLowerCase().includes(query)) ||
         Boolean(item.categoryHi && item.categoryHi.toLowerCase().includes(query))
     );
-  }, [pageData.content, activeSearch]);
+  }, [pageData.content, searchInput]);
 
   const columns: Column<CategoryItem>[] = useMemo(() => {
     const cols: Column<CategoryItem>[] = [
@@ -158,46 +149,51 @@ export default function CategoriesPage() {
         cell: (r) => (
           <div>
             <p className="font-medium text-slate-900">{r.category}</p>
-            {r.categoryHi && (
-              <span className="text-xs text-slate-500 font-normal">{r.categoryHi}</span>
-            )}
+            {r.categoryHi && <span className="text-xs text-slate-400">{r.categoryHi}</span>}
           </div>
         ),
       },
       {
         header: "Display Order",
-        cell: (r) => r.displayOrder,
-        className: "w-28 text-center",
+        cell: (r) => r.displayOrder ?? "—",
+        className: "w-32 text-center",
       },
       {
         header: "Featured",
         cell: (r) => (
           <span
-            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-              r.featured ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+              r.featured
+                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                : "bg-slate-50 text-slate-500 border border-slate-200"
             }`}
           >
-            {r.featured ? "Featured" : "Standard"}
+            {r.featured ? "Yes" : "No"}
           </span>
         ),
-        className: "w-24 text-center",
+        className: "w-28 text-center",
       },
       {
         header: "Status",
         cell: (r) => <StatusText active={r.status === "ACTIVE"} />,
-        className: "w-24",
+        className: "w-28",
       },
       {
-        header: "Courses",
+        header: "Translations",
         cell: (r) => (
-          <Link
-            href={`/courses?category=${encodeURIComponent(r.categoryId)}`}
-            className="text-xs font-semibold text-blue-600 hover:underline"
-          >
-            View Courses
-          </Link>
+          <div className="flex flex-wrap gap-1 max-w-xs">
+            {r.categoryHi && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">HI</span>}
+            {r.categoryBn && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">BN</span>}
+            {r.categoryKn && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">KN</span>}
+            {r.categoryMl && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">ML</span>}
+            {r.categoryMr && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">MR</span>}
+            {r.categoryOr && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">OR</span>}
+            {r.categoryTa && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">TA</span>}
+            {r.categoryTe && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">TE</span>}
+            {r.categoryAs && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">AS</span>}
+            {r.categoryGu && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">GU</span>}
+          </div>
         ),
-        className: "w-28",
       },
     ];
 
@@ -205,38 +201,20 @@ export default function CategoriesPage() {
       cols.push({
         header: "Actions",
         cell: (r) => (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             {canUpdate && (
-              <Button
-                asChild
-                variant="ghost"
-                size="icon-sm"
-                className="text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                title="Edit Category"
-              >
-                <Link
-                  href={`/categories/${r.categoryId}/edit`}
-                  onClick={() => {
-                    try {
-                      sessionStorage.setItem(`category_${r.categoryId}`, JSON.stringify(r));
-                      sessionStorage.setItem("selected_category", JSON.stringify(r));
-                    } catch {
-                      // ignore
-                    }
-                  }}
-                >
+              <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                <Link href={`/categories/${r.categoryId}/edit`} title="Edit Category">
                   <Pencil className="h-4 w-4" />
                 </Link>
               </Button>
             )}
-
             {canDelete && (
               <Button
-                type="button"
                 variant="ghost"
-                size="icon-sm"
+                size="icon"
+                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
                 onClick={() => setCategoryToDelete(r)}
-                className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
                 title="Delete Category"
               >
                 <Trash2 className="h-4 w-4" />
@@ -263,13 +241,11 @@ export default function CategoriesPage() {
         logoSrc="/logo.png"
         columns={columns}
         data={filteredData}
-        getRowId={(r) => String(r.categoryId)}
         loading={isPending}
-        emptyMessage={activeSearch ? `No categories matching "${activeSearch}"` : "No categories found"}
-        action={
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* Search Input beside Refresh - searches on Enter */}
-            <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+        headerRight={
+          <div className="flex items-center gap-3">
+            {/* Search Input beside Refresh */}
+            <div className="relative flex items-center">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <Input
                 placeholder="Search categories..."
@@ -281,15 +257,12 @@ export default function CategoriesPage() {
                 <button
                   type="button"
                   onClick={handleSearchClear}
-                  className="absolute right-8 text-[11px] text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 text-[11px] text-slate-400 hover:text-slate-600"
                 >
                   Clear
                 </button>
               )}
-              <Button type="submit" variant="ghost" size="sm" className="hidden">
-                Search
-              </Button>
-            </form>
+            </div>
 
             {/* Refresh button */}
             <Button
