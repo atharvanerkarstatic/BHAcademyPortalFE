@@ -51,8 +51,6 @@ export const navSections: NavSection[] = [
   },
   {
     items: [
-      { label: "New Zoom Meet. Link", href: "/zoom/new", icon: Link2, permission: "sessions.read" },
-      { label: "Zoom Meeting Links", href: "/zoom/links", icon: Link2, permission: "sessions.read" },
       { label: "Send Assessment Link", href: "/assessments/send", icon: Link2, permission: "courses.read" },
       { label: "Assessment Links", href: "/assessments/links", icon: ClipboardList, permission: "courses.read" },
       { label: "Assessment Results", href: "/assessments/results", icon: Lightbulb, permission: "audit.read" },

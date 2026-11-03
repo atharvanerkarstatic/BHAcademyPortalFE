@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, Loader2, User, Mail, Phone, Building, Save } from "lucide-react";
+import { ArrowLeft, Loader2, User } from "lucide-react";
 
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -13,19 +13,22 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { uploadMediaAction } from "@/features/accounts/action";
 import { getCurrentUserProfile, updateUserProfileAction, type UserProfile } from "@/features/profile/action";
+import { useAuth } from "@/lib/auth-context";
 
 export default function EditProfilePage() {
   const { success, error: toastError } = useToast();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const { refreshProfile } = useAuth();
+  
+  // Confirmed Saved Profile state (drives the left preview card independently of unsaved form edits)
+  const [savedProfile, setSavedProfile] = useState<UserProfile | null>(null);
   const [fetching, setFetching] = useState(true);
 
-  // Form states
+  // Form input states (editable form inputs)
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [departmentId, setDepartmentId] = useState("IT_ADMIN");
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [currentProfilePic, setCurrentProfilePic] = useState<string | null>(null);
 
   const [isPending, startTransition] = useTransition();
 
@@ -37,13 +40,12 @@ export default function EditProfilePage() {
       if (!mounted) return;
 
       if (res.success && res.data) {
-        setProfile(res.data);
+        setSavedProfile(res.data);
         const nameParts = [res.data.firstName || "", res.data.lastName || ""].filter(Boolean);
         setFullName(nameParts.join(" "));
         setEmail(res.data.email || "");
         setMobileNumber(res.data.mobileNumber || "");
         setDepartmentId(res.data.departmentId || "IT_ADMIN");
-        setCurrentProfilePic(res.data.profilePic || null);
       } else {
         toastError(res.error || "Failed to load profile details.");
       }
@@ -113,8 +115,8 @@ export default function EditProfilePage() {
         }
       }
 
-      // If no new image was uploaded, send null as requested
-      const profilePicToSend = uploadedUrl !== null ? uploadedUrl : null;
+      // If a new image was uploaded use its url, otherwise retain current saved profilePic (or null)
+      const profilePicToSend = uploadedUrl !== null ? uploadedUrl : (savedProfile?.profilePic || null);
 
       const payload = {
         firstName,
@@ -129,12 +131,17 @@ export default function EditProfilePage() {
       if (res.success) {
         success(res.message || "User updated successfully");
         if (res.data) {
-          setProfile(res.data);
-          if (uploadedUrl) {
-            setCurrentProfilePic(uploadedUrl);
-            setImageFile(null);
-          }
+          // Update the preview card ONLY after clicking Save and receiving a successful API response
+          setSavedProfile(res.data);
+          const nameParts = [res.data.firstName || "", res.data.lastName || ""].filter(Boolean);
+          setFullName(nameParts.join(" "));
+          setEmail(res.data.email || "");
+          setMobileNumber(res.data.mobileNumber || "");
+          setDepartmentId(res.data.departmentId || "IT_ADMIN");
+          setImageFile(null);
         }
+        // Refresh the user profile across the application (sidebar, navbar)
+        await refreshProfile();
       } else {
         toastError(res.error || "Failed to update profile.");
       }
@@ -150,6 +157,12 @@ export default function EditProfilePage() {
     );
   }
 
+  // Derive preview details strictly from savedProfile
+  const previewFullName = [savedProfile?.firstName, savedProfile?.lastName].filter(Boolean).join(" ");
+  const previewEmail = savedProfile?.email || "";
+  const previewDept = savedProfile?.departmentId || "";
+  const previewPic = savedProfile?.profilePic || null;
+
   return (
     <div className="w-full space-y-4 pb-12">
       <PageHeader
@@ -161,15 +174,15 @@ export default function EditProfilePage() {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Card: Summary & Picture */}
+        {/* Left Card: Summary & Picture (Independent Preview Card - updates only on successful Save) */}
         <div className="lg:col-span-4 xl:col-span-3 space-y-4">
           <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div className="p-6 text-center space-y-3">
               <div className="relative mx-auto h-24 w-24 overflow-hidden rounded-full border-2 border-slate-200 bg-slate-100 flex items-center justify-center">
-                {currentProfilePic ? (
+                {previewPic ? (
                   <Image
-                    src={currentProfilePic}
-                    alt={fullName || "Profile"}
+                    src={previewPic}
+                    alt={previewFullName || "Profile"}
                     width={96}
                     height={96}
                     unoptimized
@@ -180,11 +193,11 @@ export default function EditProfilePage() {
                 )}
               </div>
               <div>
-                <h3 className="font-bold text-slate-900 text-sm">{fullName || "User Profile"}</h3>
-                <p className="text-xs text-slate-500 truncate">{email}</p>
-                {departmentId && (
+                <h3 className="font-bold text-slate-900 text-sm">{previewFullName || "User Profile"}</h3>
+                <p className="text-xs text-slate-500 truncate">{previewEmail}</p>
+                {previewDept && (
                   <span className="inline-block mt-1 text-[11px] font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
-                    {departmentId}
+                    {previewDept}
                   </span>
                 )}
               </div>
@@ -263,7 +276,7 @@ export default function EditProfilePage() {
                   </div>
                 </div>
 
-                {/* Department ID (Readonly or Preserved) */}
+                {/* Department ID */}
                 <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
                   <Label htmlFor="prof-dept" className="text-xs font-semibold text-slate-700 sm:text-right">
                     Department
@@ -325,4 +338,3 @@ export default function EditProfilePage() {
     </div>
   );
 }
-

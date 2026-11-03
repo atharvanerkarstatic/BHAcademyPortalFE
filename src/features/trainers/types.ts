@@ -4,7 +4,7 @@ export interface TrainerItem {
   firstName: string;
   lastName?: string;
   departmentId?: string | null;
-  status: "ACTIVE" | "INACTIVE" | string;
+  status: "ACTIVE" | "SUSPENDED" | "INACTIVE" | string;
   isLocked?: boolean;
   isEmailVerified?: boolean;
   mobileNumber?: string;

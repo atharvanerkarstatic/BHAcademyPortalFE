@@ -551,20 +551,18 @@ export default function CourseDetailPage() {
 
     setIsSavingTrans(true);
     try {
-      // Send the rest of the translation data as it is, with updated fields merged
       const payload = {
-        ...(currentTransData || {}),
         language: selectedLangCode,
         courseName: transCourseName.trim(),
         courseDetails: transDescription.trim(),
         courseLevel: transCourseLevel || "BEGINNER",
-        ...(transDuration ? { duration: transDuration } : {}),
+        duration: transDuration.trim(),
       };
 
       const res = await updateCourseTranslationAction(course.id, payload);
 
       if (res.success) {
-        success(res.message || `Translation for ${selectedLangName} saved successfully!`);
+        success(res.message || `Course translation updated successfully`);
         resetTranslationForm();
         setViewMode("details");
         setActiveDetailsTab("languages");
@@ -1061,7 +1059,8 @@ export default function CourseDetailPage() {
         (meta.code && l.languageCode?.toLowerCase() === meta.code.toLowerCase())
     );
 
-    const videosCount = apiLang?.videoCount ?? (isEn ? course.noOfVideos ?? 5 : 0);
+    const videosCount = apiLang?.videoCount ?? 0;
+    const questionsCount = apiLang?.questionCount ?? 0;
 
     return {
       num: meta.num,
@@ -1074,7 +1073,7 @@ export default function CourseDetailPage() {
       trainingActive: trainingToggles[meta.num] ?? isEn,
       hasTranslation,
       videosCount,
-      questionsCount: isEn ? 1 : meta.num === 8 ? 6 : 0,
+      questionsCount,
     };
   });
 

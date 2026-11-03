@@ -72,10 +72,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast, success, error, info }}>
       {children}
-      {/* Toast container */}
+      {/* Toast container: centered top, popping from top */}
       <div
         aria-live="polite"
-        className="pointer-events-none fixed bottom-4 right-4 z-50 flex max-h-screen w-full max-w-sm flex-col gap-2 p-4 sm:p-0"
+        className="pointer-events-none fixed top-4 left-1/2 -translate-x-1/2 z-[9999] flex max-h-screen w-full max-w-md flex-col items-center gap-2 px-4 sm:px-0"
       >
         {toasts.map((t) => {
           const isSuccess = t.type === "success";
@@ -86,10 +86,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               key={t.id}
               role="status"
               className={cn(
-                "pointer-events-auto flex items-start gap-3 rounded-lg border p-4 shadow-lg transition-all animate-in slide-in-from-bottom-5 fade-in-0 duration-200",
-                isSuccess && "border-emerald-200 bg-white text-emerald-950",
-                isError && "border-rose-200 bg-white text-rose-950",
-                !isSuccess && !isError && "border-slate-200 bg-white text-slate-900"
+                "pointer-events-auto flex w-full items-start gap-3 rounded-xl border p-4 shadow-xl transition-all duration-300 animate-in slide-in-from-top-6 fade-in-0",
+                isSuccess && "border-emerald-200 bg-white text-emerald-950 shadow-emerald-500/10",
+                isError && "border-rose-200 bg-white text-rose-950 shadow-rose-500/10",
+                !isSuccess && !isError && "border-slate-200 bg-white text-slate-900 shadow-slate-500/10"
               )}
             >
               <div className="shrink-0 pt-0.5">
@@ -100,13 +100,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
               <div className="flex-1 text-sm">
                 {t.title && <p className="font-semibold">{t.title}</p>}
-                <p className={t.title ? "mt-0.5 text-xs text-slate-600" : "font-medium"}>{t.message}</p>
+                <p className={t.title ? "mt-0.5 text-xs text-slate-600" : "font-medium leading-relaxed"}>{t.message}</p>
               </div>
 
               <button
                 type="button"
                 onClick={() => removeToast(t.id)}
-                className="shrink-0 rounded p-1 text-slate-400 hover:text-slate-600"
+                className="shrink-0 rounded p-1 text-slate-400 hover:text-slate-600 transition-colors"
                 aria-label="Close toast"
               >
                 <X className="h-4 w-4" />

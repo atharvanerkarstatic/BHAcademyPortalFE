@@ -237,7 +237,7 @@ export default function FaqsPage() {
             {/* Language filter dropdown defaulting to en */}
             <div className="flex items-center gap-1.5">
               <label htmlFor="faq-lang" className="text-xs font-semibold text-slate-600 hidden sm:inline">
-                Lang:
+                Language:
               </label>
               <select
                 id="faq-lang"

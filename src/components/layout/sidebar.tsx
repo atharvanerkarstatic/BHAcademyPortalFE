@@ -144,7 +144,11 @@ function CollapsibleNavSection({
 export function Sidebar({ user }: { user: ReactNode }) {
   const pathname = usePathname();
   const { mobileOpen, desktopCollapsed, closeMobile } = useSidebar();
-  const { can } = useAuth();
+  const { can, profile } = useAuth();
+
+  const fullName = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ");
+  const displayName = fullName || profile?.email || user;
+  const avatarUrl = profile?.profilePic;
 
   return (
     <>
@@ -191,25 +195,39 @@ export function Sidebar({ user }: { user: ReactNode }) {
           </span>
         </div>
 
-        {/* Logged-in user */}
-        <div
+        {/* Logged-in user - clickable to navigate directly to Edit Profile */}
+        <Link
+          href="/profile"
+          onClick={closeMobile}
+          title="Edit Profile"
           className={cn(
-            "flex shrink-0 items-center border-b transition-all duration-300",
+            "group flex shrink-0 items-center border-b transition-all duration-300 hover:bg-slate-50",
             desktopCollapsed ? "lg:justify-center lg:py-3 lg:px-2 px-4 py-4 gap-3" : "px-4 py-4 gap-3"
           )}
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-            <UserRound className="h-5 w-5" />
+          <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-slate-500 ring-2 ring-transparent transition-all group-hover:ring-blue-400">
+            {avatarUrl ? (
+              <Image
+                src={avatarUrl}
+                alt={String(displayName || "Profile")}
+                fill
+                sizes="40px"
+                unoptimized
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <UserRound className="h-5 w-5 group-hover:text-blue-600 transition-colors" />
+            )}
           </span>
           <span
             className={cn(
-              "truncate text-sm font-medium text-slate-700",
+              "truncate text-sm font-medium text-slate-700 group-hover:text-blue-600 transition-colors",
               desktopCollapsed ? "lg:hidden" : "block"
             )}
           >
-            {user}
+            {displayName}
           </span>
-        </div>
+        </Link>
 
         {/* Links (scrolls if the screen is short) */}
         <nav className={cn("flex-1 overflow-y-auto py-3", desktopCollapsed ? "lg:px-1.5 px-3" : "px-3")}>

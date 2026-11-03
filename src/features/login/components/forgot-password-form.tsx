@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -27,11 +27,13 @@ import {
 
 type Step = "EMAIL" | "OTP" | "PASSWORD" | "SUCCESS";
 
+const OTP_COUNTDOWN_SECONDS = 120; // 2 minutes
+
 export default function ForgotPasswordForm() {
   const router = useRouter();
   const { success: toastSuccess, error: toastError } = useToast();
 
-  // Step state
+  // Step state - always start at EMAIL on mount
   const [step, setStep] = useState<Step>("EMAIL");
 
   // Field states
@@ -48,6 +50,74 @@ export default function ForgotPasswordForm() {
 
   // Status
   const [loading, setLoading] = useState(false);
+
+  // OTP 2-Minute Timer
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Helper to clear timer
+  const clearOtpTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  // Helper to start/reset the 2-minute countdown
+  const startOtpTimer = () => {
+    clearOtpTimer();
+    setTimerSeconds(OTP_COUNTDOWN_SECONDS);
+    timerRef.current = setInterval(() => {
+      setTimerSeconds((prev) => {
+        if (prev <= 1) {
+          clearOtpTimer();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  // Format seconds into mm:ss
+  const formatTime = (totalSeconds: number) => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  };
+
+  // Complete reset to clean Email Entry screen
+  const resetEntireFlow = () => {
+    clearOtpTimer();
+    setTimerSeconds(0);
+    setStep("EMAIL");
+    setEmail("");
+    setOtp("");
+    setResetToken("");
+    setMaskedMobile("");
+    setPassword("");
+    setConfirmPassword("");
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+    setLoading(false);
+  };
+
+  // Ensure fresh state on mount, unmount, and page visibility / back navigation
+  useEffect(() => {
+    resetEntireFlow();
+
+    const handlePageShow = () => {
+      resetEntireFlow();
+    };
+
+    window.addEventListener("pageshow", handlePageShow);
+    window.addEventListener("popstate", handlePageShow);
+
+    return () => {
+      window.removeEventListener("pageshow", handlePageShow);
+      window.removeEventListener("popstate", handlePageShow);
+      clearOtpTimer();
+    };
+  }, []);
 
   // Password strength checks
   const hasMinLength = password.length >= 8;
@@ -70,7 +140,10 @@ export default function ForgotPasswordForm() {
       const res = await requestPasswordResetOtpAction(cleanEmail);
       if (res.success) {
         toastSuccess(res.message);
+        setOtp("");
+        setResetToken("");
         setStep("OTP");
+        startOtpTimer();
       } else {
         toastError(res.error || res.message);
       }
@@ -83,11 +156,15 @@ export default function ForgotPasswordForm() {
 
   // 2. Resend OTP
   const handleResendOtp = async () => {
+    if (timerSeconds > 0) return;
+
     setLoading(true);
     try {
       const res = await requestPasswordResetOtpAction(email.trim());
       if (res.success) {
         toastSuccess(res.message || "A new OTP has been sent.");
+        setOtp("");
+        startOtpTimer(); // Reset countdown whenever a new OTP is successfully sent
       } else {
         toastError(res.error || res.message);
       }
@@ -113,6 +190,7 @@ export default function ForgotPasswordForm() {
       const res = await verifyPasswordResetOtpAction(email.trim(), cleanOtp);
       if (res.success && res.resetToken) {
         toastSuccess(res.message);
+        clearOtpTimer();
         setResetToken(res.resetToken);
         if (res.maskedMobile) setMaskedMobile(res.maskedMobile);
         setStep("PASSWORD");
@@ -132,7 +210,7 @@ export default function ForgotPasswordForm() {
 
     if (!resetToken) {
       toastError("Session expired. Please request a new OTP.");
-      setStep("EMAIL");
+      resetEntireFlow();
       return;
     }
 
@@ -167,6 +245,7 @@ export default function ForgotPasswordForm() {
 
         // Redirect to Login page after a brief delay for toast visibility
         setTimeout(() => {
+          resetEntireFlow();
           router.push("/login");
         }, 1200);
       } else {
@@ -267,7 +346,7 @@ export default function ForgotPasswordForm() {
               <Input
                 type="email"
                 placeholder="Email Address"
-                autoComplete="email"
+                autoComplete="off"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -286,6 +365,7 @@ export default function ForgotPasswordForm() {
 
               <Link
                 href="/login"
+                onClick={resetEntireFlow}
                 className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-blue-600 hover:underline"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
@@ -320,24 +400,39 @@ export default function ForgotPasswordForm() {
               />
             </div>
 
+            {/* Countdown / Resend OTP Action */}
             <div className="flex items-center justify-between text-xs">
               <button
                 type="button"
-                onClick={() => setStep("EMAIL")}
+                onClick={() => {
+                  clearOtpTimer();
+                  setTimerSeconds(0);
+                  setOtp("");
+                  setStep("EMAIL");
+                }}
                 className="text-slate-500 hover:text-blue-600 hover:underline"
               >
                 Change Email
               </button>
 
-              <button
-                type="button"
-                disabled={loading}
-                onClick={handleResendOtp}
-                className="inline-flex items-center gap-1 text-blue-600 hover:underline disabled:opacity-50"
-              >
-                <RotateCw className="h-3 w-3" />
-                Resend OTP
-              </button>
+              {timerSeconds > 0 ? (
+                <span className="text-slate-500 font-medium">
+                  Resend OTP in{" "}
+                  <span className="font-mono font-semibold text-blue-600">
+                    {formatTime(timerSeconds)}
+                  </span>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={handleResendOtp}
+                  className="inline-flex items-center gap-1 text-blue-600 hover:underline disabled:opacity-50 font-medium"
+                >
+                  <RotateCw className="h-3 w-3" />
+                  Resend OTP
+                </button>
+              )}
             </div>
 
             <div className="flex flex-col items-center gap-3 pt-2">
@@ -351,6 +446,7 @@ export default function ForgotPasswordForm() {
 
               <Link
                 href="/login"
+                onClick={resetEntireFlow}
                 className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-blue-600 hover:underline"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
@@ -462,6 +558,15 @@ export default function ForgotPasswordForm() {
               >
                 {loading ? "Resetting Password…" : "Reset Password"}
               </Button>
+
+              <Link
+                href="/login"
+                onClick={resetEntireFlow}
+                className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-blue-600 hover:underline"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Cancel and return to Sign In
+              </Link>
             </div>
           </form>
         )}
@@ -480,7 +585,10 @@ export default function ForgotPasswordForm() {
             </div>
             <Button
               type="button"
-              onClick={() => router.push("/login")}
+              onClick={() => {
+                resetEntireFlow();
+                router.push("/login");
+              }}
               className="mt-2 bg-blue-500 hover:bg-blue-600 text-xs font-semibold"
               size="sm"
             >

@@ -32,6 +32,7 @@ export function CollapsibleChartCard({
         <button
           type="button"
           onClick={() => setCollapsed((v) => !v)}
+          suppressHydrationWarning
           className="text-white hover:bg-blue-600/50 rounded p-1 transition-colors"
           aria-label={collapsed ? "Expand card" : "Collapse card"}
         >

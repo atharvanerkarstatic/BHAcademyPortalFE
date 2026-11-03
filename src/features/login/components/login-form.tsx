@@ -17,11 +17,29 @@ export default function LoginForm({ ip }: { ip: ReactNode }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Clear inputs and reset state on mount, unmount, and page visibility / back-forward cache
   useEffect(() => {
+    setEmail("");
+    setPassword("");
+    setShowPassword(false);
     setLoading(false);
-    const handlePageShow = () => setLoading(false);
-    window.addEventListener("pageshow", handlePageShow);
-    return () => window.removeEventListener("pageshow", handlePageShow);
+
+    const handleReset = () => {
+      setEmail("");
+      setPassword("");
+      setShowPassword(false);
+      setLoading(false);
+    };
+
+    window.addEventListener("pageshow", handleReset);
+    window.addEventListener("popstate", handleReset);
+
+    return () => {
+      window.removeEventListener("pageshow", handleReset);
+      window.removeEventListener("popstate", handleReset);
+      setEmail("");
+      setPassword("");
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -104,7 +122,7 @@ export default function LoginForm({ ip }: { ip: ReactNode }) {
             <Input
               type="email"
               placeholder="Email ID"
-              autoComplete="email"
+              autoComplete="off"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -120,7 +138,7 @@ export default function LoginForm({ ip }: { ip: ReactNode }) {
             <Input
               type={showPassword ? "text" : "password"}
               placeholder="Password"
-              autoComplete="current-password"
+              autoComplete="new-password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -151,7 +169,14 @@ export default function LoginForm({ ip }: { ip: ReactNode }) {
                 {loading ? "Signing in…" : "Sign In"}
               </Button>
 
-              <Link href="/forgot-password" className="text-sm text-blue-600 hover:underline">
+              <Link
+                href="/forgot-password"
+                onClick={() => {
+                  setEmail("");
+                  setPassword("");
+                }}
+                className="text-sm text-blue-600 hover:underline"
+              >
                 I forgot my password
               </Link>
             </div>

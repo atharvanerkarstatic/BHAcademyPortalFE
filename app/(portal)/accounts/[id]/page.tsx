@@ -327,10 +327,6 @@ export default function AccountDetailPage() {
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-1">
-                  <span className="font-semibold text-slate-700">OTP:</span>
-                  <span className="col-span-2 font-mono text-slate-600">{account.otp || "—"}</span>
-                </div>
-                <div className="grid grid-cols-3 gap-1">
                   <span className="font-semibold text-slate-700">State:</span>
                   <span className="col-span-2 text-slate-600 truncate">{account.state || "—"}</span>
                 </div>
@@ -341,14 +337,6 @@ export default function AccountDetailPage() {
                 <div className="grid grid-cols-3 gap-1">
                   <span className="font-semibold text-slate-700">District:</span>
                   <span className="col-span-2 text-slate-600 truncate">{account.district || "—"}</span>
-                </div>
-                <div className="grid grid-cols-3 gap-1">
-                  <span className="font-semibold text-slate-700">Signup Date:</span>
-                  <span className="col-span-2 text-slate-600 truncate">{account.signupDate || "—"}</span>
-                </div>
-                <div className="grid grid-cols-3 gap-1">
-                  <span className="font-semibold text-slate-700">Signup IP:</span>
-                  <span className="col-span-2 font-mono text-slate-600 truncate">{account.signupIp || "—"}</span>
                 </div>
               </div>
 

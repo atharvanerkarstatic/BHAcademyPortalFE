@@ -221,6 +221,7 @@ export function ReportPageLayout({
                 <select
                   value={modeOfTraining}
                   onChange={(e) => setModeOfTraining(e.target.value)}
+                  suppressHydrationWarning
                   className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="">All</option>
@@ -242,6 +243,7 @@ export function ReportPageLayout({
                   <select
                     value={trainer}
                     onChange={(e) => setTrainer(e.target.value)}
+                    suppressHydrationWarning
                     className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="">All Trainers</option>
@@ -257,6 +259,7 @@ export function ReportPageLayout({
                     value={trainer}
                     onChange={(e) => setTrainer(e.target.value)}
                     placeholder="Enter trainer name or id"
+                    suppressHydrationWarning
                     className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 )}
@@ -276,6 +279,7 @@ export function ReportPageLayout({
                   value={division}
                   onChange={(e) => setDivision(e.target.value)}
                   placeholder="Enter division"
+                  suppressHydrationWarning
                   className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
@@ -294,6 +298,7 @@ export function ReportPageLayout({
                   value={region}
                   onChange={(e) => setRegion(e.target.value)}
                   placeholder="Enter region"
+                  suppressHydrationWarning
                   className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
@@ -310,6 +315,7 @@ export function ReportPageLayout({
                 <select
                   value={selectedLanguage}
                   onChange={(e) => setSelectedLanguage(e.target.value)}
+                  suppressHydrationWarning
                   className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="">All Languages</option>
@@ -333,6 +339,7 @@ export function ReportPageLayout({
                 <select
                   value={selectedCourse}
                   onChange={(e) => setSelectedCourse(e.target.value)}
+                  suppressHydrationWarning
                   className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="">All Courses</option>
@@ -359,6 +366,7 @@ export function ReportPageLayout({
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
                     placeholder="dd----yyyy"
+                    suppressHydrationWarning
                     className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
@@ -374,6 +382,7 @@ export function ReportPageLayout({
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     placeholder="dd----yyyy"
+                    suppressHydrationWarning
                     className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
@@ -418,6 +427,7 @@ export function ReportPageLayout({
                   type="button"
                   onClick={handleViewReportClick}
                   disabled={isViewPending}
+                  suppressHydrationWarning
                   className="inline-flex items-center justify-center rounded bg-[#0070e0] px-7 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
                 >
                   {isViewPending ? (
@@ -435,6 +445,7 @@ export function ReportPageLayout({
                 type="button"
                 onClick={handleGenerate}
                 disabled={isPending}
+                suppressHydrationWarning
                 className="inline-flex items-center justify-center rounded bg-[#0070e0] px-7 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
               >
                 {isPending ? (

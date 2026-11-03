@@ -3,6 +3,7 @@ export type CourseLanguageItem = {
   language: string;
   languageCode: string | null;
   videoCount: number;
+  questionCount?: number;
 };
 
 export type CourseItem = {
@@ -120,4 +121,3 @@ export type CreateCoursePayload = {
 };
 
 export type UpdateCoursePayload = CreateCoursePayload;
-

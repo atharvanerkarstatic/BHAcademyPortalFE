@@ -229,6 +229,49 @@ export async function updateTrainerAction(id: number | string, payload: UpdateTr
   }
 }
 
+export async function updateTrainerStatusAction(
+  id: number | string,
+  status: "ACTIVE" | "SUSPENDED" | "INACTIVE" | string
+) {
+  const user = await getCurrentUser();
+  const userPerms = user ? [...user.roles, ...user.permissions] : [];
+
+  if (!hasPermission(userPerms, "users.update") && !hasPermission(userPerms, "system.all")) {
+    return {
+      success: false,
+      error: "You do not have permission to update trainer status.",
+    };
+  }
+
+  try {
+    const res = await apiFetch<{
+      success: boolean;
+      status: number;
+      message: string;
+      data?: unknown;
+    }>(`/v1/users/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+
+    revalidatePath("/trainers");
+
+    return {
+      success: true,
+      data: res?.data,
+      message: res?.message || `Trainer status updated to ${status}`,
+    };
+  } catch (error) {
+    console.error(`Failed to update status for trainer ${id}:`, error);
+    const message =
+      error instanceof ApiError ? error.message : "Failed to update trainer status.";
+    return {
+      success: false,
+      error: message,
+    };
+  }
+}
+
 export async function deleteTrainerAction(id: number | string) {
   const user = await getCurrentUser();
   const userPerms = user ? [...user.roles, ...user.permissions] : [];

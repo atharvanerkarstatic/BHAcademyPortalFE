@@ -3,14 +3,17 @@
 import * as React from "react";
 import { AUTH_PERMS_COOKIE } from "@/lib/auth-cookies";
 import { hasPermission, type AuthUser } from "@/lib/auth-jwt";
+import { getCurrentUserProfile, type UserProfile } from "@/features/profile/action";
 
 type AuthContextType = {
   user: AuthUser | null;
+  profile: UserProfile | null;
   permissions: string[];
   roles: string[];
   can: (permissionOrRole: string | string[]) => boolean;
   hasRole: (role: string) => boolean;
   isSuperAdmin: boolean;
+  refreshProfile: () => Promise<void>;
 };
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
@@ -48,14 +51,28 @@ export function AuthProvider({
   initialUser?: AuthUser | null;
 }) {
   const [user, setUser] = React.useState<AuthUser | null>(() => initialUser ?? readUserFromCookie());
+  const [profile, setProfile] = React.useState<UserProfile | null>(null);
 
-  // Listen to cookie changes or sync if initialUser was not passed on server
+  // Function to fetch or re-fetch profile details using the existing user-details API
+  const refreshProfile = React.useCallback(async () => {
+    try {
+      const res = await getCurrentUserProfile();
+      if (res.success && res.data) {
+        setProfile(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to load user profile in AuthProvider:", err);
+    }
+  }, []);
+
+  // Fetch profile details upon mount or whenever session changes
   React.useEffect(() => {
     if (!initialUser) {
       const fromCookie = readUserFromCookie();
       if (fromCookie) setUser(fromCookie);
     }
-  }, [initialUser]);
+    refreshProfile();
+  }, [initialUser, refreshProfile]);
 
   const allAuth = React.useMemo(() => {
     if (!user) return [];
@@ -85,11 +102,13 @@ export function AuthProvider({
     <AuthContext.Provider
       value={{
         user,
+        profile,
         permissions: user?.permissions ?? [],
         roles: user?.roles ?? [],
         can,
         hasRole,
         isSuperAdmin,
+        refreshProfile,
       }}
     >
       {children}

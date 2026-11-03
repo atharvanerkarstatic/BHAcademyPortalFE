@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
-import { Plus, RefreshCw, Search, UserRound, Pencil, Trash2, Download } from "lucide-react";
+import { Plus, RefreshCw, Search, UserRound, Pencil, Trash2, Download, Loader2 } from "lucide-react";
 
 import { DataTable, type Column } from "@/components/common/data-table";
 import { PageHeader } from "@/components/common/page-header";
@@ -21,10 +21,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
+import { cn } from "@/lib/utils";
 import {
   getTrainersAction,
   deleteTrainerAction,
   exportTrainersAction,
+  updateTrainerStatusAction,
 } from "@/features/trainers/action";
 import type { TrainerItem, TrainerPageResponse } from "@/features/trainers/types";
 
@@ -53,11 +55,54 @@ export default function TrainersPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [trainerToDelete, setTrainerToDelete] = useState<TrainerItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [togglingTrainerId, setTogglingTrainerId] = useState<number | null>(null);
 
   const canCreate = can("users.create") || can("system.all");
   const canUpdate = can("users.update") || can("system.all");
   const canDelete = can("users.delete") || can("system.all");
   const canExport = can("users.read") || can("system.all");
+
+  const handleToggleStatus = async (trainer: TrainerItem) => {
+    if (!canUpdate) return;
+    const currentActive = trainer.status === "ACTIVE";
+    const nextStatus = currentActive ? "SUSPENDED" : "ACTIVE";
+
+    // Optimistically update the UI
+    setTogglingTrainerId(trainer.id);
+    setPageData((prev) => ({
+      ...prev,
+      content: prev.content.map((item) =>
+        item.id === trainer.id ? { ...item, status: nextStatus } : item
+      ),
+    }));
+
+    try {
+      const res = await updateTrainerStatusAction(trainer.id, nextStatus);
+      if (res.success) {
+        success(res.message || `Trainer status updated to ${nextStatus === "ACTIVE" ? "Active" : "Inactive"}`);
+      } else {
+        // Revert on failure
+        setPageData((prev) => ({
+          ...prev,
+          content: prev.content.map((item) =>
+            item.id === trainer.id ? { ...item, status: trainer.status } : item
+          ),
+        }));
+        toastError(res.error || "Failed to update trainer status");
+      }
+    } catch {
+      // Revert on error
+      setPageData((prev) => ({
+        ...prev,
+        content: prev.content.map((item) =>
+          item.id === trainer.id ? { ...item, status: trainer.status } : item
+        ),
+      }));
+      toastError("An error occurred while updating trainer status");
+    } finally {
+      setTogglingTrainerId(null);
+    }
+  };
 
   const loadTrainers = (
     targetPage = page,
@@ -211,8 +256,43 @@ export default function TrainersPage() {
       },
       {
         header: "Status",
-        cell: (r) => <StatusText active={r.status === "ACTIVE"} />,
-        className: "w-24 text-center",
+        cell: (r) => {
+          const isActive = r.status === "ACTIVE";
+          const isToggling = togglingTrainerId === r.id;
+
+          if (!canUpdate) {
+            return <StatusText active={isActive} />;
+          }
+
+          return (
+            <button
+              type="button"
+              disabled={isToggling}
+              onClick={() => handleToggleStatus(r)}
+              title={`Click to toggle status (${isActive ? "Suspend / Inactivate" : "Activate"})`}
+              className={cn(
+                "group relative inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-all shadow-xs border",
+                isActive
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300"
+                  : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:border-rose-300",
+                isToggling && "opacity-60 cursor-not-allowed"
+              )}
+            >
+              {isToggling ? (
+                <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+              ) : (
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full shrink-0 transition-transform group-hover:scale-125",
+                    isActive ? "bg-emerald-500" : "bg-rose-500"
+                  )}
+                />
+              )}
+              <span>{isActive ? "Active" : "Inactive"}</span>
+            </button>
+          );
+        },
+        className: "w-28 text-center",
       },
       {
         header: "Created Date",

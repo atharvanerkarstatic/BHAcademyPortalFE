@@ -260,17 +260,6 @@ export type UpdateCourseTranslationPayload = {
   courseDetails: string;
   courseLevel?: string;
   duration?: string;
-  categoryId?: string | number;
-  categoryName?: string;
-  courseId?: string | number;
-  id?: string | number;
-  points?: number;
-  noOfVideos?: number;
-  noOfCertifications?: string;
-  imageUrl?: string;
-  mode?: string;
-  status?: string;
-  languages?: unknown[];
   [key: string]: unknown;
 };
 
@@ -289,11 +278,26 @@ export async function updateCourseTranslationAction(
   }
 
   try {
+    // Exact request body required by PUT /v1/courses/{courseId}/translations
+    const requestBody: {
+      language: string;
+      courseName: string;
+      courseDetails: string;
+      courseLevel: string;
+      duration: string;
+    } = {
+      language: payload.language,
+      courseName: payload.courseName,
+      courseDetails: payload.courseDetails || "",
+      courseLevel: payload.courseLevel || "BEGINNER",
+      duration: payload.duration || "",
+    };
+
     const res = await apiFetch<ApiResponse<CourseItem>>(
       `/v1/courses/${courseId}/translations`,
       {
         method: "PUT",
-        body: JSON.stringify(payload),
+        body: JSON.stringify(requestBody),
       }
     );
 
