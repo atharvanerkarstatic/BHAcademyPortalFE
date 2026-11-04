@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
+import { validateImageFile } from "@/lib/validations";
 import { uploadMediaAction } from "@/features/accounts/action";
 import { getTrainerByIdAction, updateTrainerAction } from "@/features/trainers/action";
 import type { TrainerItem } from "@/features/trainers/types";
@@ -284,7 +285,7 @@ export default function EditTrainerPage({
                   <Input
                     id="edit-trainer-image"
                     type="file"
-                    accept="image/*"
+                    accept=".jpg,.jpeg,.png"
                     onChange={(e) => handleImageChange(e.target.files?.[0] || null)}
                     className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
                   />

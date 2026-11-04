@@ -10,6 +10,7 @@ export type CourseItem = {
   id: number;
   categoryId: string | number;
   categoryName: string;
+  courseCode?: string;
   courseName: string;
   courseDetails?: string;
   courseLevel?: "Basic" | "Intermediate" | "Advanced" | string | null;

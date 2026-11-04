@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
+import { validateImageFile } from "@/lib/validations";
 import { uploadMediaAction } from "@/features/accounts/action";
 import { getCurrentUserProfile, updateUserProfileAction, type UserProfile } from "@/features/profile/action";
 import { useAuth } from "@/lib/auth-context";
@@ -301,7 +302,7 @@ export default function EditProfilePage() {
                     <Input
                       id="prof-image"
                       type="file"
-                      accept="image/*"
+                      accept=".jpg,.jpeg,.png"
                       onChange={handleImageChange}
                       className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
                     />

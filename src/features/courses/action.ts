@@ -301,7 +301,7 @@ export async function updateCourseTranslationAction(
       }
     );
 
-    revalidatePath(`/courses/${courseId}`);
+    revalidatePath(`/courses/${courseIdentifier}`);
     revalidatePath("/courses");
 
     return {
@@ -430,8 +430,7 @@ export type CourseImportResponse = {
 };
 
 export async function importCourseTranslationsAction(
-  courseId: string | number,
-  languageCode: string,
+  courseIdentifier: string | number,
   formData: FormData
 ) {
   const user = await getCurrentUser();
@@ -446,14 +445,14 @@ export async function importCourseTranslationsAction(
 
   try {
     const res = await apiFetch<ApiResponse<CourseImportResponse>>(
-      `/v1/courses/${encodeURIComponent(courseId)}/import/language/${encodeURIComponent(languageCode)}`,
+      `/v1/courses/${encodeURIComponent(courseIdentifier)}/import/language`,
       {
         method: "POST",
         body: formData,
       }
     );
 
-    revalidatePath(`/courses/${courseId}`);
+    revalidatePath(`/courses/${courseIdentifier}`);
     return {
       success: true,
       data: res.data,
@@ -478,8 +477,7 @@ export async function importCourseTranslationsAction(
 }
 
 export async function importCourseVideosAction(
-  courseId: string | number,
-  languageCode: string,
+  courseIdentifier: string | number,
   formData: FormData
 ) {
   const user = await getCurrentUser();
@@ -499,14 +497,14 @@ export async function importCourseVideosAction(
 
   try {
     const res = await apiFetch<ApiResponse<CourseImportResponse>>(
-      `/v1/courses/${encodeURIComponent(courseId)}/videos/import/language/${encodeURIComponent(languageCode)}`,
+      `/v1/course/${encodeURIComponent(courseIdentifier)}/videos/import`,
       {
         method: "POST",
         body: formData,
       }
     );
 
-    revalidatePath(`/courses/${courseId}`);
+    revalidatePath(`/courses/${courseIdentifier}`);
     return {
       success: true,
       data: res.data,
@@ -584,7 +582,7 @@ export async function createCourseVideoAction(
       }
     );
 
-    revalidatePath(`/courses/${courseId}`);
+    revalidatePath(`/courses/${courseIdentifier}`);
     return {
       success: true,
       data: res.data,
@@ -645,7 +643,7 @@ export async function deleteCourseVideoAction(
     );
 
     if (courseId) {
-      revalidatePath(`/courses/${courseId}`);
+      revalidatePath(`/courses/${courseIdentifier}`);
     }
     return {
       success: true,
@@ -817,7 +815,7 @@ export async function deleteQuizAction(
     );
 
     if (courseId) {
-      revalidatePath(`/courses/${courseId}`);
+      revalidatePath(`/courses/${courseIdentifier}`);
     }
     return {
       success: true,
@@ -833,8 +831,7 @@ export async function deleteQuizAction(
 }
 
 export async function importCourseQuizzesAction(
-  courseId: string | number,
-  languageCode: string,
+  courseIdentifier: string | number,
   formData: FormData
 ) {
   const user = await getCurrentUser();
@@ -855,14 +852,14 @@ export async function importCourseQuizzesAction(
 
   try {
     const res = await apiFetch<ApiResponse<CourseImportResponse>>(
-      `/v1/courses/${encodeURIComponent(courseId)}/quiz/import/language/${encodeURIComponent(languageCode)}`,
+      `/v1/courses/${encodeURIComponent(courseIdentifier)}/quiz/import`,
       {
         method: "POST",
         body: formData,
       }
     );
 
-    revalidatePath(`/courses/${courseId}`);
+    revalidatePath(`/courses/${courseIdentifier}`);
     return {
       success: true,
       data: res.data,

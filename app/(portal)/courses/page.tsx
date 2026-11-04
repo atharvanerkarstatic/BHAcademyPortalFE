@@ -135,7 +135,7 @@ export default function CoursesPage() {
     const cols: Column<CourseItem>[] = [
       {
         header: "ID",
-        cell: (r) => <span className="font-mono text-xs font-semibold text-slate-700">#{r.id}</span>,
+        cell: (r) => <span className="font-mono text-xs font-semibold text-slate-700">{r.id}</span>,
         className: "w-16 text-center",
       },
       {

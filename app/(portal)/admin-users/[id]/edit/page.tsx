@@ -19,6 +19,7 @@ import {
   getRolesPicklistAction,
 } from "@/features/admin-users/action";
 import type { AdminUserItem, RoleItem } from "@/features/admin-users/types";
+import { validateImageFile } from "@/lib/validations";
 
 function splitName(fullName: string) {
   const trimmed = fullName.trim();
@@ -372,12 +373,24 @@ export default function EditAdminUserPage({
                 <Input
                   id="edit-image"
                   type="file"
-                  accept="image/*"
-                  onChange={(e) => setNewImageFile(e.target.files?.[0] || null)}
+                  accept=".jpg,.jpeg,.png"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    if (file) {
+                      const check = validateImageFile(file);
+                      if (!check.valid) {
+                        toastError(check.error || "Only .png, .jpg, and .jpeg image formats are allowed.");
+                        e.target.value = "";
+                        setNewImageFile(null);
+                        return;
+                      }
+                    }
+                    setNewImageFile(file);
+                  }}
                   className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
                 />
                 <p className="text-[11px] text-slate-400">
-                  Leave empty to keep existing picture. Supported formats: PNG, JPG, or WEBP (Max size: 5MB)
+                  Leave empty to keep existing picture. Supported formats: PNG, JPG, JPEG (Max size: 5MB)
                 </p>
               </div>
             </div>

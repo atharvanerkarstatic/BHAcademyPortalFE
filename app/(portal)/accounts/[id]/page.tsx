@@ -34,8 +34,9 @@ import {
 } from "@/features/accounts/action";
 import type { AccountItem } from "@/features/accounts/types";
 import { cn } from "@/lib/utils";
+import { validateImageFile } from "@/lib/validations";
 
-const ALLOWED_IMAGE_EXTS = ["jpg", "jpeg", "png", "gif", "webp", "bmp"];
+const ALLOWED_IMAGE_EXTS = ["jpg", "jpeg", "png"];
 
 export default function AccountDetailPage() {
   const params = useParams();
@@ -110,9 +111,9 @@ export default function AccountDetailPage() {
       setImageFile(null);
       return;
     }
-    const ext = file.name.split(".").pop()?.toLowerCase() || "";
-    if (!ALLOWED_IMAGE_EXTS.includes(ext)) {
-      toastError("Please upload a valid image file (.jpg, .jpeg, .png, .gif, .webp, .bmp)");
+    const check = validateImageFile(file);
+    if (!check.valid) {
+      toastError(check.error || "Invalid image file");
       e.target.value = "";
       setImageFile(null);
       return;
@@ -601,11 +602,11 @@ export default function AccountDetailPage() {
                       <Input
                         id="edit-pic"
                         type="file"
-                        accept=".jpg,.jpeg,.png,.gif,.webp,.bmp"
+                        accept=".jpg,.jpeg,.png"
                         onChange={handleImageChange}
                         className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
                       />
-                      <p className="mt-1 text-[11px] text-slate-500">Allowed formats: JPG, JPEG, PNG, GIF, WebP, BMP</p>
+                      <p className="mt-1 text-[11px] text-slate-500">Allowed formats: PNG, JPG, JPEG (Max 5 MB)</p>
                     </div>
                   </div>
 

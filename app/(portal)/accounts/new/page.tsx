@@ -13,6 +13,13 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
 import { createAccountAction, uploadMediaAction } from "@/features/accounts/action";
+import {
+  isValidEmail,
+  isValidMobileNumber,
+  sanitizeMobileNumber,
+  sanitizeTextInput,
+  validateImageFile,
+} from "@/lib/validations";
 
 export default function NewAccountPage() {
   const router = useRouter();
@@ -61,17 +68,47 @@ export default function NewAccountPage() {
     setFormKey((k) => k + 1);
   };
 
+  const handleImageChange = (file: File | null) => {
+    if (!file) {
+      setImageFile(null);
+      return;
+    }
+    const check = validateImageFile(file);
+    if (!check.valid) {
+      toastError(check.error || "Invalid image file");
+      return;
+    }
+    setImageFile(file);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name.trim()) {
+    const cleanName = sanitizeTextInput(name, 255);
+    if (!cleanName) {
       toastError("Full Name is required.");
       return;
     }
-    if (!mobileNumber.trim()) {
+
+    const cleanMobile = sanitizeMobileNumber(mobileNumber);
+    if (!cleanMobile) {
       toastError("Mobile number is required.");
       return;
     }
+
+    if (!isValidMobileNumber(cleanMobile)) {
+      toastError("Mobile number must be exactly 10 digits.");
+      return;
+    }
+
+    const cleanEmail = sanitizeTextInput(emailId, 255);
+    if (cleanEmail && !isValidEmail(cleanEmail)) {
+      toastError("Please enter a valid email address.");
+      return;
+    }
+
+    const cleanBhBp = sanitizeTextInput(bhBp, 50);
+    const cleanPincode = sanitizeTextInput(pincode, 10);
 
     startTransition(async () => {
       let imageUrl = "";
@@ -92,22 +129,13 @@ export default function NewAccountPage() {
         }
       }
 
-      // JSON payload exactly matching new request body:
-      // {
-      //   "name": "Rahul Sharma",
-      //   "mobileNumber": "1876543210",
-      //   "bhBp": "12345678",
-      //   "emailId": "rahul.sharma@example.com",
-      //   "image": "https://example.com/profile.jpg",
-      //   "pincode": "245101"
-      // }
       const payload: Record<string, unknown> = {
-        name: name.trim(),
-        mobileNumber: mobileNumber.trim(),
-        bhBp: bhBp.trim(),
-        emailId: emailId.trim(),
+        name: cleanName,
+        mobileNumber: cleanMobile,
+        bhBp: cleanBhBp,
+        emailId: cleanEmail,
         image: imageUrl,
-        pincode: pincode.trim(),
+        pincode: cleanPincode,
       };
 
       const res = await createAccountAction(payload);
@@ -171,6 +199,7 @@ export default function NewAccountPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Full Name"
+                  maxLength={255}
                   className="h-9 text-xs"
                   required
                 />
@@ -185,8 +214,10 @@ export default function NewAccountPage() {
               <div className="sm:col-span-3">
                 <Input
                   id="acc-mobile"
+                  type="tel"
+                  maxLength={10}
                   value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value)}
+                  onChange={(e) => setMobileNumber(sanitizeMobileNumber(e.target.value))}
                   placeholder="10-digit mobile number"
                   className="h-9 text-xs font-mono"
                   required
@@ -205,6 +236,7 @@ export default function NewAccountPage() {
                   value={bhBp}
                   onChange={(e) => setBhBp(e.target.value)}
                   placeholder="e.g. 12345678"
+                  maxLength={50}
                   className="h-9 text-xs font-mono"
                 />
               </div>
@@ -222,6 +254,7 @@ export default function NewAccountPage() {
                   value={emailId}
                   onChange={(e) => setEmailId(e.target.value)}
                   placeholder="e.g. rahul.sharma@example.com"
+                  maxLength={255}
                   className="h-9 text-xs"
                 />
               </div>
@@ -236,8 +269,9 @@ export default function NewAccountPage() {
                 <Input
                   id="acc-pincode"
                   value={pincode}
-                  onChange={(e) => setPincode(e.target.value)}
+                  onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   placeholder="e.g. 245101"
+                  maxLength={6}
                   className="h-9 text-xs font-mono"
                 />
               </div>
@@ -252,10 +286,13 @@ export default function NewAccountPage() {
                 <Input
                   id="acc-image"
                   type="file"
-                  accept="image/*"
-                  onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                  accept=".jpg,.jpeg,.png"
+                  onChange={(e) => handleImageChange(e.target.files?.[0] || null)}
                   className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
                 />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Allowed formats: PNG, JPG, JPEG (Max 5 MB)
+                </p>
               </div>
             </div>
 

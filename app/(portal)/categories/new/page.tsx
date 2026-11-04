@@ -3,18 +3,18 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-
 import { ArrowLeft, Layers, Languages, Loader2 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/toast";
 import { createCategoryAction } from "@/features/categories/action";
 import type { CreateCategoryPayload } from "@/features/categories/types";
+import { sanitizeTextInput, sanitizeNonNegativeNumber } from "@/lib/validations";
 
 const TRANSLATION_LANGUAGES = [
   { code: "Hi", name: "Hindi (हिन्दी)" },
@@ -47,17 +47,14 @@ export default function NewCategoryPage() {
   const { success, error: toastError } = useToast();
   const [isPending, startTransition] = useTransition();
 
-  // Form key to force-clear any cached DOM input fields upon remount or reset
   const [formKey, setFormKey] = useState<number>(() => Date.now());
 
-  // Mandatory primary fields
   const [category, setCategory] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [displayOrder, setDisplayOrder] = useState<number>(1);
   const [status, setStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
   const [featured, setFeatured] = useState<boolean>(false);
 
-  // Multilingual translations
   const [translations, setTranslations] = useState<Record<string, string>>(INITIAL_TRANSLATIONS);
 
   const resetForm = () => {
@@ -70,7 +67,6 @@ export default function NewCategoryPage() {
     setFormKey(Date.now());
   };
 
-  // Always reset fields when opening or unmounting the New Category page
   useEffect(() => {
     resetForm();
     return () => {
@@ -90,240 +86,236 @@ export default function NewCategoryPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const cleanCategory = category.trim();
+    const cleanCategory = sanitizeTextInput(category, 255);
     if (!cleanCategory) {
       toastError("Category name is required.");
       return;
     }
 
-    if (cleanCategory.length > 255) {
-      toastError("Character size limit exceeded: Category Name must not exceed 255 characters.");
-      return;
-    }
+    const cleanImageUrl = sanitizeTextInput(imageUrl, 500);
 
-    if (imageUrl.trim().length > 500) {
-      toastError("Character size limit exceeded: Image URL must not exceed 500 characters.");
-      return;
-    }
-
+    const sanitizedTranslations: Record<string, string> = {};
     for (const [key, val] of Object.entries(translations)) {
-      if (val && val.length > 255) {
-        toastError(`Character size limit exceeded: ${key} must not exceed 255 characters.`);
-        return;
-      }
+      if (!val) continue;
+      sanitizedTranslations[key] = sanitizeTextInput(val, 255);
     }
 
     const payload: CreateCategoryPayload = {
       category: cleanCategory,
-      imageUrl: imageUrl.trim() || undefined,
-      displayOrder: Number(displayOrder) || 1,
+      imageUrl: cleanImageUrl || undefined,
+      displayOrder: sanitizeNonNegativeNumber(displayOrder, 0, 0),
       status,
       featured,
-      ...translations,
+      ...sanitizedTranslations,
     };
 
     startTransition(async () => {
       const res = await createCategoryAction(payload);
       if (res.success) {
-        success(res.message || "Category created successfully");
+        success("Category created successfully");
         resetForm();
         router.push("/categories");
       } else {
-        console.error("Backend error from createCategoryAction:", res.error);
-
-        const errText = (res.error || "").toLowerCase();
-        let displayMsg = res.error || "Failed to create category. Please check all fields and try again.";
-        if (
-          errText.includes("character") ||
-          errText.includes("size") ||
-          errText.includes("limit") ||
-          errText.includes("too long") ||
-          errText.includes("length")
-        ) {
-          displayMsg = "Character size limit exceeded. Please ensure all inputs are within the allowed limit.";
-        }
-
-        toastError(displayMsg);
+        toastError(res.error || "Failed to create category. Please check all fields.");
       }
     });
   };
 
   return (
-    <div className="w-full space-y-6 pb-12">
-      <div className="flex items-center justify-between">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={handleCancel}
-          className="gap-1.5 text-slate-600 hover:text-slate-900"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Categories
-        </Button>
-      </div>
-
+    <div className="w-full space-y-4 pb-12">
       <PageHeader
-        title="Add New Category"
+        title="Manage Categories"
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Categories List", href: "/categories" },
-          { label: "Add Category" },
+          { label: "Add New Category" },
         ]}
       />
 
-      <form key={formKey} onSubmit={handleSubmit} noValidate autoComplete="off" className="w-full space-y-6">
+      <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <CardHeader className="border-b px-6 py-4 bg-white flex flex-row items-center justify-between">
+          <CardTitle className="text-base font-bold text-slate-900">
+            Add New Category
+          </CardTitle>
+          <Button variant="ghost" size="sm" asChild className="gap-1.5 text-slate-600 hover:text-slate-900">
+            <Link href="/categories">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Categories List
+            </Link>
+          </Button>
+        </CardHeader>
 
-        {/* Basic Information Card */}
-        <Card className="w-full shadow-sm">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Layers className="h-5 w-5 text-blue-600" />
-              <CardTitle>Basic Information</CardTitle>
-            </div>
-            <CardDescription>
-              Configure category name, image URL, display order, and status.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor="category">
-                  Category Name <span className="text-red-500">*</span>
-                </Label>
+        <CardContent className="p-6">
+          <form
+            key={formKey}
+            onSubmit={handleSubmit}
+            autoComplete="off"
+            className="mx-auto max-w-2xl space-y-4"
+          >
+            {/* Category Name */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <Label
+                htmlFor="cat-name"
+                className="text-xs font-semibold text-slate-700 sm:text-right"
+              >
+                Category Name <span className="text-rose-500">*</span>
+              </Label>
+              <div className="sm:col-span-3">
                 <Input
-                  id="category"
-                  placeholder="e.g. Interior Textures"
+                  id="cat-name"
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
+                  placeholder="e.g. Interior Textures"
                   maxLength={255}
+                  className="h-9 text-xs"
                   required
                 />
               </div>
+            </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="imageUrl">Image URL</Label>
+            {/* Image URL */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <Label
+                htmlFor="cat-image"
+                className="text-xs font-semibold text-slate-700 sm:text-right"
+              >
+                Image URL
+              </Label>
+              <div className="sm:col-span-3">
                 <Input
-                  id="imageUrl"
-                  placeholder="e.g. https://domain.com/category-image.png"
+                  id="cat-image"
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="e.g. https://domain.com/category-image.png"
                   maxLength={500}
+                  className="h-9 text-xs"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="grid gap-2">
-                <Label htmlFor="displayOrder">
-                  Display Order <span className="text-red-500">*</span>
-                </Label>
+            {/* Display Order */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <Label
+                htmlFor="cat-order"
+                className="text-xs font-semibold text-slate-700 sm:text-right"
+              >
+                Display Order <span className="text-rose-500">*</span>
+              </Label>
+              <div className="sm:col-span-3">
                 <Input
-                  id="displayOrder"
+                  id="cat-order"
                   type="number"
                   min="0"
                   value={displayOrder}
-                  onChange={(e) => setDisplayOrder(parseInt(e.target.value, 10) || 0)}
+                  onChange={(e) => setDisplayOrder(sanitizeNonNegativeNumber(e.target.value, 0, 0))}
+                  className="h-9 text-xs font-mono"
                   required
                 />
               </div>
+            </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="status">
-                  Status <span className="text-red-500">*</span>
-                </Label>
+            {/* Status */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <Label
+                htmlFor="cat-status"
+                className="text-xs font-semibold text-slate-700 sm:text-right"
+              >
+                Status <span className="text-rose-500">*</span>
+              </Label>
+              <div className="sm:col-span-3">
                 <select
-                  id="status"
+                  id="cat-status"
                   value={status}
                   onChange={(e) => setStatus(e.target.value as "ACTIVE" | "INACTIVE")}
-                  className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="ACTIVE">ACTIVE</option>
                   <option value="INACTIVE">INACTIVE</option>
                 </select>
               </div>
+            </div>
 
-              <div className="flex items-end pb-1.5">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="featured"
-                    checked={featured}
-                    onCheckedChange={(checked) => setFeatured(Boolean(checked))}
-                  />
-                  <Label htmlFor="featured" className="cursor-pointer font-medium text-slate-700">
-                    Mark as Featured Category
-                  </Label>
-                </div>
+            {/* Featured Checkbox */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <Label
+                htmlFor="cat-featured"
+                className="text-xs font-semibold text-slate-700 sm:text-right"
+              >
+                Featured
+              </Label>
+              <div className="sm:col-span-3 flex items-center gap-2">
+                <Checkbox
+                  id="cat-featured"
+                  checked={featured}
+                  onCheckedChange={(checked) => setFeatured(Boolean(checked))}
+                />
+                <Label
+                  htmlFor="cat-featured"
+                  className="text-xs font-medium text-slate-700 cursor-pointer"
+                >
+                  Display as Featured Category
+                </Label>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Multilingual Translations Card */}
-        <Card className="w-full shadow-sm">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Languages className="h-5 w-5 text-indigo-600" />
-              <CardTitle>Multilingual Translations (Optional)</CardTitle>
-            </div>
-            <CardDescription>
-              Provide regional translations for the category name across 10 Indian languages.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {TRANSLATION_LANGUAGES.map((lang) => {
-                const key = `category${lang.code}`;
-                return (
-                  <div key={lang.code} className="grid gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50/50 p-3">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor={key} className="text-xs font-semibold text-slate-700">
+            {/* Multilingual Section Divider */}
+            <div className="pt-4 border-t border-slate-100">
+              <div className="flex items-center gap-2 mb-3">
+                <Languages className="h-4 w-4 text-blue-600" />
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                  Multilingual Translations (Optional)
+                </h3>
+              </div>
+              <div className="space-y-3">
+                {TRANSLATION_LANGUAGES.map((lang) => {
+                  const key = `category${lang.code}`;
+                  return (
+                    <div key={lang.code} className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                      <Label
+                        htmlFor={key}
+                        className="text-xs font-medium text-slate-600 sm:text-right"
+                      >
                         {lang.name}
                       </Label>
-                      <span className="text-xs font-mono text-slate-400 uppercase">{lang.code}</span>
+                      <div className="sm:col-span-3">
+                        <Input
+                          id={key}
+                          placeholder={`Category in ${lang.name}`}
+                          value={translations[key] || ""}
+                          onChange={(e) => handleTranslationChange(key, e.target.value)}
+                          maxLength={255}
+                          className="h-8 text-xs bg-white"
+                        />
+                      </div>
                     </div>
-                    <Input
-                      id={key}
-                      placeholder={`Category in ${lang.name}`}
-                      value={translations[key] || ""}
-                      onChange={(e) => handleTranslationChange(key, e.target.value)}
-                      maxLength={255}
-                      className="bg-white"
-                    />
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={isPending}
-            onClick={handleCancel}
-          >
-            Cancel
-          </Button>
-
-          <Button
-            type="submit"
-            disabled={isPending}
-            className="bg-blue-600 hover:bg-blue-700 text-white min-w-32"
-          >
-            {isPending ? (
-              <>
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Save Category"
-            )}
-          </Button>
-        </div>
-      </form>
+            {/* Action Buttons */}
+            <div className="flex items-center justify-center gap-3 pt-6 border-t border-slate-100">
+              <Button
+                type="submit"
+                disabled={isPending}
+                className="bg-blue-600 hover:bg-blue-700 text-white min-w-24 h-8 text-xs font-semibold uppercase"
+              >
+                {isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                SAVE
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isPending}
+                className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
+              >
+                CANCEL
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

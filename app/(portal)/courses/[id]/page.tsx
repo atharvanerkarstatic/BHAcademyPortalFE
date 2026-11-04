@@ -817,19 +817,13 @@ export default function CourseDetailPage() {
   const handleImportTranslationsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uploadFile) {
-      toastError("Please choose a CSV / Excel file to upload.");
+      toastError("Please choose an Excel / CSV file to upload.");
       return;
     }
 
-    const effectiveCourseId = course?.id ? String(course.id) : (uploadCourseId.trim() || course?.courseLevel || String(id));
+    const effectiveCourseId = course?.courseCode || (course?.id ? String(course.id) : String(id));
     if (!effectiveCourseId) {
       toastError("Course ID is required.");
-      return;
-    }
-
-    const effectiveLangCode = uploadLangCode.trim();
-    if (!effectiveLangCode) {
-      toastError("Language code is required. Please select a language.");
       return;
     }
 
@@ -838,7 +832,7 @@ export default function CourseDetailPage() {
       const formData = new FormData();
       formData.append("file", uploadFile);
 
-      const res = await importCourseTranslationsAction(effectiveCourseId, effectiveLangCode, formData);
+      const res = await importCourseTranslationsAction(effectiveCourseId, formData);
       if (res.success) {
         const data = res.data;
         const hasErrors = data && data.errors && data.errors.length > 0;
@@ -885,19 +879,13 @@ export default function CourseDetailPage() {
   const handleImportVideosSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uploadVideosFile) {
-      toastError("Please choose a CSV / Excel file to upload.");
+      toastError("Please choose an Excel / CSV file to upload.");
       return;
     }
 
-    const effectiveCourseId = course?.id ? String(course.id) : (uploadVideosCourseId.trim() || course?.courseLevel || String(id));
+    const effectiveCourseId = course?.courseCode || (course?.id ? String(course.id) : String(id));
     if (!effectiveCourseId) {
       toastError("Course ID is required.");
-      return;
-    }
-
-    const effectiveLangCode = uploadVideosLangCode.trim();
-    if (!effectiveLangCode) {
-      toastError("Language code is required. Please select a language.");
       return;
     }
 
@@ -906,7 +894,7 @@ export default function CourseDetailPage() {
       const formData = new FormData();
       formData.append("file", uploadVideosFile);
 
-      const res = await importCourseVideosAction(effectiveCourseId, effectiveLangCode, formData);
+      const res = await importCourseVideosAction(effectiveCourseId, formData);
       if (res.success) {
         const data = res.data;
         const hasErrors = data && data.errors && data.errors.length > 0;
@@ -953,19 +941,13 @@ export default function CourseDetailPage() {
   const handleImportQuestionsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uploadQuestionsFile) {
-      toastError("Please choose a CSV / Excel file to upload.");
+      toastError("Please choose an Excel / CSV file to upload.");
       return;
     }
 
-    const effectiveCourseId = course?.id ? String(course.id) : (uploadQuestionsCourseId.trim() || course?.courseLevel || String(id));
+    const effectiveCourseId = course?.courseCode || (course?.id ? String(course.id) : String(id));
     if (!effectiveCourseId) {
       toastError("Course ID is required.");
-      return;
-    }
-
-    const effectiveLangCode = uploadQuestionsLangCode.trim();
-    if (!effectiveLangCode) {
-      toastError("Language code is required. Please select a language.");
       return;
     }
 
@@ -974,7 +956,7 @@ export default function CourseDetailPage() {
       const formData = new FormData();
       formData.append("file", uploadQuestionsFile);
 
-      const res = await importCourseQuizzesAction(effectiveCourseId, effectiveLangCode, formData);
+      const res = await importCourseQuizzesAction(effectiveCourseId, formData);
       if (res.success) {
         const data = res.data;
         const hasErrors = data && data.errors && data.errors.length > 0;
@@ -1495,40 +1477,15 @@ export default function CourseDetailPage() {
                   </div>
 
                   <form onSubmit={handleImportTranslationsSubmit} className="space-y-5 max-w-2xl">
-                    {/* Course Name (Prepopulated, Readonly Context) */}
+                    {/* Course ID / Code (Prepopulated, Read-only) */}
                     <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
                       <Label className="text-xs font-semibold text-slate-700 sm:text-right">
-                        Course
+                        Course ID / Code
                       </Label>
                       <div className="sm:col-span-3">
-                        <div className="flex h-9 w-full items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-800">
-                          {course.courseName}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Language Picklist */}
-                    <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
-                      <Label className="text-xs font-semibold text-slate-700 sm:text-right">
-                        Language <span className="text-rose-500">*</span>
-                      </Label>
-                      <div className="sm:col-span-3 flex items-center gap-3 flex-wrap">
-                        <LanguageSelect
-                          value={uploadLangCode}
-                          showCodeOnly
-                          onChange={(newId, newName, newCode) => {
-                            setUploadLangName(newName);
-                            const matchedMeta = LANGUAGES_META.find(
-                              (m) => m.languageId === newId || m.language.toLowerCase() === newName.toLowerCase()
-                            );
-                            const finalCode = (newCode || matchedMeta?.code || newId).toLowerCase();
-                            setUploadLangCode(finalCode);
-                          }}
-                          buttonClassName="h-9 text-xs bg-slate-900 hover:bg-slate-800"
-                        />
-                        <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2.5 py-1.5 rounded border border-slate-200">
-                          <span className="text-slate-500">Selected Code:</span>
-                          <span className="font-mono font-bold text-blue-700 uppercase">{uploadLangCode}</span>
+                        <div className="flex h-9 w-full items-center justify-between rounded-md border border-slate-200 bg-slate-100 px-3 text-xs font-mono font-semibold text-slate-800">
+                          <span>{course.courseCode || course.id}</span>
+                          <span className="text-[11px] font-sans font-normal text-slate-500 truncate max-w-[200px]">({course.courseName})</span>
                         </div>
                       </div>
                     </div>
@@ -1612,40 +1569,15 @@ export default function CourseDetailPage() {
                   </div>
 
                   <form onSubmit={handleImportVideosSubmit} className="space-y-5 max-w-2xl">
-                    {/* Course Name (Prepopulated, Readonly Context) */}
+                    {/* Course ID / Code (Prepopulated, Read-only) */}
                     <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
                       <Label className="text-xs font-semibold text-slate-700 sm:text-right">
-                        Course
+                        Course ID / Code
                       </Label>
                       <div className="sm:col-span-3">
-                        <div className="flex h-9 w-full items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-800">
-                          {course.courseName}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Language Picklist */}
-                    <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
-                      <Label className="text-xs font-semibold text-slate-700 sm:text-right">
-                        Language <span className="text-rose-500">*</span>
-                      </Label>
-                      <div className="sm:col-span-3 flex items-center gap-3 flex-wrap">
-                        <LanguageSelect
-                          value={uploadVideosLangCode}
-                          showCodeOnly
-                          onChange={(newId, newName, newCode) => {
-                            setUploadVideosLangName(newName);
-                            const matchedMeta = LANGUAGES_META.find(
-                              (m) => m.languageId === newId || m.language.toLowerCase() === newName.toLowerCase()
-                            );
-                            const finalCode = (newCode || matchedMeta?.code || newId).toLowerCase();
-                            setUploadVideosLangCode(finalCode);
-                          }}
-                          buttonClassName="h-9 text-xs bg-slate-900 hover:bg-slate-800"
-                        />
-                        <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2.5 py-1.5 rounded border border-slate-200">
-                          <span className="text-slate-500">Selected Code:</span>
-                          <span className="font-mono font-bold text-blue-700 uppercase">{uploadVideosLangCode}</span>
+                        <div className="flex h-9 w-full items-center justify-between rounded-md border border-slate-200 bg-slate-100 px-3 text-xs font-mono font-semibold text-slate-800">
+                          <span>{course.courseCode || course.id}</span>
+                          <span className="text-[11px] font-sans font-normal text-slate-500 truncate max-w-[200px]">({course.courseName})</span>
                         </div>
                       </div>
                     </div>
@@ -1729,40 +1661,15 @@ export default function CourseDetailPage() {
                   </div>
 
                   <form onSubmit={handleImportQuestionsSubmit} className="space-y-5 max-w-2xl">
-                    {/* Course Context (Prepopulated, Read-only) */}
+                    {/* Course ID / Code (Prepopulated, Read-only) */}
                     <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
                       <Label className="text-xs font-semibold text-slate-700 sm:text-right">
-                        Course
+                        Course ID / Code
                       </Label>
                       <div className="sm:col-span-3">
-                        <div className="flex h-9 w-full items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-800">
-                          {course.courseName}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Language Picklist */}
-                    <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
-                      <Label className="text-xs font-semibold text-slate-700 sm:text-right">
-                        Language <span className="text-rose-500">*</span>
-                      </Label>
-                      <div className="sm:col-span-3 flex items-center gap-3 flex-wrap">
-                        <LanguageSelect
-                          value={uploadQuestionsLangCode}
-                          showCodeOnly
-                          onChange={(newId, newName, newCode) => {
-                            setUploadQuestionsLangName(newName);
-                            const matchedMeta = LANGUAGES_META.find(
-                              (m) => m.languageId === newId || m.language.toLowerCase() === newName.toLowerCase()
-                            );
-                            const finalCode = (newCode || matchedMeta?.code || newId).toLowerCase();
-                            setUploadQuestionsLangCode(finalCode);
-                          }}
-                          buttonClassName="h-9 text-xs bg-slate-900 hover:bg-slate-800"
-                        />
-                        <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2.5 py-1.5 rounded border border-slate-200">
-                          <span className="text-slate-500">Selected Code:</span>
-                          <span className="font-mono font-bold text-blue-700 uppercase">{uploadQuestionsLangCode}</span>
+                        <div className="flex h-9 w-full items-center justify-between rounded-md border border-slate-200 bg-slate-100 px-3 text-xs font-mono font-semibold text-slate-800">
+                          <span>{course.courseCode || course.id}</span>
+                          <span className="text-[11px] font-sans font-normal text-slate-500 truncate max-w-[200px]">({course.courseName})</span>
                         </div>
                       </div>
                     </div>
@@ -1943,7 +1850,9 @@ export default function CourseDetailPage() {
                   <Input
                     id="trans-duration"
                     value={transDuration}
-                    onChange={(e) => setTransDuration(e.target.value)}
+                    type="number"
+                    min="0"
+                    onChange={(e) => setTransDuration(e.target.value === "" ? "" : String(Math.max(0, parseInt(e.target.value, 10) || 0)))}
                     placeholder="Duration (e.g. 11.07)"
                     className="h-9 text-xs"
                   />
@@ -2222,7 +2131,9 @@ export default function CourseDetailPage() {
                     <Input
                       id="v-duration"
                       value={videoDuration}
-                      onChange={(e) => setVideoDuration(e.target.value)}
+                      type="number"
+                      min="0"
+                      onChange={(e) => setVideoDuration(e.target.value === "" ? "" : String(Math.max(0, parseInt(e.target.value, 10) || 0)))}
                       placeholder="e.g. 12:45 or 10m"
                       className="h-9 text-xs"
                     />
@@ -2238,7 +2149,8 @@ export default function CourseDetailPage() {
                       id="v-points"
                       type="number"
                       value={videoPoints}
-                      onChange={(e) => setVideoPoints(Number(e.target.value) || 0)}
+                      min="0"
+                      onChange={(e) => setVideoPoints(Math.max(0, parseInt(e.target.value, 10) || 0))}
                       placeholder="10"
                       className="h-9 text-xs"
                     />

@@ -330,7 +330,7 @@ export default function AccountsPage() {
       {
         header: "ID",
         cell: (r) => (
-          <span className="font-mono text-xs font-semibold text-slate-700">#{r.id}</span>
+          <span className="font-mono text-xs font-semibold text-slate-700">{r.id}</span>
         ),
         className: "w-16 text-center",
       },
