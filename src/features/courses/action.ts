@@ -301,7 +301,7 @@ export async function updateCourseTranslationAction(
       }
     );
 
-    revalidatePath(`/courses/${courseIdentifier}`);
+    revalidatePath(`/courses/${courseId}`);
     revalidatePath("/courses");
 
     return {
@@ -582,7 +582,7 @@ export async function createCourseVideoAction(
       }
     );
 
-    revalidatePath(`/courses/${courseIdentifier}`);
+    revalidatePath(`/courses/${courseId}`);
     return {
       success: true,
       data: res.data,
@@ -643,7 +643,7 @@ export async function deleteCourseVideoAction(
     );
 
     if (courseId) {
-      revalidatePath(`/courses/${courseIdentifier}`);
+      revalidatePath(`/courses/${courseId}`);
     }
     return {
       success: true,
@@ -815,7 +815,7 @@ export async function deleteQuizAction(
     );
 
     if (courseId) {
-      revalidatePath(`/courses/${courseIdentifier}`);
+      revalidatePath(`/courses/${courseId}`);
     }
     return {
       success: true,
