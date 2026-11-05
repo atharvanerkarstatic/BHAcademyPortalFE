@@ -50,14 +50,15 @@ export const navSections: NavSection[] = [
     ],
   },
   {
+    title: "Trainers",
+    collapsible: true,
+    icon: GraduationCap,
     items: [
-      { label: "Send Assessment Link", href: "/assessments/send", icon: Link2, permission: "courses.read" },
+      { label: "Trainers", href: "/trainers", icon: GraduationCap, permission: "users.read" },
+      { label: "Send Assessment Links", href: "/assessments/send", icon: Link2, permission: "courses.read" },
       { label: "Assessment Links", href: "/assessments/links", icon: ClipboardList, permission: "courses.read" },
       { label: "Assessment Results", href: "/assessments/results", icon: Lightbulb, permission: "audit.read" },
     ],
-  },
-  {
-    items: [{ label: "Trainers", href: "/trainers", icon: GraduationCap, permission: "users.read" }],
   },
   {
     title: "Reports & Logs",

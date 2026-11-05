@@ -505,7 +505,7 @@ export default function AccountDetailPage() {
                     </div>
                   </div>
 
-                  {/* Mobile Number */}
+                  {/* Mobile Number (Read-only) */}
                   <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
                     <Label htmlFor="edit-mobile" className="text-xs font-semibold text-slate-700 sm:text-right">
                       Mobile Number
@@ -514,36 +514,32 @@ export default function AccountDetailPage() {
                       <Input
                         id="edit-mobile"
                         value={mobileNumber}
-                        onChange={(e) => {
-                          const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
-                          setMobileNumber(digitsOnly);
-                        }}
-                        maxLength={10}
-                        inputMode="numeric"
+                        readOnly
+                        disabled
                         placeholder="10-digit mobile number"
-                        className="h-9 text-xs font-mono"
+                        className="h-9 text-xs font-mono bg-slate-100 text-slate-500 cursor-not-allowed"
                       />
                     </div>
                   </div>
 
-                  {/* BP Number */}
+                  {/* BP Number (Read-only) */}
                   <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
                     <Label htmlFor="edit-bp" className="text-xs font-semibold text-slate-700 sm:text-right">
-                      BP Number <span className="text-rose-500">*</span>
+                      BP Number
                     </Label>
                     <div className="sm:col-span-3">
                       <Input
                         id="edit-bp"
                         value={bhBp}
-                        onChange={(e) => setBhBp(e.target.value)}
+                        readOnly
+                        disabled
                         placeholder="e.g. 12345678"
-                        className="h-9 text-xs font-mono"
-                        required
+                        className="h-9 text-xs font-mono bg-slate-100 text-slate-500 cursor-not-allowed"
                       />
                     </div>
                   </div>
 
-                  {/* Email ID */}
+                  {/* Email ID (Read-only) */}
                   <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
                     <Label htmlFor="edit-email" className="text-xs font-semibold text-slate-700 sm:text-right">
                       Email ID
@@ -553,9 +549,10 @@ export default function AccountDetailPage() {
                         id="edit-email"
                         type="email"
                         value={emailId}
-                        onChange={(e) => setEmailId(e.target.value)}
+                        readOnly
+                        disabled
                         placeholder="e.g. rahul.sharma@example.com"
-                        className="h-9 text-xs"
+                        className="h-9 text-xs bg-slate-100 text-slate-500 cursor-not-allowed"
                       />
                     </div>
                   </div>

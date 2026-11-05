@@ -244,14 +244,14 @@ export default function EditCoursePage() {
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Courses List", href: "/courses" },
-          { label: `Edit Course #${id}` },
+          { label: `Edit Course (ID: ${id})` },
         ]}
       />
 
       <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <CardHeader className="border-b px-6 py-4 bg-white flex flex-row items-center justify-between">
           <CardTitle className="text-base font-bold text-slate-900">
-            Edit Course (#{id})
+            Edit Course (ID: {id})
           </CardTitle>
           <Button variant="ghost" size="sm" asChild className="gap-1.5 text-slate-600 hover:text-slate-900">
             <Link href="/courses">

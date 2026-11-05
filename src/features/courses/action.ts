@@ -720,11 +720,13 @@ export type CreateQuizPayload = {
 
 export async function getCourseQuizzesAction(
   courseId: number | string,
-  languageCode: string
+  languageCode: string,
+  quizType?: string
 ) {
   try {
+    const query = quizType ? `?quizType=${encodeURIComponent(quizType)}` : "";
     const res = await apiFetch<ApiResponse<CourseQuizItem[]>>(
-      `/v1/courses/${encodeURIComponent(courseId)}/languages/${encodeURIComponent(languageCode)}/quizzes`,
+      `/v1/courses/${encodeURIComponent(courseId)}/languages/${encodeURIComponent(languageCode)}/quizzes${query}`,
       {
         method: "GET",
       }

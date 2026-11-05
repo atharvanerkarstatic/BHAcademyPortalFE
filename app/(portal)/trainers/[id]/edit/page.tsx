@@ -47,7 +47,6 @@ export default function EditTrainerPage({
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
-  const [departmentId, setDepartmentId] = useState("");
   const [currentProfilePic, setCurrentProfilePic] = useState<string | null>(null);
 
   const [newImageFile, setNewImageFile] = useState<File | null>(null);
@@ -72,7 +71,6 @@ export default function EditTrainerPage({
         setFullName(name);
         setEmail(t.email || "");
         setMobileNumber(t.mobileNumber || "");
-        setDepartmentId(t.departmentId || "");
         setCurrentProfilePic(t.profilePic || null);
       } else {
         toastError(res.error || "Failed to load trainer details");
@@ -91,6 +89,18 @@ export default function EditTrainerPage({
   }, [trainerId]);
 
   const handleImageChange = (file: File | null) => {
+    if (file) {
+      const check = validateImageFile(file);
+      if (!check.valid) {
+        toastError(check.error || "Only .png, .jpg, and .jpeg image formats are allowed (Max 5 MB).");
+        setNewImageFile(null);
+        if (newImagePreview) {
+          URL.revokeObjectURL(newImagePreview);
+          setNewImagePreview(null);
+        }
+        return;
+      }
+    }
     setNewImageFile(file);
     if (newImagePreview) {
       URL.revokeObjectURL(newImagePreview);
@@ -145,7 +155,6 @@ export default function EditTrainerPage({
         firstName,
         lastName,
         email: email.trim(),
-        departmentId: departmentId.trim() || null,
         mobileNumber: mobileNumber.trim() || undefined,
         // Send null for no update, or new generated URL if new file was uploaded
         profilePic: profilePicValue,
@@ -175,14 +184,14 @@ export default function EditTrainerPage({
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Trainers", href: "/trainers" },
-          { label: `Edit Trainer #${trainerId}` },
+          { label: `Edit Trainer (ID: ${trainerId})` },
         ]}
       />
 
       <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <CardHeader className="border-b px-6 py-4 bg-white flex flex-row items-center justify-between">
           <CardTitle className="text-base font-bold text-slate-900">
-            Edit Trainer Details
+            Edit Trainer Details (ID: {trainerId})
           </CardTitle>
           <Button variant="ghost" size="sm" asChild className="gap-1.5 text-slate-600">
             <Link href="/trainers">
@@ -214,25 +223,25 @@ export default function EditTrainerPage({
               </div>
             </div>
 
-            {/* Email */}
+            {/* Email (Read-only) */}
             <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-trainer-email" className="text-xs font-semibold text-slate-700 sm:text-right">
-                Email Address <span className="text-rose-500">*</span>
+                Email Address
               </Label>
               <div className="sm:col-span-3">
                 <Input
                   id="edit-trainer-email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  readOnly
+                  disabled
                   placeholder="e.g. trainer@example.com"
-                  className="h-9 text-xs"
-                  required
+                  className="h-9 text-xs bg-slate-100 text-slate-500 cursor-not-allowed"
                 />
               </div>
             </div>
 
-            {/* Mobile Number */}
+            {/* Mobile Number (Read-only) */}
             <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-trainer-mobile" className="text-xs font-semibold text-slate-700 sm:text-right">
                 Mobile Number
@@ -241,25 +250,10 @@ export default function EditTrainerPage({
                 <Input
                   id="edit-trainer-mobile"
                   value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value)}
+                  readOnly
+                  disabled
                   placeholder="10-digit mobile number"
-                  className="h-9 text-xs font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Department ID */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-trainer-dept" className="text-xs font-semibold text-slate-700 sm:text-right">
-                Department ID
-              </Label>
-              <div className="sm:col-span-3">
-                <Input
-                  id="edit-trainer-dept"
-                  value={departmentId}
-                  onChange={(e) => setDepartmentId(e.target.value)}
-                  placeholder="e.g. Training Dept"
-                  className="h-9 text-xs"
+                  className="h-9 text-xs font-mono bg-slate-100 text-slate-500 cursor-not-allowed"
                 />
               </div>
             </div>
@@ -290,8 +284,8 @@ export default function EditTrainerPage({
                     className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
                   />
                 </div>
-                <p className="text-[11px] text-slate-400">
-                  Select a new image file to update profile picture, or leave empty to keep existing image.
+                <p className="text-[11px] text-slate-500">
+                  Allowed formats: PNG, JPG, JPEG (Max 5 MB)
                 </p>
               </div>
             </div>

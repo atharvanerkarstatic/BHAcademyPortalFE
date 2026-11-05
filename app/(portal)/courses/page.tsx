@@ -436,7 +436,7 @@ export default function CoursesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Course?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this course (#{courseToDelete?.id})?
+              Are you sure you want to delete this course (ID: {courseToDelete?.id})?
               <br />
               <strong className="text-slate-800 line-clamp-2 mt-2">
                 {courseToDelete?.courseName}

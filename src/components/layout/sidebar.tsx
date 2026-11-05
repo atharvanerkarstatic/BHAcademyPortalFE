@@ -235,7 +235,7 @@ export function Sidebar({ user }: { user: ReactNode }) {
             if (section.collapsible) {
               return (
                 <CollapsibleNavSection
-                  key={section.title || i}
+                  key={section.title || `collapsible-${i}`}
                   section={section}
                   pathname={pathname}
                   closeMobile={closeMobile}
@@ -253,7 +253,7 @@ export function Sidebar({ user }: { user: ReactNode }) {
             if (visibleItems.length === 0) return null;
 
             return (
-              <div key={i} className={cn(i > 0 && "mt-2 border-t pt-2")}>
+              <div key={section.title || `section-${i}`} className={cn(i > 0 && "mt-2 border-t pt-2")}>
                 {section.title && (
                   <p
                     className={cn(

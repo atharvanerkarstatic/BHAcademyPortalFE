@@ -442,7 +442,7 @@ export default function SendAssessmentLinkPage() {
                 {createdRecords.map((r) => (
                   <tr key={r.assessmentRecordId} className="hover:bg-slate-50/60">
                     <td className="py-2.5 px-3 font-mono font-medium text-slate-800">
-                      #{r.assessmentRecordId}
+                      (ID: {r.assessmentRecordId})
                     </td>
                     <td className="py-2.5 px-3 font-mono text-slate-700">
                       {r.mobileNumber}

@@ -61,7 +61,16 @@ export default function EditProfilePage() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const check = validateImageFile(file);
+      if (!check.valid) {
+        toastError(check.error || "Only .png, .jpg, and .jpeg image formats are allowed (Max 5 MB).");
+        e.target.value = "";
+        setImageFile(null);
+        return;
+      }
       setImageFile(file);
+    } else {
+      setImageFile(null);
     }
   };
 
@@ -306,8 +315,8 @@ export default function EditProfilePage() {
                       onChange={handleImageChange}
                       className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
                     />
-                    <p className="mt-1 text-[11px] text-slate-400">
-                      Upload a new image file to update your profile photo, or leave empty to keep current.
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Allowed formats: PNG, JPG, JPEG (Max 5 MB)
                     </p>
                   </div>
                 </div>

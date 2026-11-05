@@ -314,7 +314,7 @@ export default function NewCoursePage() {
                 htmlFor="course-duration"
                 className="text-xs font-semibold text-slate-700 sm:text-right"
               >
-                Duration
+                Duration <span className="text-rose-500">*</span>
               </Label>
               <div className="sm:col-span-3">
                 <Input
@@ -421,7 +421,7 @@ export default function NewCoursePage() {
                 htmlFor="course-image"
                 className="text-xs font-semibold text-slate-700 sm:text-right"
               >
-                Image URL
+                Image URL <span className="text-rose-500">*</span>
               </Label>
               <div className="sm:col-span-3">
                 <Input
@@ -441,7 +441,7 @@ export default function NewCoursePage() {
                 htmlFor="course-details"
                 className="text-xs font-semibold text-slate-700 sm:text-right pt-2"
               >
-                Course Details
+                Course Details <span className="text-rose-500">*</span>
               </Label>
               <div className="sm:col-span-3">
                 <Textarea

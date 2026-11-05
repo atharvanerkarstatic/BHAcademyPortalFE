@@ -51,7 +51,6 @@ export default function EditAdminUserPage({
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
-  const [departmentId, setDepartmentId] = useState("");
   const [currentProfilePic, setCurrentProfilePic] = useState<string | null>(null);
 
   const [selectedRoleId, setSelectedRoleId] = useState<string>("");
@@ -87,7 +86,6 @@ export default function EditAdminUserPage({
         setFullName(name);
         setEmail(u.email || "");
         setMobileNumber(u.mobileNumber || "");
-        setDepartmentId(u.departmentId || "");
         setCurrentProfilePic(u.profilePic || null);
 
         if (u.roles && u.roles.length > 0) {
@@ -116,7 +114,6 @@ export default function EditAdminUserPage({
       setFullName(name);
       setEmail(adminUser.email || "");
       setMobileNumber(adminUser.mobileNumber || "");
-      setDepartmentId(adminUser.departmentId || "");
       setCurrentProfilePic(adminUser.profilePic || null);
       if (adminUser.roles && adminUser.roles.length > 0) {
         setSelectedRoleId(String(adminUser.roles[0].id));
@@ -171,7 +168,6 @@ export default function EditAdminUserPage({
         firstName,
         lastName,
         email: email.trim(),
-        departmentId: departmentId.trim() || null,
         mobileNumber: mobileNumber.trim() || null,
         profilePic: profilePicValue,
         roleIds: selectedRoleId ? [selectedRoleId] : undefined,
@@ -202,7 +198,7 @@ export default function EditAdminUserPage({
           breadcrumbs={[
             { label: "Dashboard", href: "/dashboard" },
             { label: "Admin Users", href: "/admin-users" },
-            { label: `Edit #${userId}` },
+            { label: `Edit (ID: ${userId})` },
           ]}
         />
         <Card className="p-8 text-center text-slate-500">
@@ -219,14 +215,14 @@ export default function EditAdminUserPage({
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Admin Users", href: "/admin-users" },
-          { label: `Edit #${userId}` },
+          { label: `Edit (ID: ${userId})` },
         ]}
       />
 
       <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <CardHeader className="border-b px-6 py-4 bg-white flex flex-row items-center justify-between">
           <CardTitle className="text-base font-bold text-slate-900">
-            Edit Admin User (#{userId})
+            Edit Admin User (ID: {userId})
           </CardTitle>
           <Button variant="ghost" size="sm" asChild className="gap-1.5 text-slate-600 hover:text-slate-900">
             <Link href="/admin-users">
@@ -261,28 +257,28 @@ export default function EditAdminUserPage({
               </div>
             </div>
 
-            {/* Email Address */}
+            {/* Email Address (Read-only) */}
             <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
               <Label
                 htmlFor="edit-email"
                 className="text-xs font-semibold text-slate-700 sm:text-right"
               >
-                Email Address <span className="text-rose-500">*</span>
+                Email Address
               </Label>
               <div className="sm:col-span-3">
                 <Input
                   id="edit-email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  readOnly
+                  disabled
                   placeholder="e.g. john.doe@asianpaints.com"
-                  className="h-9 text-xs"
-                  required
+                  className="h-9 text-xs bg-slate-100 text-slate-500 cursor-not-allowed"
                 />
               </div>
             </div>
 
-            {/* Role Picklist */}
+            {/* Role Picklist (Read-only) */}
             <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
               <Label
                 htmlFor="edit-role"
@@ -294,9 +290,8 @@ export default function EditAdminUserPage({
                 <select
                   id="edit-role"
                   value={selectedRoleId}
-                  onChange={(e) => setSelectedRoleId(e.target.value)}
-                  disabled={loadingRoles}
-                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
+                  disabled
+                  className="h-9 w-full rounded-md border border-slate-300 bg-slate-100 px-3 py-1.5 text-xs text-slate-500 shadow-xs cursor-not-allowed opacity-80"
                 >
                   <option value="">Select a Role</option>
                   {roles.map((r) => (
@@ -308,7 +303,7 @@ export default function EditAdminUserPage({
               </div>
             </div>
 
-            {/* Mobile Number */}
+            {/* Mobile Number (Read-only) */}
             <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
               <Label
                 htmlFor="edit-mobile"
@@ -320,30 +315,10 @@ export default function EditAdminUserPage({
                 <Input
                   id="edit-mobile"
                   value={mobileNumber}
-                  onChange={(e) =>
-                    setMobileNumber(e.target.value.replace(/\D/g, "").slice(0, 10))
-                  }
+                  readOnly
+                  disabled
                   placeholder="10-digit mobile number"
-                  className="h-9 text-xs font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Department ID */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label
-                htmlFor="edit-dept"
-                className="text-xs font-semibold text-slate-700 sm:text-right"
-              >
-                Department ID
-              </Label>
-              <div className="sm:col-span-3">
-                <Input
-                  id="edit-dept"
-                  value={departmentId}
-                  onChange={(e) => setDepartmentId(e.target.value)}
-                  placeholder="e.g. 1"
-                  className="h-9 text-xs font-mono"
+                  className="h-9 text-xs font-mono bg-slate-100 text-slate-500 cursor-not-allowed"
                 />
               </div>
             </div>
@@ -389,8 +364,8 @@ export default function EditAdminUserPage({
                   }}
                   className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
                 />
-                <p className="text-[11px] text-slate-400">
-                  Leave empty to keep existing picture. Supported formats: PNG, JPG, JPEG (Max size: 5MB)
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Allowed formats: PNG, JPG, JPEG (Max 5 MB)
                 </p>
               </div>
             </div>

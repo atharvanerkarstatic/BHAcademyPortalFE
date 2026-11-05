@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useTransition, useMemo } from "react";
-import { RefreshCw, Search, CheckCircle2, XCircle } from "lucide-react";
+import Link from "next/link";
+import { RefreshCw, Search, CheckCircle2, XCircle, BarChart3 } from "lucide-react";
 
 import { DataTable, type Column } from "@/components/common/data-table";
 import { PageHeader } from "@/components/common/page-header";
@@ -236,6 +237,14 @@ export default function AssessmentResultsPage() {
             >
               <RefreshCw className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`} />
               <span className="hidden sm:inline">Refresh</span>
+            </Button>
+
+            {/* Assessment Summary button */}
+            <Button asChild size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white">
+              <Link href="/reports/assessment-summary">
+                <BarChart3 className="h-4 w-4" />
+                Assessment Summary
+              </Link>
             </Button>
           </div>
         }

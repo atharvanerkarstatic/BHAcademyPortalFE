@@ -66,7 +66,8 @@ import {
   type CreateQuizPayload,
   type CourseImportResponse,
 } from "@/features/courses/action";
-import { getSampleImportAction } from "@/features/accounts/action";
+import { uploadMediaAction, getSampleImportAction } from "@/features/accounts/action";
+import { validateImageFile } from "@/lib/validations";
 import { LanguageSelect } from "@/features/languages/components/language-select";
 import { getAllLanguagesAction } from "@/features/languages/action";
 import type { LanguageItem } from "@/features/languages/types";
@@ -198,15 +199,58 @@ export default function CourseDetailPage() {
   }>>([]);
 
   // Interactive Questionnaire State (Matches newly attached screenshot)
-  const [interactiveQuestionsList, setInteractiveQuestionsList] = useState<Array<{
-    sNo: number;
-    qType: string;
-    afterVideoId: string;
-    question: string;
-    status: boolean;
-  }>>([]);
+  const [interactiveQuizzesList, setInteractiveQuizzesList] = useState<CourseQuizItem[]>([]);
+  const [loadingInteractiveQuizzes, setLoadingInteractiveQuizzes] = useState(false);
+  const [editingInteractiveQuizId, setEditingInteractiveQuizId] = useState<number | string | null>(null);
+  const [isSavingInteractiveQuiz, setIsSavingInteractiveQuiz] = useState(false);
+
+  // Form fields for Interactive Questionnaire
   const [interactiveAfterVideo, setInteractiveAfterVideo] = useState("");
-  const [interactiveQType, setInteractiveQType] = useState("");
+  const [interactiveQType, setInteractiveQType] = useState<"True or False" | "Image" | "Pattern">("True or False");
+  const [interactiveQuestionText, setInteractiveQuestionText] = useState("");
+  const [interactiveRightAnswer, setInteractiveRightAnswer] = useState<number>(1);
+
+  // Pattern / Text Options
+  const [interactiveOpt1, setInteractiveOpt1] = useState("");
+  const [interactiveOpt2, setInteractiveOpt2] = useState("");
+  const [interactiveOpt3, setInteractiveOpt3] = useState("");
+  const [interactiveOpt4, setInteractiveOpt4] = useState("");
+
+  // Pattern Question Image / Image
+  const [patternImageFile, setPatternImageFile] = useState<File | null>(null);
+  const [patternImageUrl, setPatternImageUrl] = useState("");
+
+  // Image QType files & urls
+  const [imageOpt1File, setImageOpt1File] = useState<File | null>(null);
+  const [imageOpt1Url, setImageOpt1Url] = useState("");
+  const [imageOpt2File, setImageOpt2File] = useState<File | null>(null);
+  const [imageOpt2Url, setImageOpt2Url] = useState("");
+  const [imageOpt3File, setImageOpt3File] = useState<File | null>(null);
+  const [imageOpt3Url, setImageOpt3Url] = useState("");
+  const [imageOpt4File, setImageOpt4File] = useState<File | null>(null);
+  const [imageOpt4Url, setImageOpt4Url] = useState("");
+
+  const resetInteractiveForm = () => {
+    setEditingInteractiveQuizId(null);
+    setInteractiveAfterVideo("");
+    setInteractiveQType("True or False");
+    setInteractiveQuestionText("");
+    setInteractiveRightAnswer(1);
+    setInteractiveOpt1("");
+    setInteractiveOpt2("");
+    setInteractiveOpt3("");
+    setInteractiveOpt4("");
+    setPatternImageFile(null);
+    setPatternImageUrl("");
+    setImageOpt1File(null);
+    setImageOpt1Url("");
+    setImageOpt2File(null);
+    setImageOpt2Url("");
+    setImageOpt3File(null);
+    setImageOpt3Url("");
+    setImageOpt4File(null);
+    setImageOpt4Url("");
+  };
 
   const [downloadingSample, setDownloadingSample] = useState<string | null>(null);
 
@@ -458,9 +502,31 @@ export default function CourseDetailPage() {
     }
   };
 
+  // Fetch interactive quizzes
+  const fetchInteractiveQuizzesForCurrentView = async () => {
+    if (!course) return;
+    setLoadingInteractiveQuizzes(true);
+    try {
+      const code = selectedLangCode || "en";
+      const res = await getCourseQuizzesAction(course.id, code, "interactive");
+      if (res.success && res.data) {
+        setInteractiveQuizzesList(res.data);
+      } else {
+        setInteractiveQuizzesList([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch interactive quizzes:", err);
+      setInteractiveQuizzesList([]);
+    } finally {
+      setLoadingInteractiveQuizzes(false);
+    }
+  };
+
   useEffect(() => {
     if (viewMode === "questionnaire_view" && course) {
       fetchQuizzesForCurrentView();
+      fetchInteractiveQuizzesForCurrentView();
+      fetchVideosForCurrentView();
     }
   }, [viewMode, selectedLangId, selectedLangCode, course]);
 
@@ -812,6 +878,201 @@ export default function CourseDetailPage() {
       console.error("Failed to delete quiz question:", err);
       toastError("An error occurred while deleting the quiz question");
     } 
+  };
+
+  const uploadQuizImage = async (file: File): Promise<string | null> => {
+    const check = validateImageFile(file);
+    if (!check.valid) {
+      toastError(check.error || "Invalid image file");
+      return null;
+    }
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("path", `quiz_media_${course?.id}_${Date.now()}`);
+      const res = await uploadMediaAction(formData);
+      if (res.success && res.data) {
+        return res.data;
+      } else {
+        toastError(res.error || "Failed to upload image");
+        return null;
+      }
+    } catch (err) {
+      console.error("Image upload exception:", err);
+      toastError("Failed to upload image file");
+      return null;
+    }
+  };
+
+  const handleSaveInteractiveQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!course) return;
+
+    if (!interactiveQuestionText.trim()) {
+      toastError("Question text is required");
+      return;
+    }
+
+    // Resolve numeric language ID
+    let numericLangId: number = 1;
+    if (selectedLangId && !isNaN(Number(selectedLangId)) && Number(selectedLangId) > 0) {
+      numericLangId = Number(selectedLangId);
+    } else {
+      const backendLang = allBackendLanguages.find(
+        (bl) =>
+          (bl.languageCode && bl.languageCode.toLowerCase() === selectedLangCode.toLowerCase()) ||
+          (bl.language && bl.language.toLowerCase() === selectedLangName.toLowerCase()) ||
+          String(bl.languageId) === String(selectedLangId)
+      );
+      if (backendLang && !isNaN(Number(backendLang.languageId))) {
+        numericLangId = Number(backendLang.languageId);
+      } else {
+        const matchedLang = LANGUAGES_META.find(
+          (m) =>
+            m.languageId === selectedLangId ||
+            m.code.toLowerCase() === selectedLangCode.toLowerCase()
+        );
+        if (matchedLang) numericLangId = matchedLang.num;
+      }
+    }
+
+    setIsSavingInteractiveQuiz(true);
+    try {
+      let finalAns1 = "";
+      let finalAns2 = "";
+      let finalAns3 = "";
+      let finalAns4 = "";
+
+      let finalAns1Url = "";
+      let finalAns2Url = "";
+      let finalAns3Url = "";
+      let finalAns4Url = "";
+      let finalQuestionImageUrl = "";
+
+      if (interactiveQType === "True or False") {
+        finalAns1 = "TRUE";
+        finalAns2 = "FALSE";
+      } else if (interactiveQType === "Image") {
+        finalAns1 = "Option 1";
+        finalAns2 = "Option 2";
+        finalAns3 = "Option 3";
+        finalAns4 = "Option 4";
+
+        finalAns1Url = imageOpt1Url;
+        if (imageOpt1File) {
+          const up = await uploadQuizImage(imageOpt1File);
+          if (!up) {
+            setIsSavingInteractiveQuiz(false);
+            return;
+          }
+          finalAns1Url = up;
+        }
+
+        finalAns2Url = imageOpt2Url;
+        if (imageOpt2File) {
+          const up = await uploadQuizImage(imageOpt2File);
+          if (!up) {
+            setIsSavingInteractiveQuiz(false);
+            return;
+          }
+          finalAns2Url = up;
+        }
+
+        finalAns3Url = imageOpt3Url;
+        if (imageOpt3File) {
+          const up = await uploadQuizImage(imageOpt3File);
+          if (!up) {
+            setIsSavingInteractiveQuiz(false);
+            return;
+          }
+          finalAns3Url = up;
+        }
+
+        finalAns4Url = imageOpt4Url;
+        if (imageOpt4File) {
+          const up = await uploadQuizImage(imageOpt4File);
+          if (!up) {
+            setIsSavingInteractiveQuiz(false);
+            return;
+          }
+          finalAns4Url = up;
+        }
+
+        if (!finalAns1Url && !finalAns2Url && !finalAns3Url && !finalAns4Url) {
+          toastError("Please upload at least Option 1 and Option 2 images");
+          setIsSavingInteractiveQuiz(false);
+          return;
+        }
+      } else if (interactiveQType === "Pattern") {
+        if (!interactiveOpt1.trim() || !interactiveOpt2.trim() || !interactiveOpt3.trim() || !interactiveOpt4.trim()) {
+          toastError("All 4 answer options are required for Pattern type");
+          setIsSavingInteractiveQuiz(false);
+          return;
+        }
+        finalAns1 = interactiveOpt1.trim();
+        finalAns2 = interactiveOpt2.trim();
+        finalAns3 = interactiveOpt3.trim();
+        finalAns4 = interactiveOpt4.trim();
+
+        finalQuestionImageUrl = patternImageUrl;
+        if (patternImageFile) {
+          const up = await uploadQuizImage(patternImageFile);
+          if (!up) {
+            setIsSavingInteractiveQuiz(false);
+            return;
+          }
+          finalQuestionImageUrl = up;
+        }
+      }
+
+      const payload: CreateQuizPayload = {
+        question: interactiveQuestionText.trim(),
+        answer1: finalAns1,
+        answer2: finalAns2,
+        answer3: finalAns3,
+        answer4: finalAns4,
+        quizName: course.courseName || "Interactive Quiz",
+        questionType: "MCQ",
+        answer1Url: finalAns1Url,
+        answer2Url: finalAns2Url,
+        answer3Url: finalAns3Url,
+        answer4Url: finalAns4Url,
+        correctAnswer: `answer${interactiveRightAnswer}`,
+        points: 10,
+        assessmentFlag: true,
+        quizId: `QUIZ_${course.id}_${Date.now()}`,
+        questionImageUrl: finalQuestionImageUrl,
+        status: "ACTIVE",
+        courseId: course.id,
+        videoId: interactiveAfterVideo ? Number(interactiveAfterVideo) : null,
+        languageId: numericLangId,
+      };
+
+      if (editingInteractiveQuizId) {
+        const res = await updateQuizAction(editingInteractiveQuizId, payload);
+        if (res.success) {
+          success(res.message || "Interactive question updated successfully!");
+          resetInteractiveForm();
+          fetchInteractiveQuizzesForCurrentView();
+        } else {
+          toastError(res.error || "Failed to update interactive question");
+        }
+      } else {
+        const res = await createQuizAction(payload);
+        if (res.success) {
+          success(res.message || "Interactive question created successfully!");
+          resetInteractiveForm();
+          fetchInteractiveQuizzesForCurrentView();
+        } else {
+          toastError(res.error || "Failed to create interactive question");
+        }
+      }
+    } catch (err) {
+      console.error("Interactive quiz save error:", err);
+      toastError("Failed to save interactive question");
+    } finally {
+      setIsSavingInteractiveQuiz(false);
+    }
   };
 
   const handleImportTranslationsSubmit = async (e: React.FormEvent) => {
@@ -2434,67 +2695,199 @@ export default function CourseDetailPage() {
                 </div>
               )}
 
-              {/* TAB CONTENT: Interactive Questionnaire (Matches attached screenshot) */}
+              {/* TAB CONTENT: Interactive Questionnaire */}
               {questionnaireSubTab === "interactive" && (
                 <div className="border border-slate-200 rounded-lg overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-50 border-b text-slate-800 font-bold">
                       <tr>
                         <th className="py-2.5 px-3 w-16">S.No.</th>
-                        <th className="py-2.5 px-3 min-w-32">Qtype</th>
-                        <th className="py-2.5 px-3 min-w-44">After Video ID</th>
-                        <th className="py-2.5 px-3 min-w-72">Question</th>
+                        <th className="py-2.5 px-3 min-w-28">Video</th>
+                        <th className="py-2.5 px-3 min-w-64">Question</th>
+                        <th className="py-2.5 px-3 min-w-56">Options / Image</th>
+                        <th className="py-2.5 px-3 min-w-24 text-center">Correct Answer</th>
+                        <th className="py-2.5 px-3 text-center w-20">Points</th>
                         <th className="py-2.5 px-3 text-center w-24">Status</th>
                         <th className="py-2.5 px-3 text-center w-16">Edit</th>
                         <th className="py-2.5 px-3 text-center w-16">Delete</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {interactiveQuestionsList.length === 0 ? (
+                      {loadingInteractiveQuizzes ? (
                         <tr>
-                          <td colSpan={7} className="p-8 text-center text-slate-400">
+                          <td colSpan={9} className="p-8 text-center text-slate-400">
+                            <Loader2 className="h-5 w-5 animate-spin mx-auto text-blue-600 mb-2" />
+                            Loading interactive questions in {selectedLangName}…
+                          </td>
+                        </tr>
+                      ) : interactiveQuizzesList.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="p-8 text-center text-slate-400">
                             No interactive assessment questions added yet for {selectedLangName}.
                           </td>
                         </tr>
                       ) : (
-                        interactiveQuestionsList.map((iq) => (
-                          <tr key={iq.sNo} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="py-2.5 px-3 text-slate-500 font-mono">{iq.sNo}</td>
-                            <td className="py-2.5 px-3 font-medium text-slate-700">{iq.qType}</td>
-                            <td className="py-2.5 px-3 font-mono text-slate-600">{iq.afterVideoId}</td>
-                            <td className="py-2.5 px-3 text-slate-800">{iq.question}</td>
-                            <td className="py-2.5 px-3 text-center">
-                              <span className="inline-block rounded bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider">
-                                Active
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-3 text-center">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setInteractiveAfterVideo(iq.afterVideoId);
-                                  setInteractiveQType(iq.qType);
-                                  success("Loaded interactive question for editing");
-                                }}
-                                className="text-xs text-blue-600 hover:underline"
-                              >
-                                Edit
-                              </button>
-                            </td>
-                            <td className="py-2.5 px-3 text-center">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setInteractiveQuestionsList((prev) => prev.filter((item) => item.sNo !== iq.sNo));
-                                  success("Interactive question deleted");
-                                }}
-                                className="text-xs text-blue-600 hover:underline"
-                              >
-                                Delete
-                              </button>
-                            </td>
-                          </tr>
-                        ))
+                        interactiveQuizzesList.map((iq, idx) => {
+                          const isCorrect = (key: string) =>
+                            iq.correctAnswer?.toLowerCase() === key.toLowerCase();
+
+                          const matchedVideo = videosList.find(
+                            (v) => String(v.videoId) === String(iq.videoId) || String(v.id) === String(iq.videoId)
+                          );
+
+                          return (
+                            <tr key={iq.quizId || iq.id || idx} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="py-2.5 px-3 text-slate-500 font-mono">{idx + 1}</td>
+                              <td className="py-2.5 px-3">
+                                {matchedVideo ? (
+                                  <div className="space-y-0.5 max-w-xs">
+                                    <p className="font-semibold text-slate-900 truncate">{matchedVideo.title}</p>
+                                    <span className="text-[10px] font-mono text-slate-500 bg-slate-100 px-1 py-0.5 rounded">
+                                      ID: {matchedVideo.videoId}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="font-mono text-slate-600 text-xs">
+                                    {iq.videoName || (iq.videoId ? `Video ${iq.videoId}` : "—")}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <div className="space-y-1 max-w-md">
+                                  <p className="font-medium text-slate-900 leading-snug">{iq.question}</p>
+                                  {iq.questionImageUrl && (
+                                    <div className="flex items-center gap-2 pt-1">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={iq.questionImageUrl}
+                                        alt="Question Media"
+                                        className="h-10 w-16 object-cover rounded border border-slate-200"
+                                      />
+                                      <a
+                                        href={iq.questionImageUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-[11px] text-blue-600 hover:underline inline-flex items-center gap-1"
+                                      >
+                                        <ExternalLink className="h-3 w-3" /> View Image
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <div className="space-y-1.5">
+                                  {[
+                                    { key: "answer1", val: iq.answer1, url: iq.answer1Url },
+                                    { key: "answer2", val: iq.answer2, url: iq.answer2Url },
+                                    { key: "answer3", val: iq.answer3, url: iq.answer3Url },
+                                    { key: "answer4", val: iq.answer4, url: iq.answer4Url },
+                                  ]
+                                    .filter((opt) => opt.val || opt.url)
+                                    .map((opt, oIdx) => (
+                                      <div
+                                        key={oIdx}
+                                        className={cn(
+                                          "flex items-center gap-2 text-[11px]",
+                                          isCorrect(opt.key) ? "font-semibold text-emerald-700" : "text-slate-600"
+                                        )}
+                                      >
+                                        <span>{oIdx + 1}.</span>
+                                        {opt.url ? (
+                                          <div className="flex items-center gap-1.5">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                              src={opt.url}
+                                              alt={opt.val || `Option ${oIdx + 1}`}
+                                              className="h-6 w-8 object-cover rounded border border-slate-200"
+                                            />
+                                            <span>{opt.val || `Image Option ${oIdx + 1}`}</span>
+                                          </div>
+                                        ) : (
+                                          <span>{opt.val}</span>
+                                        )}
+                                        {isCorrect(opt.key) && (
+                                          <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                        )}
+                                      </div>
+                                    ))}
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-mono font-medium text-emerald-700 uppercase">
+                                {iq.correctAnswer}
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-mono text-slate-700">
+                                {iq.points ?? 10}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <span
+                                  className={cn(
+                                    "inline-block rounded px-2 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider",
+                                    iq.status?.toUpperCase() === "ACTIVE" ? "bg-emerald-600" : "bg-slate-500"
+                                  )}
+                                >
+                                  {iq.status || "ACTIVE"}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const qId = iq.quizId ?? iq.id;
+                                    if (!qId) return;
+                                    setEditingInteractiveQuizId(qId);
+                                    setInteractiveQuestionText(iq.question || "");
+                                    setInteractiveAfterVideo(iq.videoId ? String(iq.videoId) : "");
+
+                                    // Determine type
+                                    if (iq.answer1Url || iq.answer2Url) {
+                                      setInteractiveQType("Image");
+                                      setImageOpt1Url(iq.answer1Url || "");
+                                      setImageOpt2Url(iq.answer2Url || "");
+                                      setImageOpt3Url(iq.answer3Url || "");
+                                      setImageOpt4Url(iq.answer4Url || "");
+                                    } else if (iq.questionImageUrl) {
+                                      setInteractiveQType("Pattern");
+                                      setPatternImageUrl(iq.questionImageUrl || "");
+                                      setInteractiveOpt1(iq.answer1 || "");
+                                      setInteractiveOpt2(iq.answer2 || "");
+                                      setInteractiveOpt3(iq.answer3 || "");
+                                      setInteractiveOpt4(iq.answer4 || "");
+                                    } else {
+                                      setInteractiveQType("True or False");
+                                    }
+
+                                    const cAns = String(iq.correctAnswer || "").toLowerCase();
+                                    if (cAns === "answer1") setInteractiveRightAnswer(1);
+                                    else if (cAns === "answer2") setInteractiveRightAnswer(2);
+                                    else if (cAns === "answer3") setInteractiveRightAnswer(3);
+                                    else if (cAns === "answer4") setInteractiveRightAnswer(4);
+                                    else setInteractiveRightAnswer(1);
+
+                                    success(`Loaded interactive question for editing`);
+                                  }}
+                                  className="text-xs text-blue-600 hover:underline font-medium"
+                                >
+                                  Edit
+                                </button>
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const qId = iq.quizId ?? iq.id;
+                                    if (qId) {
+                                      handleDeleteQuiz(qId);
+                                    }
+                                  }}
+                                  className="text-xs text-rose-600 hover:underline font-medium"
+                                >
+                                  Delete
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
@@ -2587,38 +2980,19 @@ export default function CourseDetailPage() {
             </Card>
           )}
 
-          {/* Add Question Card (Interactive Questionnaire - Matches attached screenshot) */}
+          {/* Add Question Card (Interactive Questionnaire - Matches attached screenshots) */}
           {questionnaireSubTab === "interactive" && (
             <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
               <CardHeader className="border-b px-6 py-3 bg-white">
                 <CardTitle className="text-base font-bold text-slate-900">
-                  Add Interactive Question - {selectedLangName}
+                  {editingInteractiveQuizId
+                    ? `Edit Question (ID: ${editingInteractiveQuizId}) - ${selectedLangName}`
+                    : `Add Question - ${selectedLangName}`}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!interactiveAfterVideo || !interactiveQType) {
-                      toastError("Please select Question After Video and Question Type");
-                      return;
-                    }
-                    setInteractiveQuestionsList((prev) => [
-                      ...prev,
-                      {
-                        sNo: prev.length + 1,
-                        qType: interactiveQType,
-                        afterVideoId: interactiveAfterVideo,
-                        question: `Interactive Question for Video ${interactiveAfterVideo}`,
-                        status: true,
-                      },
-                    ]);
-                    setInteractiveAfterVideo("");
-                    setInteractiveQType("");
-                    success("Interactive question added successfully!");
-                  }}
-                  className="mx-auto max-w-3xl space-y-4"
-                >
+                <form onSubmit={handleSaveInteractiveQuestion} className="mx-auto max-w-3xl space-y-4">
+                  {/* Question After Video */}
                   <div className="grid grid-cols-1 sm:grid-cols-5 items-center gap-3">
                     <Label htmlFor="iq-after-video" className="text-xs font-bold text-slate-800 sm:text-right">
                       Question After Video
@@ -2630,22 +3004,17 @@ export default function CourseDetailPage() {
                         onChange={(e) => setInteractiveAfterVideo(e.target.value)}
                         className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       >
-                        <option value="">Select ...</option>
+                        <option value="">Select Video...</option>
                         {videosList.map((vid) => (
-                          <option key={vid.videoId} value={String(vid.videoId)}>
-                            {vid.title} ({vid.videoId})
+                          <option key={vid.videoId || vid.id} value={String(vid.videoId || vid.id)}>
+                            {vid.title} (ID: {vid.videoId || vid.id})
                           </option>
                         ))}
-                        {videosList.length === 0 && (
-                          <>
-                            <option value="101">Video 1 - Covid-19 Safety</option>
-                            <option value="102">Video 2 - Introduction to Waterproofing</option>
-                          </>
-                        )}
                       </select>
                     </div>
                   </div>
 
+                  {/* Question Type: Exactly 3 types */}
                   <div className="grid grid-cols-1 sm:grid-cols-5 items-center gap-3">
                     <Label htmlFor="iq-type" className="text-xs font-bold text-slate-800 sm:text-right">
                       Question Type
@@ -2654,31 +3023,227 @@ export default function CourseDetailPage() {
                       <select
                         id="iq-type"
                         value={interactiveQType}
-                        onChange={(e) => setInteractiveQType(e.target.value)}
-                        className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        onChange={(e) => {
+                          const val = e.target.value as "True or False" | "Image" | "Pattern";
+                          setInteractiveQType(val);
+                          setInteractiveRightAnswer(1);
+                        }}
+                        className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
                       >
-                        <option value="">Select...</option>
-                        <option value="Multiple Choice">Multiple Choice</option>
-                        <option value="True/False">True/False</option>
-                        <option value="Fill in the blank">Fill in the blank</option>
+                        <option value="True or False">True or False</option>
+                        <option value="Image">Image</option>
+                        <option value="Pattern">Pattern</option>
                       </select>
                     </div>
                   </div>
 
+                  {/* Question Text */}
+                  <div className="grid grid-cols-1 sm:grid-cols-5 items-center gap-3">
+                    <Label htmlFor="iq-question" className="text-xs font-bold text-slate-800 sm:text-right">
+                      Question
+                    </Label>
+                    <div className="sm:col-span-4">
+                      <Input
+                        id="iq-question"
+                        value={interactiveQuestionText}
+                        onChange={(e) => setInteractiveQuestionText(e.target.value)}
+                        placeholder="Question"
+                        className="h-9 text-xs"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* TYPE 1: True or False (Matches Screenshot 1) */}
+                  {interactiveQType === "True or False" && (
+                    <div className="space-y-3 pt-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-5 items-center gap-3">
+                        <Label className="text-xs font-bold text-slate-800 sm:text-right">Option 1</Label>
+                        <div className="sm:col-span-4 flex items-center gap-3">
+                          <Input value="TRUE" readOnly disabled className="h-9 text-xs flex-1 bg-slate-100 font-bold" />
+                          <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer shrink-0 font-medium">
+                            <input
+                              type="radio"
+                              name="iqRightAnswer"
+                              checked={interactiveRightAnswer === 1}
+                              onChange={() => setInteractiveRightAnswer(1)}
+                              className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span>(This is Right Answer)</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-5 items-center gap-3">
+                        <Label className="text-xs font-bold text-slate-800 sm:text-right">Option 2</Label>
+                        <div className="sm:col-span-4 flex items-center gap-3">
+                          <Input value="FALSE" readOnly disabled className="h-9 text-xs flex-1 bg-slate-100 font-bold" />
+                          <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer shrink-0 font-medium">
+                            <input
+                              type="radio"
+                              name="iqRightAnswer"
+                              checked={interactiveRightAnswer === 2}
+                              onChange={() => setInteractiveRightAnswer(2)}
+                              className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span>(This is Right Answer)</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TYPE 2: Image (Matches Screenshot 2) */}
+                  {interactiveQType === "Image" && (
+                    <div className="space-y-3 pt-1">
+                      <p className="text-[11px] text-slate-500 font-medium sm:pl-32">
+                        Allowed formats: PNG, JPG, JPEG (Max 5 MB)
+                      </p>
+                      {[
+                        { label: "Option 1", file: imageOpt1File, setFile: setImageOpt1File, url: imageOpt1Url, idx: 1 },
+                        { label: "Option 2", file: imageOpt2File, setFile: setImageOpt2File, url: imageOpt2Url, idx: 2 },
+                        { label: "Option 3", file: imageOpt3File, setFile: setImageOpt3File, url: imageOpt3Url, idx: 3 },
+                        { label: "Option 4", file: imageOpt4File, setFile: setImageOpt4File, url: imageOpt4Url, idx: 4 },
+                      ].map((opt) => (
+                        <div key={opt.idx} className="grid grid-cols-1 sm:grid-cols-5 items-center gap-3">
+                          <Label className="text-xs font-bold text-slate-800 sm:text-right">{opt.label}</Label>
+                          <div className="sm:col-span-4 flex items-center gap-3">
+                            <div className="flex-1 flex items-center gap-2">
+                              <Input
+                                type="file"
+                                accept=".jpg,.jpeg,.png"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0] || null;
+                                  if (f) {
+                                    const c = validateImageFile(f);
+                                    if (!c.valid) {
+                                      toastError(c.error || "Only .png, .jpg, and .jpeg are allowed");
+                                      e.target.value = "";
+                                      return;
+                                    }
+                                  }
+                                  opt.setFile(f);
+                                }}
+                                className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+                              />
+                              {(opt.file || opt.url) && (
+                                <div className="h-9 w-12 rounded border border-slate-200 overflow-hidden shrink-0">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={opt.file ? URL.createObjectURL(opt.file) : opt.url}
+                                    alt={opt.label}
+                                    className="h-full w-full object-cover"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                            <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer shrink-0 font-medium">
+                              <input
+                                type="radio"
+                                name="iqRightAnswer"
+                                checked={interactiveRightAnswer === opt.idx}
+                                onChange={() => setInteractiveRightAnswer(opt.idx)}
+                                className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500"
+                              />
+                              <span>(This is Right Answer)</span>
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* TYPE 3: Pattern (Matches Screenshot 3) */}
+                  {interactiveQType === "Pattern" && (
+                    <div className="space-y-3 pt-1">
+                      {/* Image/Pattern file upload */}
+                      <div className="grid grid-cols-1 sm:grid-cols-5 items-center gap-3">
+                        <Label htmlFor="iq-pattern-img" className="text-xs font-bold text-slate-800 sm:text-right">
+                          Image/Pattern
+                        </Label>
+                        <div className="sm:col-span-4 flex items-center gap-2">
+                          <Input
+                            id="iq-pattern-img"
+                            type="file"
+                            accept=".jpg,.jpeg,.png"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0] || null;
+                              if (f) {
+                                const c = validateImageFile(f);
+                                if (!c.valid) {
+                                  toastError(c.error || "Only .png, .jpg, and .jpeg are allowed");
+                                  e.target.value = "";
+                                  return;
+                                }
+                              }
+                              setPatternImageFile(f);
+                            }}
+                            className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+                          />
+                          {(patternImageFile || patternImageUrl) && (
+                            <div className="h-9 w-12 rounded border border-slate-200 overflow-hidden shrink-0">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={patternImageFile ? URL.createObjectURL(patternImageFile) : patternImageUrl}
+                                alt="Pattern"
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                          )}
+                        </div>
+                        <div className="sm:col-start-2 sm:col-span-4">
+                          <p className="text-[11px] text-slate-500">Allowed formats: PNG, JPG, JPEG (Max 5 MB)</p>
+                        </div>
+                      </div>
+
+                      {[
+                        { label: "Option 1", val: interactiveOpt1, setVal: setInteractiveOpt1, idx: 1 },
+                        { label: "Option 2", val: interactiveOpt2, setVal: setInteractiveOpt2, idx: 2 },
+                        { label: "Option 3", val: interactiveOpt3, setVal: setInteractiveOpt3, idx: 3 },
+                        { label: "Option 4", val: interactiveOpt4, setVal: setInteractiveOpt4, idx: 4 },
+                      ].map((opt) => (
+                        <div key={opt.idx} className="grid grid-cols-1 sm:grid-cols-5 items-center gap-3">
+                          <Label className="text-xs font-bold text-slate-800 sm:text-right">{opt.label}</Label>
+                          <div className="sm:col-span-4 flex items-center gap-3">
+                            <Input
+                              value={opt.val}
+                              onChange={(e) => opt.setVal(e.target.value)}
+                              placeholder={opt.label}
+                              className="h-9 text-xs flex-1"
+                              required
+                            />
+                            <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer shrink-0 font-medium">
+                              <input
+                                type="radio"
+                                name="iqRightAnswer"
+                                checked={interactiveRightAnswer === opt.idx}
+                                onChange={() => setInteractiveRightAnswer(opt.idx)}
+                                className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500"
+                              />
+                              <span>(This is Right Answer)</span>
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Actions */}
                   <div className="flex items-center justify-center gap-2 pt-4">
                     <Button
                       type="submit"
-                      className="bg-blue-600 hover:bg-blue-700 text-white min-w-20 h-8 text-xs font-semibold uppercase"
+                      disabled={isSavingInteractiveQuiz || loadingInteractiveQuizzes}
+                      className="bg-blue-600 hover:bg-blue-700 text-white min-w-20 h-8 text-xs font-semibold uppercase gap-1.5"
                     >
-                      SAVE
+                      {isSavingInteractiveQuiz && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      {isSavingInteractiveQuiz
+                        ? (editingInteractiveQuizId ? "UPDATING…" : "SAVING…")
+                        : (editingInteractiveQuizId ? "UPDATE" : "SAVE")}
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => {
-                        setInteractiveAfterVideo("");
-                        setInteractiveQType("");
-                      }}
+                      onClick={resetInteractiveForm}
                       className="min-w-20 h-8 text-xs font-medium uppercase border-slate-300"
                     >
                       CANCEL
@@ -2796,7 +3361,7 @@ export default function CourseDetailPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Course?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this course (#{course?.id})?
+              Are you sure you want to delete this course (ID: {course?.id})?
               <br />
               <strong className="text-slate-800 line-clamp-2 mt-2">{course?.courseName}</strong>
               <br />

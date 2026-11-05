@@ -433,7 +433,7 @@ export default function AdminUsersPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Archive User?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete/archive user #{userToDelete?.id} (
+              Are you sure you want to delete/archive user (ID: {userToDelete?.id}) (
               {userToDelete?.firstName} {userToDelete?.lastName})?
               <br />
               This action will disable the user account.

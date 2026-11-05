@@ -38,7 +38,6 @@ export default function NewTrainerPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
-  const [departmentId, setDepartmentId] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
@@ -57,6 +56,18 @@ export default function NewTrainerPage() {
   }, []);
 
   const handleImageChange = (file: File | null) => {
+    if (file) {
+      const check = validateImageFile(file);
+      if (!check.valid) {
+        toastError(check.error || "Only .png, .jpg, and .jpeg image formats are allowed (Max 5 MB).");
+        setImageFile(null);
+        if (imagePreview) {
+          URL.revokeObjectURL(imagePreview);
+          setImagePreview(null);
+        }
+        return;
+      }
+    }
     setImageFile(file);
     if (imagePreview) {
       URL.revokeObjectURL(imagePreview);
@@ -72,7 +83,6 @@ export default function NewTrainerPage() {
     setEmail("");
     setPassword("");
     setMobileNumber("");
-    setDepartmentId("");
     handleImageChange(null);
     setFormKey((k) => k + 1);
   };
@@ -127,7 +137,6 @@ export default function NewTrainerPage() {
         lastName,
         email: email.trim(),
         password: password.trim(),
-        departmentId: departmentId.trim() || null,
         mobileNumber: mobileNumber.trim() || undefined,
         profilePic: profilePicUrl || undefined,
         roleIds: ["12"],
@@ -239,22 +248,6 @@ export default function NewTrainerPage() {
               </div>
             </div>
 
-            {/* Department ID */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label htmlFor="trainer-dept" className="text-xs font-semibold text-slate-700 sm:text-right">
-                Department ID
-              </Label>
-              <div className="sm:col-span-3">
-                <Input
-                  id="trainer-dept"
-                  value={departmentId}
-                  onChange={(e) => setDepartmentId(e.target.value)}
-                  placeholder="e.g. Training Dept"
-                  className="h-9 text-xs"
-                />
-              </div>
-            </div>
-
             {/* Profile Picture */}
             <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-4 pt-1">
               <Label htmlFor="trainer-image" className="text-xs font-semibold text-slate-700 sm:text-right sm:pt-2">
@@ -270,13 +263,16 @@ export default function NewTrainerPage() {
                       <UserRound className="h-6 w-6 text-slate-400" />
                     )}
                   </div>
-                  <Input
-                    id="trainer-image"
-                    type="file"
-                    accept=".jpg,.jpeg,.png"
-                    onChange={(e) => handleImageChange(e.target.files?.[0] || null)}
-                    className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
-                  />
+                  <div className="space-y-1">
+                    <Input
+                      id="trainer-image"
+                      type="file"
+                      accept=".jpg,.jpeg,.png"
+                      onChange={(e) => handleImageChange(e.target.files?.[0] || null)}
+                      className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+                    />
+                    <p className="text-[11px] text-slate-500">Allowed formats: PNG, JPG, JPEG (Max 5 MB)</p>
+                  </div>
                 </div>
               </div>
             </div>

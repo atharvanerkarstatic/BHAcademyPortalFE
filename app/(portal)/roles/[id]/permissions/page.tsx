@@ -125,7 +125,7 @@ export default function RolePermissionsPage() {
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Roles", href: "/roles" },
-          { label: roleData?.roleName || `Role #${roleId}` },
+          { label: roleData?.roleName || `Role (ID: ${roleId})` },
         ]}
       />
 

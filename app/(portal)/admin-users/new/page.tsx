@@ -42,7 +42,6 @@ export default function NewAdminUserPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
-  const [departmentId, setDepartmentId] = useState("1");
   const [selectedRoleId, setSelectedRoleId] = useState<string>("1");
   const [roles, setRoles] = useState<RoleItem[]>([]);
   const [loadingRoles, setLoadingRoles] = useState(true);
@@ -81,7 +80,6 @@ export default function NewAdminUserPage() {
     setEmail("");
     setPassword("");
     setMobileNumber("");
-    setDepartmentId("1");
     setImageFile(null);
     setFormKey((k) => k + 1);
   };
@@ -147,7 +145,6 @@ export default function NewAdminUserPage() {
         lastName,
         email: email.trim(),
         password,
-        departmentId: departmentId.trim() || null,
         mobileNumber: mobileNumber.trim() || null,
         profilePic: uploadedPicUrl,
         roleIds: [selectedRoleId],
@@ -320,25 +317,6 @@ export default function NewAdminUserPage() {
                     setMobileNumber(e.target.value.replace(/\D/g, "").slice(0, 10))
                   }
                   placeholder="10-digit mobile number"
-                  className="h-9 text-xs font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Department ID */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label
-                htmlFor="user-dept"
-                className="text-xs font-semibold text-slate-700 sm:text-right"
-              >
-                Department ID
-              </Label>
-              <div className="sm:col-span-3">
-                <Input
-                  id="user-dept"
-                  value={departmentId}
-                  onChange={(e) => setDepartmentId(e.target.value)}
-                  placeholder="e.g. 1"
                   className="h-9 text-xs font-mono"
                 />
               </div>
