@@ -18,6 +18,8 @@ import {
   Upload,
   ArrowUpDown,
   User,
+  X,
+  ExternalLink,
 } from "lucide-react";
 
 import { DataTable, type Column } from "@/components/common/data-table";
@@ -65,6 +67,9 @@ export default function AccountsPage() {
 
   // Active top tab: "list" (matches screenshot 1) | "bulk_bp" | "bulk_users"
   const [activeTab, setActiveTab] = useState<"list" | "bulk_bp" | "bulk_users">("list");
+
+  // State for image preview modal
+  const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
 
   // Bulk update file uploads
   const [bulkBpFile, setBulkBpFile] = useState<File | null>(null);
@@ -342,20 +347,30 @@ export default function AccountsPage() {
       {
         header: "Image",
         cell: (r) => {
-          const imgUrl = r.profileImage || r.image || r.profilePicture;
+          const imgUrl = r.profilePic || r.profileImage || r.image || r.profilePicture;
           const validImg = imgUrl && imgUrl.startsWith("http");
           return (
             <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50">
               {validImg ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={imgUrl}
-                  alt={r.name}
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = "none";
-                  }}
-                />
+                <button
+                  type="button"
+                  onClick={() => setPreviewImage({ url: imgUrl, title: r.name || r.id })}
+                  className="group relative h-full w-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md overflow-hidden"
+                  title="Click to preview image"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imgUrl}
+                    alt={r.name}
+                    className="h-full w-full object-cover transition-transform group-hover:scale-110"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = "none";
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <ImageIcon className="h-3.5 w-3.5 text-white drop-shadow" />
+                  </div>
+                </button>
               ) : (
                 <ImageIcon className="h-4 w-4 text-slate-400" />
               )}
@@ -366,16 +381,19 @@ export default function AccountsPage() {
       },
       {
         header: "Name",
-        cell: (r) => (
-          <div className="max-w-xs space-y-0.5">
-            <p className="font-medium text-slate-900 leading-snug">{r.name}</p>
-            {r.emailId && (
-              <p className="text-[11px] text-slate-500 font-normal truncate max-w-[180px]">
-                {r.emailId}
-              </p>
-            )}
-          </div>
-        ),
+        cell: (r) => {
+          const emailVal = r.email || r.emailId;
+          return (
+            <div className="max-w-xs space-y-0.5">
+              <p className="font-medium text-slate-900 leading-snug">{r.name}</p>
+              {emailVal && (
+                <p className="text-[11px] text-slate-500 font-normal truncate max-w-[180px]">
+                  {emailVal}
+                </p>
+              )}
+            </div>
+          );
+        },
         className: "min-w-40",
       },
       {
@@ -834,6 +852,68 @@ export default function AccountsPage() {
               className="bg-slate-800 hover:bg-slate-900 text-white text-xs px-4 h-8"
             >
               Close & Fix File
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Image Preview Modal */}
+      <AlertDialog open={Boolean(previewImage)} onOpenChange={(open) => !open && setPreviewImage(null)}>
+        <AlertDialogContent className="max-w-md w-[90vw] p-4 bg-white rounded-xl shadow-xl border border-slate-200">
+          <AlertDialogHeader className="border-b pb-3 flex flex-row items-center justify-between">
+            <div>
+              <AlertDialogTitle className="text-sm font-bold text-slate-900">
+                Image Preview
+              </AlertDialogTitle>
+              {previewImage?.title && (
+                <AlertDialogDescription className="text-xs text-slate-500 truncate max-w-[240px]">
+                  {previewImage.title}
+                </AlertDialogDescription>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="rounded-md p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </AlertDialogHeader>
+
+          <div className="py-3 flex flex-col items-center justify-center">
+            {previewImage?.url ? (
+              <div className="relative max-h-[380px] w-full flex items-center justify-center overflow-hidden rounded-lg bg-slate-100 border border-slate-200">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewImage.url}
+                  alt={previewImage.title || "Preview"}
+                  className="max-h-[360px] w-auto max-w-full object-contain rounded-md"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = "none";
+                  }}
+                />
+              </div>
+            ) : null}
+          </div>
+
+          <AlertDialogFooter className="border-t pt-3 flex flex-row items-center justify-between sm:justify-between w-full">
+            {previewImage?.url && (
+              <a
+                href={previewImage.url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium hover:underline"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Open original
+              </a>
+            )}
+            <AlertDialogAction
+              onClick={() => setPreviewImage(null)}
+              className="h-8 text-xs bg-slate-800 hover:bg-slate-900 text-white"
+            >
+              Close
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

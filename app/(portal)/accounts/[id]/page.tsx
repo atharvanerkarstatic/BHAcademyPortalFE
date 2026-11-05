@@ -101,7 +101,7 @@ export default function AccountDetailPage() {
     setMobileNumber(rawMobile);
     setBhBp(acc.bhBp || acc.id || "");
     setEmailId(acc.emailId || acc.email || "");
-    setPincode(acc.pincode || "");
+    setPincode(acc.pinCode || acc.pincode || "");
     setActive(acc.active !== false && acc.status?.toLowerCase() !== "inactive");
   };
 
@@ -130,7 +130,7 @@ export default function AccountDetailPage() {
     }
 
     startSavingTransition(async () => {
-      let imageString = account?.profileImage || account?.image || account?.profilePicture || "";
+      let imageString = account?.profilePic || account?.profileImage || account?.image || account?.profilePicture || "";
       if (imageFile) {
         try {
           const uploadFormData = new FormData();
@@ -277,11 +277,11 @@ export default function AccountDetailPage() {
             <CardContent className="p-4 space-y-4">
               {/* Profile Image Preview Box (Matches Course Image Preview) */}
               <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center">
-                {account.profileImage || account.image || account.profilePicture ? (
+                {account.profilePic || account.profileImage || account.image || account.profilePicture ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    key={account.profileImage || account.image || account.profilePicture}
-                    src={account.profileImage || account.image || account.profilePicture}
+                    key={account.profilePic || account.profileImage || account.image || account.profilePicture}
+                    src={account.profilePic || account.profileImage || account.image || account.profilePicture}
                     alt={account.name}
                     className="h-full w-full object-cover"
                     onError={(e) => {
@@ -324,7 +324,7 @@ export default function AccountDetailPage() {
                 <div className="grid grid-cols-3 gap-1">
                   <span className="font-semibold text-slate-700">Pincode:</span>
                   <span className="col-span-2 font-mono text-slate-600 truncate">
-                    {account.pincode || "—"}
+                    {account.pinCode || account.pincode || "—"}
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-1">
