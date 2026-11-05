@@ -5,10 +5,6 @@ const nextConfig: NextConfig = {
   cacheComponents: false,
   partialPrefetching: false,
   experimental: {
-    staleTimes: {
-      dynamic: 0,
-      static: 0,
-    },
     serverActions: {
       bodySizeLimit: "10mb",
     },

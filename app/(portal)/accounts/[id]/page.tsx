@@ -277,23 +277,26 @@ export default function AccountDetailPage() {
             <CardContent className="p-4 space-y-4">
               {/* Profile Image Preview Box (Matches Course Image Preview) */}
               <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center">
-                {account.profilePic || account.profileImage || account.image || account.profilePicture ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={account.profilePic || account.profileImage || account.image || account.profilePicture}
-                    src={account.profilePic || account.profileImage || account.image || account.profilePicture}
-                    alt={account.name}
-                    className="h-full w-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = "none";
-                    }}
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center gap-1 text-slate-400">
-                    <User className="h-10 w-10 text-slate-400" />
-                    <span className="text-[10px] font-medium text-slate-400">No Profile Image</span>
-                  </div>
-                )}
+                {(() => {
+                  const avatarSrc = (account.profilePic || account.profileImage || account.image || account.profilePicture) || undefined;
+                  return avatarSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={avatarSrc}
+                      src={avatarSrc}
+                      alt={account.name}
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-1 text-slate-400">
+                      <User className="h-10 w-10 text-slate-400" />
+                      <span className="text-[10px] font-medium text-slate-400">No Profile Image</span>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Title below image */}
