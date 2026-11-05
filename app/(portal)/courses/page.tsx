@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Plus, RefreshCw, Search, Image as ImageIcon, Award, Video, Clock, Pencil, Trash2, Download } from "lucide-react";
 
 import { DataTable, type Column } from "@/components/common/data-table";
@@ -27,6 +28,7 @@ import type { CourseItem, CoursePageResponse } from "@/features/courses/types";
 export default function CoursesPage() {
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
+  const pathname = usePathname();
 
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
@@ -83,6 +85,15 @@ export default function CoursesPage() {
       }
     });
   };
+
+  // Reset search filter whenever navigating away or returning to this route
+  useEffect(() => {
+    return () => {
+      setSearchInput("");
+      setActiveSearch("");
+      setPage(1);
+    };
+  }, [pathname]);
 
   // Debounced search: as soon as typing stops, update activeSearch and query API
   useEffect(() => {

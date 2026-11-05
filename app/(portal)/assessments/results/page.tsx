@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { RefreshCw, Search, CheckCircle2, XCircle, BarChart3 } from "lucide-react";
 
 import { DataTable, type Column } from "@/components/common/data-table";
@@ -14,6 +15,7 @@ import type { AssessmentResultItem } from "@/features/assessments/types";
 
 export default function AssessmentResultsPage() {
   const { success, error: toastError } = useToast();
+  const pathname = usePathname();
 
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
@@ -58,6 +60,15 @@ export default function AssessmentResultsPage() {
       }
     });
   };
+
+  // Reset search filter whenever navigating away or returning to this route
+  useEffect(() => {
+    return () => {
+      setSearchInput("");
+      setActiveSearch("");
+      setPage(1);
+    };
+  }, [pathname]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

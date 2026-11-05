@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Plus, RefreshCw, Pencil, Trash2, Search } from "lucide-react";
 
 import { DataTable, type Column } from "@/components/common/data-table";
@@ -25,7 +26,16 @@ import type { LanguageItem, LanguagePageResponse } from "@/features/languages/ty
 
 export default function LanguagesPage() {
   const { success, error: toastError } = useToast();
+  const pathname = usePathname();
   const [search, setSearch] = useState("");
+
+  // Reset search filter whenever navigating away or returning to this route
+  useEffect(() => {
+    return () => {
+      setSearch("");
+      setPage(1);
+    };
+  }, [pathname]);
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
@@ -47,10 +57,9 @@ export default function LanguagesPage() {
   const [languageToDelete, setLanguageToDelete] = useState<LanguageItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const loadLanguages = (targetPage = page, searchTerm = search, showSuccessToast = false) => {
+  const loadLanguages = (targetPage = page, showSuccessToast = false) => {
     startTransition(async () => {
       const res = await getLanguagesAction({
-        search: searchTerm,
         page: targetPage,
         size: pageSize,
       });
@@ -66,15 +75,9 @@ export default function LanguagesPage() {
   };
 
   useEffect(() => {
-    loadLanguages(page, search);
+    loadLanguages(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
-
-  const handleSearchSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setPage(1);
-    loadLanguages(1, search);
-  };
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
@@ -90,11 +93,24 @@ export default function LanguagesPage() {
 
     if (res.success) {
       success(res.message || "Language deleted successfully");
-      loadLanguages(page, search);
+      loadLanguages(page);
     } else {
       toastError(res.error || "Failed to delete language");
     }
   };
+
+  // Live client-side search filtering on current fetched items (same as FAQ page)
+  const filteredData = useMemo(() => {
+    if (!search.trim()) return pageData.content;
+    const query = search.toLowerCase();
+    return pageData.content.filter(
+      (item) =>
+        (item.language && item.language.toLowerCase().includes(query)) ||
+        (item.languageCode && item.languageCode.toLowerCase().includes(query)) ||
+        (item.nativeName && item.nativeName.toLowerCase().includes(query)) ||
+        String(item.languageId).includes(query)
+    );
+  }, [pageData.content, search]);
 
   const columns: Column<LanguageItem>[] = useMemo(() => {
     return [
@@ -189,14 +205,14 @@ export default function LanguagesPage() {
         title="Languages List"
         logoSrc="/logo.png"
         columns={columns}
-        data={pageData.content}
+        data={filteredData}
         getRowId={(r) => r.languageId}
         loading={isPending}
         emptyMessage="No languages found"
         action={
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Search Input */}
-            <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+            {/* Search Input beside Refresh (same as FAQ page) */}
+            <div className="relative">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <Input
                 placeholder="Search languages..."
@@ -204,7 +220,7 @@ export default function LanguagesPage() {
                 onChange={(e) => setSearch(e.target.value)}
                 className="h-8 w-44 pl-8 text-xs sm:w-56"
               />
-            </form>
+            </div>
 
             {/* Refresh button */}
             <Button
@@ -212,7 +228,7 @@ export default function LanguagesPage() {
               size="sm"
               onClick={() => {
                 setPage(1);
-                loadLanguages(1, search, true);
+                loadLanguages(1, true);
               }}
               disabled={isPending}
               className="gap-1.5 text-slate-600"

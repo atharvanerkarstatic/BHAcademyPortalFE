@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Plus, RefreshCw, Search, ShieldCheck, Key } from "lucide-react";
 
 import { DataTable, type Column } from "@/components/common/data-table";
@@ -16,6 +17,7 @@ import type { RoleItem, RolePageResponse } from "@/features/roles/types";
 export default function RolesPage() {
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
+  const pathname = usePathname();
 
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
@@ -63,6 +65,15 @@ export default function RolesPage() {
       }
     });
   };
+
+  // Reset search filter whenever navigating away or returning to this route
+  useEffect(() => {
+    return () => {
+      setSearchInput("");
+      setActiveSearch("");
+      setPage(1);
+    };
+  }, [pathname]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

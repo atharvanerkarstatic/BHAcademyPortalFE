@@ -1428,7 +1428,7 @@ export default function CourseDetailPage() {
 
               {/* Left Action Buttons */}
               <div className="space-y-2 pt-2 border-t">
-                {course.status === "ACTIVE" ? (
+                {/* {course.status === "ACTIVE" ? (
                   <Button
                     type="button"
                     className="w-full justify-center gap-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white h-8"
@@ -1444,15 +1444,15 @@ export default function CourseDetailPage() {
                     <XCircle className="h-3.5 w-3.5" />
                     Inactive on Portal
                   </Button>
-                )}
+                )} */}
 
-                <Button
+                {/* <Button
                   type="button"
                   className="w-full justify-center gap-1.5 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white h-8"
                 >
                   <XCircle className="h-3.5 w-3.5" />
                   Inactive in Training
-                </Button>
+                </Button> */}
 
                 {canUpdate && (
                   <Button
@@ -1732,7 +1732,7 @@ export default function CourseDetailPage() {
                     <p className="text-[11px] text-slate-500">
                       <span className="font-semibold text-slate-800">Columns in Sample File:</span>{" "}
                       <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 text-blue-800 font-mono">
-                        courseId,languageId,courseName,description,courseDuration,courseLevel,activeOnPortal,activeInTraining
+                        courseId,languageId,courseName,description,courseDuration,courseLevel
                       </code>
                     </p>
                   </div>
@@ -1913,12 +1913,12 @@ export default function CourseDetailPage() {
                           : "Download Sample File"}
                       </Button>
                     </div>
-                    <p className="text-[11px] text-slate-500">
+                    {/* <p className="text-[11px] text-slate-500">
                       <span className="font-semibold text-slate-800">Columns in Sample File:</span>{" "}
                       <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 text-blue-800 font-mono break-all">
                         video_id,question,answer_1,answer_2,answer_3,answer_4,question_type,answer1_url,answer2_url,answer3_url,answer4_url,correct_answer,points,quiz_name,question_image_url,assessmentFlag,courseId,id,isDeleted,languageId,quizId,status
                       </code>
-                    </p>
+                    </p> */}
                   </div>
 
                   <form onSubmit={handleImportQuestionsSubmit} className="space-y-5 max-w-2xl">

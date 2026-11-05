@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Languages, Loader2 } from "lucide-react";
+import { ArrowLeft, Languages, Loader2, X } from "lucide-react";
 
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -14,21 +14,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { CategorySelect } from "@/features/courses/components/category-select";
 import { createCourseAction } from "@/features/courses/action";
+import { uploadMediaAction } from "@/features/accounts/action";
 import type { CreateCoursePayload } from "@/features/courses/types";
-import { sanitizeTextInput, sanitizeNonNegativeNumber } from "@/lib/validations";
-
-const TRANSLATION_LANGUAGES = [
-  { code: "Hi", name: "Hindi (हिन्दी)" },
-  { code: "Bn", name: "Bengali (বাংলা)" },
-  { code: "Kn", name: "Kannada (ಕನ್ನಡ)" },
-  { code: "Ml", name: "Malayalam (മലയാളം)" },
-  { code: "Or", name: "Odia (ଓଡ଼ିଆ)" },
-  { code: "Ta", name: "Tamil (தமிழ்)" },
-  { code: "Te", name: "Telugu (తెలుగు)" },
-  { code: "As", name: "Assamese (অসমীয়া)" },
-  { code: "Gu", name: "Gujarati (ગુજરાતી)" },
-  { code: "Mr", name: "Marathi (मराठी)" },
-] as const;
+import { sanitizeTextInput, sanitizeNonNegativeNumber, validateImageFile } from "@/lib/validations";
+import { MultilingualContentTable, TRANSLATION_LANGUAGES } from "@/components/common/multilingual-content-table";
 
 export default function NewCoursePage() {
   const router = useRouter();
@@ -47,6 +36,7 @@ export default function NewCoursePage() {
   const [noOfVideos, setNoOfVideos] = useState<number | "">(0);
   const [noOfCertifications, setNoOfCertifications] = useState("1");
   const [imageUrl, setImageUrl] = useState("");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [courseDetails, setCourseDetails] = useState("");
 
   // Multilingual courseName
@@ -153,8 +143,43 @@ export default function NewCoursePage() {
     router.push("/courses");
   };
 
+  const handleImageUpload = async (file: File | null) => {
+    if (!file) return;
+
+    const check = validateImageFile(file);
+    if (!check.valid) {
+      toastError(check.error || "Only .png, .jpg, and .jpeg image formats are allowed (Max 5 MB).");
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("path", `course_image_${Date.now()}`);
+
+      const res = await uploadMediaAction(formData);
+      if (res.success && res.data) {
+        setImageUrl(res.data);
+        success("Image uploaded successfully and converted to URL.");
+      } else {
+        toastError(res.error || "Failed to upload image. Please try again.");
+      }
+    } catch (err) {
+      console.error("Course image upload failed:", err);
+      toastError("Failed to upload image file. Please try again.");
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isUploadingImage) {
+      toastError("Please wait for image upload to complete.");
+      return;
+    }
 
     const cleanCategoryId = String(categoryId || "").trim();
     if (!cleanCategoryId) {
@@ -249,10 +274,12 @@ export default function NewCoursePage() {
             key={formKey}
             onSubmit={handleSubmit}
             autoComplete="off"
-            className="mx-auto max-w-2xl space-y-4"
+            className="w-full space-y-6"
           >
-            {/* Category */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+            {/* Primary Details (Compact Centered Section) */}
+            <div className="mx-auto max-w-2xl space-y-4">
+              {/* Category */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
               <Label
                 htmlFor="course-category"
                 className="text-xs font-semibold text-slate-700 sm:text-right"
@@ -415,23 +442,89 @@ export default function NewCoursePage() {
               </div>
             </div>
 
-            {/* Image URL */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+            {/* Course Image */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-4">
               <Label
-                htmlFor="course-image"
-                className="text-xs font-semibold text-slate-700 sm:text-right"
+                htmlFor="course-image-file"
+                className="text-xs font-semibold text-slate-700 sm:text-right pt-2"
               >
-                Image URL <span className="text-rose-500">*</span>
+                Course Image
               </Label>
-              <div className="sm:col-span-3">
-                <Input
-                  id="course-image"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="e.g. https://domain.com/course-banner.png"
-                  maxLength={500}
-                  className="h-9 text-xs"
-                />
+              <div className="sm:col-span-3 space-y-2">
+                <div className="flex items-center gap-3">
+                  <Input
+                    id="course-image-file"
+                    type="file"
+                    accept=".jpg,.jpeg,.png"
+                    disabled={isUploadingImage || isPending}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      if (file) handleImageUpload(file);
+                    }}
+                    className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+                  />
+                  {isUploadingImage && (
+                    <div className="flex items-center gap-1.5 text-xs text-blue-600 font-medium shrink-0">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Uploading...</span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Allowed formats: PNG, JPG, JPEG (Max 5 MB)
+                </p>
+
+                {/* Image URL preview and manual edit */}
+                <div className="space-y-1 pt-1">
+                  <Label htmlFor="course-image" className="text-[11px] font-medium text-slate-500">
+                    Image URL
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="course-image"
+                      value={imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                      placeholder="Image URL will appear here once uploaded (or enter URL)"
+                      maxLength={500}
+                      className="h-9 text-xs font-mono text-[11px]"
+                    />
+                    {imageUrl && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setImageUrl("")}
+                        className="h-9 px-2 text-slate-400 hover:text-slate-600"
+                        title="Clear image"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Image Preview Thumbnail */}
+                {imageUrl && (
+                  <div className="flex items-center gap-3 p-2 rounded-lg border border-slate-200 bg-slate-50/70 w-fit">
+                    <div className="h-14 w-20 shrink-0 overflow-hidden rounded border border-slate-200 bg-white">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={imageUrl}
+                        alt="Course Preview"
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    </div>
+                    <div className="text-[11px] text-slate-600">
+                      <span className="font-semibold text-emerald-600 block">
+                        Image ready
+                      </span>
+                      <span className="text-slate-400 block max-w-xs truncate">{imageUrl}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -455,83 +548,35 @@ export default function NewCoursePage() {
                 />
               </div>
             </div>
+          </div>
 
-            {/* Multilingual Section Divider */}
-            <div className="pt-4 border-t border-slate-100">
-              <div className="flex items-center gap-2 mb-3">
-                <Languages className="h-4 w-4 text-blue-600" />
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                  Multilingual Course Content (Optional)
-                </h3>
-              </div>
-              <div className="space-y-4">
-                {TRANSLATION_LANGUAGES.map((lang) => {
-                  const nameKey = `courseName${lang.code}`;
-                  const levelKey = `courseLevel${lang.code}`;
-                  const detailKey = `courseDetails${lang.code}`;
-                  return (
-                    <div
-                      key={lang.code}
-                      className="rounded-lg border border-slate-200/80 bg-slate-50/50 p-4 space-y-3"
-                    >
-                      <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
-                        <span className="font-semibold text-slate-800 text-xs">{lang.name}</span>
-                        <span className="text-[11px] text-slate-500 font-mono uppercase">{lang.code}</span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-2">
-                        <Label htmlFor={nameKey} className="text-xs text-slate-600 sm:text-right">
-                          Name
-                        </Label>
-                        <div className="sm:col-span-3">
-                          <Input
-                            id={nameKey}
-                            placeholder={`Course Name in ${lang.name}`}
-                            value={names[nameKey] || ""}
-                            onChange={(e) => setNames((prev) => ({ ...prev, [nameKey]: e.target.value }))}
-                            maxLength={255}
-                            className="h-8 text-xs bg-white"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-2">
-                        <Label htmlFor={levelKey} className="text-xs text-slate-600 sm:text-right">
-                          Level
-                        </Label>
-                        <div className="sm:col-span-3">
-                          <Input
-                            id={levelKey}
-                            placeholder={`Level in ${lang.name}`}
-                            value={levels[levelKey] || ""}
-                            onChange={(e) => setLevels((prev) => ({ ...prev, [levelKey]: e.target.value }))}
-                            maxLength={100}
-                            className="h-8 text-xs bg-white"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-2">
-                        <Label htmlFor={detailKey} className="text-xs text-slate-600 sm:text-right pt-1.5">
-                          Details
-                        </Label>
-                        <div className="sm:col-span-3">
-                          <Textarea
-                            id={detailKey}
-                            rows={2}
-                            placeholder={`Details in ${lang.name}`}
-                            value={details[detailKey] || ""}
-                            onChange={(e) => setDetails((prev) => ({ ...prev, [detailKey]: e.target.value }))}
-                            maxLength={5000}
-                            className="text-xs bg-white min-h-[50px]"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+          {/* Multilingual Section Divider (Wide Section) */}
+          <div className="pt-6 border-t border-slate-100 w-full">
+            <div className="flex items-center gap-2 mb-3">
+              <Languages className="h-4 w-4 text-blue-600" />
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                Multilingual Course Content (Optional)
+              </h3>
             </div>
+            <MultilingualContentTable
+              languages={TRANSLATION_LANGUAGES}
+              names={names}
+              levels={levels}
+              details={details}
+              onNameChange={(key, val) => setNames((prev) => ({ ...prev, [key]: val }))}
+              onLevelChange={(key, val) => setLevels((prev) => ({ ...prev, [key]: val }))}
+              onDetailsChange={(key, val) => setDetails((prev) => ({ ...prev, [key]: val }))}
+              nameKeyPrefix="courseName"
+              levelKeyPrefix="courseLevel"
+              detailsKeyPrefix="courseDetails"
+              namePlaceholder="Course Name"
+              levelPlaceholder="Level"
+              detailsPlaceholder="Details"
+              nameMaxLength={255}
+              levelMaxLength={100}
+              detailsMaxLength={5000}
+            />
+          </div>
 
             {/* Action Buttons */}
             <div className="flex items-center justify-center gap-3 pt-6 border-t border-slate-100">

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Plus, RefreshCw, Pencil, Trash2, Search } from "lucide-react";
 
 import { DataTable, type Column } from "@/components/common/data-table";
@@ -41,7 +42,16 @@ const LANGUAGES = [
 export default function FaqsPage() {
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
+  const pathname = usePathname();
   const [search, setSearch] = useState("");
+
+  // Reset search filter whenever navigating away or returning to this route
+  useEffect(() => {
+    return () => {
+      setSearch("");
+      setPage(1);
+    };
+  }, [pathname]);
   const [language, setLanguage] = useState("en");
   const [page, setPage] = useState(1);
   const pageSize = 10;

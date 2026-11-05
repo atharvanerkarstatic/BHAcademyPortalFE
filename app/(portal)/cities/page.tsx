@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Plus, RefreshCw, Pencil, Trash2, Search, MapPin } from "lucide-react";
 
 import { DataTable, type Column } from "@/components/common/data-table";
@@ -26,9 +27,18 @@ import type { CityItem } from "@/features/cities/types";
 export default function CitiesPage() {
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
+  const pathname = usePathname();
 
   const [cities, setCities] = useState<CityItem[]>([]);
   const [search, setSearch] = useState("");
+
+  // Reset search filter whenever navigating away or returning to this route
+  useEffect(() => {
+    return () => {
+      setSearch("");
+      setPage(1);
+    };
+  }, [pathname]);
   const [page, setPage] = useState(1);
   const pageSize = 15;
 

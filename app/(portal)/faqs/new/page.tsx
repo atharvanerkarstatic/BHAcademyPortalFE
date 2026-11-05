@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, HelpCircle, Languages, Loader2 } from "lucide-react";
+import { ArrowLeft, Languages, Loader2 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -15,42 +15,7 @@ import { useToast } from "@/components/ui/toast";
 import { createFaqAction } from "@/features/faqs/action";
 import type { CreateFaqPayload } from "@/features/faqs/types";
 import { sanitizeTextInput, sanitizeNonNegativeNumber } from "@/lib/validations";
-
-const TRANSLATION_LANGUAGES = [
-  { code: "Hi", name: "Hindi (हिन्दी)" },
-  { code: "Bn", name: "Bengali (বাংলা)" },
-  { code: "Kn", name: "Kannada (ಕನ್ನಡ)" },
-  { code: "Ml", name: "Malayalam (മലയാളം)" },
-  { code: "Or", name: "Odia (ଓଡ଼ିଆ)" },
-  { code: "Ta", name: "Tamil (தமிழ்)" },
-  { code: "Te", name: "Telugu (తెలుగు)" },
-  { code: "As", name: "Assamese (অসমীয়া)" },
-  { code: "Gu", name: "Gujarati (ગુજરાતી)" },
-  { code: "Mr", name: "Marathi (मराठी)" },
-] as const;
-
-const INITIAL_TRANSLATIONS: Record<string, string> = {
-  questionBn: "",
-  questionHi: "",
-  questionKn: "",
-  questionMl: "",
-  questionOr: "",
-  questionTa: "",
-  questionTe: "",
-  questionAs: "",
-  questionGu: "",
-  questionMr: "",
-  answerBn: "",
-  answerHi: "",
-  answerKn: "",
-  answerMl: "",
-  answerOr: "",
-  answerTa: "",
-  answerTe: "",
-  answerAs: "",
-  answerGu: "",
-  answerMr: "",
-};
+import { MultilingualContentTable, TRANSLATION_LANGUAGES } from "@/components/common/multilingual-content-table";
 
 export default function NewFaqPage() {
   const router = useRouter();
@@ -64,14 +29,61 @@ export default function NewFaqPage() {
   const [displayOrder, setDisplayOrder] = useState<number>(1);
   const [status, setStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
 
-  const [translations, setTranslations] = useState<Record<string, string>>(INITIAL_TRANSLATIONS);
+  const [questions, setQuestions] = useState<Record<string, string>>({
+    questionAs: "",
+    questionBn: "",
+    questionGu: "",
+    questionHi: "",
+    questionKn: "",
+    questionMl: "",
+    questionMr: "",
+    questionOr: "",
+    questionTa: "",
+    questionTe: "",
+  });
+
+  const [answers, setAnswers] = useState<Record<string, string>>({
+    answerAs: "",
+    answerBn: "",
+    answerGu: "",
+    answerHi: "",
+    answerKn: "",
+    answerMl: "",
+    answerMr: "",
+    answerOr: "",
+    answerTa: "",
+    answerTe: "",
+  });
 
   const resetForm = () => {
     setQuestion("");
     setAnswer("");
     setDisplayOrder(1);
     setStatus("ACTIVE");
-    setTranslations({ ...INITIAL_TRANSLATIONS });
+    setQuestions({
+      questionAs: "",
+      questionBn: "",
+      questionGu: "",
+      questionHi: "",
+      questionKn: "",
+      questionMl: "",
+      questionMr: "",
+      questionOr: "",
+      questionTa: "",
+      questionTe: "",
+    });
+    setAnswers({
+      answerAs: "",
+      answerBn: "",
+      answerGu: "",
+      answerHi: "",
+      answerKn: "",
+      answerMl: "",
+      answerMr: "",
+      answerOr: "",
+      answerTa: "",
+      answerTe: "",
+    });
     setFormKey(Date.now());
   };
 
@@ -85,10 +97,6 @@ export default function NewFaqPage() {
   const handleCancel = () => {
     resetForm();
     router.push("/faqs");
-  };
-
-  const handleTranslationChange = (key: string, value: string) => {
-    setTranslations((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -106,11 +114,16 @@ export default function NewFaqPage() {
       return;
     }
 
-    const sanitizedTranslations: Record<string, string> = {};
-    for (const [key, val] of Object.entries(translations)) {
+    const sanitizedQuestions: Record<string, string> = {};
+    for (const [key, val] of Object.entries(questions)) {
       if (!val) continue;
-      const limit = key.startsWith("question") ? 500 : 5000;
-      sanitizedTranslations[key] = sanitizeTextInput(val, limit);
+      sanitizedQuestions[key] = sanitizeTextInput(val, 500);
+    }
+
+    const sanitizedAnswers: Record<string, string> = {};
+    for (const [key, val] of Object.entries(answers)) {
+      if (!val) continue;
+      sanitizedAnswers[key] = sanitizeTextInput(val, 5000);
     }
 
     const payload: CreateFaqPayload = {
@@ -118,7 +131,8 @@ export default function NewFaqPage() {
       answer: cleanAnswer,
       displayOrder: sanitizeNonNegativeNumber(displayOrder, 1, 1),
       status,
-      ...sanitizedTranslations,
+      ...sanitizedQuestions,
+      ...sanitizedAnswers,
     };
 
     startTransition(async () => {
@@ -162,151 +176,120 @@ export default function NewFaqPage() {
             key={formKey}
             onSubmit={handleSubmit}
             autoComplete="off"
-            className="mx-auto max-w-2xl space-y-4"
+            className="w-full space-y-6"
           >
-            {/* Primary Question */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label
-                htmlFor="faq-question"
-                className="text-xs font-semibold text-slate-700 sm:text-right"
-              >
-                Question <span className="text-rose-500">*</span>
-              </Label>
-              <div className="sm:col-span-3">
-                <Input
-                  id="faq-question"
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="e.g. How do I reset my password?"
-                  maxLength={500}
-                  className="h-9 text-xs"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Answer */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-4">
-              <Label
-                htmlFor="faq-answer"
-                className="text-xs font-semibold text-slate-700 sm:text-right pt-2"
-              >
-                Answer <span className="text-rose-500">*</span>
-              </Label>
-              <div className="sm:col-span-3">
-                <Textarea
-                  id="faq-answer"
-                  rows={3}
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  placeholder="e.g. Go to Settings > Account > Reset Password..."
-                  maxLength={5000}
-                  className="text-xs"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Display Order */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label
-                htmlFor="faq-order"
-                className="text-xs font-semibold text-slate-700 sm:text-right"
-              >
-                Display Order <span className="text-rose-500">*</span>
-              </Label>
-              <div className="sm:col-span-3">
-                <Input
-                  id="faq-order"
-                  type="number"
-                  min="1"
-                  value={displayOrder}
-                  onChange={(e) => setDisplayOrder(sanitizeNonNegativeNumber(e.target.value, 1, 1))}
-                  className="h-9 text-xs font-mono"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Status */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label
-                htmlFor="faq-status"
-                className="text-xs font-semibold text-slate-700 sm:text-right"
-              >
-                Status <span className="text-rose-500">*</span>
-              </Label>
-              <div className="sm:col-span-3">
-                <select
-                  id="faq-status"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as "ACTIVE" | "INACTIVE")}
-                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            {/* Primary Details (Compact Centered Section) */}
+            <div className="mx-auto max-w-2xl space-y-4">
+              {/* Question */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                <Label
+                  htmlFor="faq-question"
+                  className="text-xs font-semibold text-slate-700 sm:text-right"
                 >
-                  <option value="ACTIVE">ACTIVE</option>
-                  <option value="INACTIVE">INACTIVE</option>
-                </select>
+                  Question <span className="text-rose-500">*</span>
+                </Label>
+                <div className="sm:col-span-3">
+                  <Input
+                    id="faq-question"
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    placeholder="e.g. How do I start the virtual training session?"
+                    maxLength={500}
+                    className="h-9 text-xs"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Answer */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-4">
+                <Label
+                  htmlFor="faq-answer"
+                  className="text-xs font-semibold text-slate-700 sm:text-right pt-2"
+                >
+                  Answer <span className="text-rose-500">*</span>
+                </Label>
+                <div className="sm:col-span-3">
+                  <Textarea
+                    id="faq-answer"
+                    rows={4}
+                    value={answer}
+                    onChange={(e) => setAnswer(e.target.value)}
+                    placeholder="Provide a comprehensive answer..."
+                    maxLength={5000}
+                    className="text-xs"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Display Order */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                <Label
+                  htmlFor="faq-order"
+                  className="text-xs font-semibold text-slate-700 sm:text-right"
+                >
+                  Display Order <span className="text-rose-500">*</span>
+                </Label>
+                <div className="sm:col-span-3">
+                  <Input
+                    id="faq-order"
+                    type="number"
+                    min="1"
+                    value={displayOrder}
+                    onChange={(e) => setDisplayOrder(sanitizeNonNegativeNumber(e.target.value, 1, 1))}
+                    className="h-9 text-xs font-mono"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                <Label
+                  htmlFor="faq-status"
+                  className="text-xs font-semibold text-slate-700 sm:text-right"
+                >
+                  Status <span className="text-rose-500">*</span>
+                </Label>
+                <div className="sm:col-span-3">
+                  <select
+                    id="faq-status"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as "ACTIVE" | "INACTIVE")}
+                    className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="INACTIVE">INACTIVE</option>
+                  </select>
+                </div>
               </div>
             </div>
 
-            {/* Multilingual Section Divider */}
-            <div className="pt-4 border-t border-slate-100">
+            {/* Multilingual Section Divider (Wide Section) */}
+            <div className="pt-6 border-t border-slate-100 w-full">
               <div className="flex items-center gap-2 mb-3">
                 <Languages className="h-4 w-4 text-blue-600" />
                 <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
                   Multilingual Translations (Optional)
                 </h3>
               </div>
-              <div className="space-y-4">
-                {TRANSLATION_LANGUAGES.map((lang) => {
-                  const qKey = `question${lang.code}`;
-                  const aKey = `answer${lang.code}`;
-                  return (
-                    <div
-                      key={lang.code}
-                      className="rounded-lg border border-slate-200/80 bg-slate-50/50 p-4 space-y-3"
-                    >
-                      <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
-                        <span className="font-semibold text-slate-800 text-xs">{lang.name}</span>
-                        <span className="text-[11px] text-slate-500 font-mono uppercase">{lang.code}</span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-2">
-                        <Label htmlFor={qKey} className="text-xs text-slate-600 sm:text-right">
-                          Question
-                        </Label>
-                        <div className="sm:col-span-3">
-                          <Input
-                            id={qKey}
-                            placeholder={`Question in ${lang.name}`}
-                            value={translations[qKey] || ""}
-                            onChange={(e) => handleTranslationChange(qKey, e.target.value)}
-                            maxLength={500}
-                            className="h-8 text-xs bg-white"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-2">
-                        <Label htmlFor={aKey} className="text-xs text-slate-600 sm:text-right pt-1.5">
-                          Answer
-                        </Label>
-                        <div className="sm:col-span-3">
-                          <Textarea
-                            id={aKey}
-                            rows={2}
-                            placeholder={`Answer in ${lang.name}`}
-                            value={translations[aKey] || ""}
-                            onChange={(e) => handleTranslationChange(aKey, e.target.value)}
-                            maxLength={5000}
-                            className="text-xs bg-white min-h-[50px]"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <MultilingualContentTable
+                languages={TRANSLATION_LANGUAGES}
+                names={questions}
+                details={answers}
+                onNameChange={(key, val) => setQuestions((prev) => ({ ...prev, [key]: val }))}
+                onDetailsChange={(key, val) => setAnswers((prev) => ({ ...prev, [key]: val }))}
+                nameKeyPrefix="question"
+                detailsKeyPrefix="answer"
+                namePlaceholder="Question"
+                detailsPlaceholder="Answer"
+                nameMaxLength={500}
+                detailsMaxLength={5000}
+                hideLevel={true}
+                nameColumnTitle="Question"
+                detailsColumnTitle="Answer"
+              />
             </div>
 
             {/* Action Buttons */}

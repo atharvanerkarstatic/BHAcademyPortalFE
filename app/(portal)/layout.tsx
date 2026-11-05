@@ -5,8 +5,8 @@ import { UserName } from "@/components/layout/user-name";
 import { AuthProvider } from "@/lib/auth-context";
 import { getCurrentUser } from "@/lib/auth-server";
 
-// Opt out of instant prerender validation for dynamic session-dependent portal layout
-export const instant = false;
+// Dynamic session-dependent portal layout
+export const dynamic = "force-dynamic";
 
 export default async function PortalLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Plus,
   RefreshCw,
@@ -55,6 +56,7 @@ import { cn } from "@/lib/utils";
 export default function AccountsPage() {
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
+  const pathname = usePathname();
 
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
@@ -115,6 +117,9 @@ export default function AccountsPage() {
       setActiveTab("list");
       setBulkBpFile(null);
       setBulkUsersFile(null);
+      setSearchInput("");
+      setActiveSearch("");
+      setPage(1);
     };
 
     window.addEventListener("popstate", handleReset);
@@ -124,7 +129,7 @@ export default function AccountsPage() {
       window.removeEventListener("pageshow", handleReset);
       handleReset();
     };
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
