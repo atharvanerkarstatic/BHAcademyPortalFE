@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import {
+  ArrowLeft,
   Calendar,
   CheckCircle2,
   ChevronDown,
@@ -193,7 +195,7 @@ export default function SendAssessmentLinkPage() {
         title="Send Assessment Link"
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
-          { label: "Assessments", href: "/assessments/send" },
+          { label: "Assessment Links", href: "/assessments/links" },
           { label: "Send Assessment Link" },
         ]}
       />
@@ -207,18 +209,31 @@ export default function SendAssessmentLinkPage() {
               Send Assessment Link to Participants
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={() => setFilterCollapsed(!filterCollapsed)}
-            className="flex h-7 w-7 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-            aria-label={filterCollapsed ? "Expand section" : "Collapse section"}
-          >
-            {filterCollapsed ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronUp className="h-4 w-4" />
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="gap-1.5 text-slate-600 hover:text-slate-900"
+            >
+              <Link href="/assessments/links">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Assessment Links
+              </Link>
+            </Button>
+            <button
+              type="button"
+              onClick={() => setFilterCollapsed(!filterCollapsed)}
+              className="flex h-7 w-7 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              aria-label={filterCollapsed ? "Expand section" : "Collapse section"}
+            >
+              {filterCollapsed ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronUp className="h-4 w-4" />
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Status Notification Banner */}

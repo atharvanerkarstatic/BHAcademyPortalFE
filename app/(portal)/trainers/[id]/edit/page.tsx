@@ -129,6 +129,12 @@ export default function EditTrainerPage({
       return;
     }
 
+    const cleanMobile = mobileNumber.replace(/\D/g, "");
+    if (cleanMobile && cleanMobile.length !== 10) {
+      toastError("Mobile number must be exactly 10 digits.");
+      return;
+    }
+
     startTransition(async () => {
       let profilePicValue: string | null = null;
 
@@ -184,14 +190,14 @@ export default function EditTrainerPage({
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Trainers", href: "/trainers" },
-          { label: `Edit Trainer (ID: ${trainerId})` },
+          { label: "Edit Trainer" },
         ]}
       />
 
       <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <CardHeader className="border-b px-6 py-4 bg-white flex flex-row items-center justify-between">
           <CardTitle className="text-base font-bold text-slate-900">
-            Edit Trainer Details (ID: {trainerId})
+            Edit Trainer Details
           </CardTitle>
           <Button variant="ghost" size="sm" asChild className="gap-1.5 text-slate-600">
             <Link href="/trainers">

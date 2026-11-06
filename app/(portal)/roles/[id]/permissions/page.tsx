@@ -11,8 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { getRolePermissionsAction } from "@/features/roles/action";
-import type { RolePermissionsData, PermissionItem } from "@/features/roles/types";
+import { getRolePermissionsAction, updateRolePermissionsAction } from "@/features/roles/action";
+import type { RolePermissionsData, PermissionItem, UpdateRolePermissionsPayload } from "@/features/roles/types";
 
 export default function RolePermissionsPage() {
   const params = useParams();
@@ -24,6 +24,7 @@ export default function RolePermissionsPage() {
   const [loading, setLoading] = useState(true);
   const [roleData, setRoleData] = useState<RolePermissionsData | null>(null);
   const [permissionStates, setPermissionStates] = useState<Record<number, boolean>>({});
+  const [permissionScopes, setPermissionScopes] = useState<Record<number, string>>({});
   const [searchFilter, setSearchFilter] = useState("");
   const [isSaving, startSaving] = useTransition();
 
@@ -38,12 +39,19 @@ export default function RolePermissionsPage() {
       if (res.success && res.data) {
         setRoleData(res.data);
         const initialMap: Record<number, boolean> = {};
+        const initialScopeMap: Record<number, string> = {};
         Object.values(res.data.permissions || {}).forEach((list) => {
           list.forEach((p) => {
             initialMap[p.permissionId] = Boolean(p.assigned);
+            // Default scope to assignedScope, or first availableScope, or "ALL"
+            const defScope =
+              p.assignedScope ||
+              (p.availableScopes && p.availableScopes.length > 0 ? p.availableScopes[0] : "ALL");
+            initialScopeMap[p.permissionId] = defScope;
           });
         });
         setPermissionStates(initialMap);
+        setPermissionScopes(initialScopeMap);
       } else {
         toastError(res.error || "Failed to load role permissions");
       }
@@ -63,6 +71,13 @@ export default function RolePermissionsPage() {
     setPermissionStates((prev) => ({
       ...prev,
       [permissionId]: !prev[permissionId],
+    }));
+  };
+
+  const handleScopeChange = (permissionId: number, scope: string) => {
+    setPermissionScopes((prev) => ({
+      ...prev,
+      [permissionId]: scope,
     }));
   };
 
@@ -105,8 +120,43 @@ export default function RolePermissionsPage() {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     startSaving(async () => {
-      // Future update API will be hooked here
-      success("Role permissions updated successfully (pending backend update API).");
+      // Build selected permissions array for PUT /api/v1/permissions/roles/:roleId
+      const selectedPayload: UpdateRolePermissionsPayload["permissions"] = [];
+
+      Object.entries(permissionStates).forEach(([permIdStr, isAssigned]) => {
+        if (isAssigned) {
+          const permId = Number(permIdStr);
+          const chosenScope = permissionScopes[permId] || "ALL";
+          selectedPayload.push({
+            permissionId: permId,
+            scope: chosenScope,
+          });
+        }
+      });
+
+      const res = await updateRolePermissionsAction(roleId, {
+        permissions: selectedPayload,
+      });
+
+      if (res.success && res.data) {
+        success(res.message || "Role permissions updated successfully");
+        setRoleData(res.data);
+        const updatedMap: Record<number, boolean> = {};
+        const updatedScopeMap: Record<number, string> = {};
+        Object.values(res.data.permissions || {}).forEach((list) => {
+          list.forEach((p) => {
+            updatedMap[p.permissionId] = Boolean(p.assigned);
+            const defScope =
+              p.assignedScope ||
+              (p.availableScopes && p.availableScopes.length > 0 ? p.availableScopes[0] : "ALL");
+            updatedScopeMap[p.permissionId] = defScope;
+          });
+        });
+        setPermissionStates(updatedMap);
+        setPermissionScopes(updatedScopeMap);
+      } else {
+        toastError(res.error || "Failed to update role permissions");
+      }
     });
   };
 
@@ -125,7 +175,7 @@ export default function RolePermissionsPage() {
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Roles", href: "/roles" },
-          { label: roleData?.roleName || `Role (ID: ${roleId})` },
+          { label: roleData?.roleName || "Role Permissions" },
         ]}
       />
 
@@ -261,11 +311,32 @@ export default function RolePermissionsPage() {
                                 </p>
                               </div>
 
-                              {/* Checkbox at the end of each permission */}
+                              {/* Right Actions: Scope Selector & Checkbox */}
                               <div
                                 onClick={(e) => e.stopPropagation()}
-                                className="flex items-center pl-2"
+                                className="flex items-center gap-3 pl-2 shrink-0"
                               >
+                                {isAssigned && p.availableScopes && p.availableScopes.length > 1 && (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] uppercase font-medium text-slate-400">
+                                      Scope:
+                                    </span>
+                                    <select
+                                      value={permissionScopes[p.permissionId] || p.availableScopes[0]}
+                                      onChange={(e) =>
+                                        handleScopeChange(p.permissionId, e.target.value)
+                                      }
+                                      className="h-7 rounded border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 shadow-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    >
+                                      {p.availableScopes.map((sc) => (
+                                        <option key={sc} value={sc}>
+                                          {sc}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
+
                                 <Checkbox
                                   id={inputId}
                                   checked={isAssigned}

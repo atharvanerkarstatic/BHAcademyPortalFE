@@ -1582,8 +1582,6 @@ export default function CourseDetailPage() {
                       <tr className="border-b text-slate-800 font-bold">
                         <th className="py-2.5 px-3 w-8">#</th>
                         <th className="py-2.5 px-3 min-w-40">Language</th>
-                        <th className="py-2.5 px-3 text-center">Portal</th>
-                        <th className="py-2.5 px-3 text-center">Training</th>
                         <th className="py-2.5 px-3 text-center">Translation</th>
                         <th className="py-2.5 px-3 text-center">Videos</th>
                         <th className="py-2.5 px-3 text-center">Questionairre</th>
@@ -1602,50 +1600,6 @@ export default function CourseDetailPage() {
                                 </p>
                               )}
                             </div>
-                          </td>
-
-                          {/* Portal Toggle Button */}
-                          <td className="py-2.5 px-3 text-center">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPortalToggles((prev) => ({
-                                  ...prev,
-                                  [row.num]: !prev[row.num],
-                                }));
-                                success(`${row.language} portal status updated to ${!portalToggles[row.num] ? "ACTIVE" : "INACTIVE"}`);
-                              }}
-                              className={cn(
-                                "inline-block rounded px-2.5 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider transition-transform active:scale-95",
-                                portalToggles[row.num]
-                                  ? "bg-emerald-600 hover:bg-emerald-700"
-                                  : "bg-rose-600 hover:bg-rose-700"
-                              )}
-                            >
-                              {portalToggles[row.num] ? "ACTIVE" : "INACTIVE"}
-                            </button>
-                          </td>
-
-                          {/* Training Toggle Button */}
-                          <td className="py-2.5 px-3 text-center">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setTrainingToggles((prev) => ({
-                                  ...prev,
-                                  [row.num]: !prev[row.num],
-                                }));
-                                success(`${row.language} training status updated to ${!trainingToggles[row.num] ? "ACTIVE" : "INACTIVE"}`);
-                              }}
-                              className={cn(
-                                "inline-block rounded px-2.5 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider transition-transform active:scale-95",
-                                trainingToggles[row.num]
-                                  ? "bg-emerald-600 hover:bg-emerald-700"
-                                  : "bg-rose-600 hover:bg-rose-700"
-                              )}
-                            >
-                              {trainingToggles[row.num] ? "ACTIVE" : "INACTIVE"}
-                            </button>
                           </td>
 
                           {/* Translation: Edit Translation only */}
@@ -2315,7 +2269,7 @@ export default function CourseDetailPage() {
             <CardHeader className="border-b px-6 py-3 bg-white flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-base font-bold text-slate-900">
-                  {editingVideoId ? `Edit Video (ID: ${editingVideoId})` : `Add Video - ${selectedLangName}`}
+                  {editingVideoId ? `Edit Video - ${selectedLangName}` : `Add Video - ${selectedLangName}`}
                 </CardTitle>
                 <CardDescription className="text-xs text-slate-500">
                   {editingVideoId
@@ -2902,7 +2856,7 @@ export default function CourseDetailPage() {
               <CardHeader className="border-b px-6 py-3 bg-white">
                 <CardTitle className="text-base font-bold text-slate-900">
                   {editingQuizId
-                    ? `Edit Question (ID: ${editingQuizId}) - ${selectedLangName}`
+                    ? `Edit Question - ${selectedLangName}`
                     : `Add Question - ${selectedLangName}`}
                 </CardTitle>
               </CardHeader>
@@ -2986,7 +2940,7 @@ export default function CourseDetailPage() {
               <CardHeader className="border-b px-6 py-3 bg-white">
                 <CardTitle className="text-base font-bold text-slate-900">
                   {editingInteractiveQuizId
-                    ? `Edit Question (ID: ${editingInteractiveQuizId}) - ${selectedLangName}`
+                    ? `Edit Question - ${selectedLangName}`
                     : `Add Question - ${selectedLangName}`}
                 </CardTitle>
               </CardHeader>

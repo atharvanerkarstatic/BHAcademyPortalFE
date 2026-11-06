@@ -151,6 +151,11 @@ export default function AccountDetailPage() {
       const finalBhBp = bhBp.trim() || account?.bhBp || idOrBhBp;
       const cleanedMobile = mobileNumber.replace(/\D/g, "");
 
+      if (cleanedMobile && cleanedMobile.length !== 10) {
+        toastError("Mobile number must be exactly 10 digits.");
+        return;
+      }
+
       // Payload matching:
       // {
       //   "name": "Rahul Sharma",

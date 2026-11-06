@@ -118,6 +118,12 @@ export default function NewAdminUserPage() {
       return;
     }
 
+    const cleanMobile = mobileNumber.replace(/\D/g, "");
+    if (cleanMobile && cleanMobile.length !== 10) {
+      toastError("Mobile number must be exactly 10 digits.");
+      return;
+    }
+
     startTransition(async () => {
       let uploadedPicUrl: string | null = null;
 
@@ -145,7 +151,7 @@ export default function NewAdminUserPage() {
         lastName,
         email: email.trim(),
         password,
-        mobileNumber: mobileNumber.trim() || null,
+        mobileNumber: cleanMobile || null,
         profilePic: uploadedPicUrl,
         roleIds: [selectedRoleId],
       });
@@ -317,6 +323,7 @@ export default function NewAdminUserPage() {
                     setMobileNumber(e.target.value.replace(/\D/g, "").slice(0, 10))
                   }
                   placeholder="10-digit mobile number"
+                  maxLength={10}
                   className="h-9 text-xs font-mono"
                 />
               </div>

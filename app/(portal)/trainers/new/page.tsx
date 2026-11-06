@@ -110,6 +110,12 @@ export default function NewTrainerPage() {
       return;
     }
 
+    const cleanMobile = mobileNumber.replace(/\D/g, "");
+    if (cleanMobile && cleanMobile.length !== 10) {
+      toastError("Mobile number must be exactly 10 digits.");
+      return;
+    }
+
     startTransition(async () => {
       let profilePicUrl = "";
 
@@ -137,7 +143,7 @@ export default function NewTrainerPage() {
         lastName,
         email: email.trim(),
         password: password.trim(),
-        mobileNumber: mobileNumber.trim() || undefined,
+        mobileNumber: cleanMobile || undefined,
         profilePic: profilePicUrl || undefined,
         roleIds: ["12"],
       });
@@ -241,8 +247,9 @@ export default function NewTrainerPage() {
                 <Input
                   id="trainer-mobile"
                   value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value)}
+                  onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
                   placeholder="e.g. 9876543210"
+                  maxLength={10}
                   className="h-9 text-xs font-mono"
                 />
               </div>

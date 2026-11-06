@@ -109,7 +109,7 @@ export default function EditLanguagePage() {
       </div>
 
       <PageHeader
-        title={`Edit Language: ${language || languageId}`}
+        title={language ? `Edit Language: ${language}` : "Edit Language"}
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Languages", href: "/languages" },
@@ -133,7 +133,7 @@ export default function EditLanguagePage() {
               <div>
                 <CardTitle>Language Details</CardTitle>
                 <CardDescription>
-                  Update language information for ID: <span className="font-mono text-xs">{languageId}</span>
+                  Update language information
                 </CardDescription>
               </div>
             </div>

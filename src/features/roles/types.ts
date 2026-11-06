@@ -32,6 +32,17 @@ export interface PermissionItem {
   category: string;
   supportedScopes: string;
   assigned: boolean;
+  availableScopes?: string[];
+  assignedScope?: string | null;
+}
+
+export interface UpdateRolePermissionPayloadItem {
+  permissionId: number;
+  scope?: string;
+}
+
+export interface UpdateRolePermissionsPayload {
+  permissions: UpdateRolePermissionPayloadItem[];
 }
 
 export interface RolePermissionsData {

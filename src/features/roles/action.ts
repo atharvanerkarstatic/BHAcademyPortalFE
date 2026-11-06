@@ -8,6 +8,7 @@ import type {
   RolePageResponse,
   RolePermissionsData,
   RolePermissionsResponse,
+  UpdateRolePermissionsPayload,
 } from "./types";
 
 export async function getRolesAction(params: {
@@ -130,4 +131,66 @@ export async function getRolePermissionsAction(roleId: number | string): Promise
     };
   }
 }
+
+export async function updateRolePermissionsAction(
+  roleId: number | string,
+  payload: UpdateRolePermissionsPayload
+): Promise<{
+  success: boolean;
+  status: number;
+  message?: string;
+  data?: RolePermissionsData;
+  error?: string;
+}> {
+  const user = await getCurrentUser();
+  const userPerms = user ? [...user.roles, ...user.permissions] : [];
+
+  if (
+    !hasPermission(userPerms, "roles.permissions.manage") &&
+    !hasPermission(userPerms, "roles.update") &&
+    !hasPermission(userPerms, "system.all")
+  ) {
+    return {
+      success: false,
+      status: 403,
+      error: "You do not have permission to manage role permissions.",
+    };
+  }
+
+  try {
+    const res = await apiFetch<RolePermissionsResponse>(
+      `/v1/permissions/roles/${encodeURIComponent(roleId)}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    return {
+      success: res.success ?? true,
+      status: res.status ?? 200,
+      message: res.message,
+      data: res.data,
+    };
+  } catch (err: unknown) {
+    console.error("updateRolePermissionsAction error:", err);
+    if (err instanceof ApiError) {
+      return {
+        success: false,
+        status: err.status,
+        error: err.message,
+      };
+    }
+    return {
+      success: false,
+      status: 500,
+      error: err instanceof Error ? err.message : "Failed to update role permissions",
+    };
+  }
+}
+
 

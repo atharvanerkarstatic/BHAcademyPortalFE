@@ -184,7 +184,7 @@ function EditFaqContent() {
       <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <CardHeader className="border-b px-6 py-4 bg-white flex flex-row items-center justify-between">
           <CardTitle className="text-base font-bold text-slate-900">
-            Edit FAQ #{id}
+            Edit FAQ
           </CardTitle>
           <Button variant="ghost" size="sm" asChild className="gap-1.5 text-slate-600 hover:text-slate-900">
             <Link href="/faqs">

@@ -167,7 +167,7 @@ export default function EditCityPage() {
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Cities", href: "/cities" },
-          { label: `Edit City (ID: ${id})` },
+          { label: "Edit City" },
         ]}
       />
 

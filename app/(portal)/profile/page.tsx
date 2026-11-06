@@ -94,6 +94,10 @@ export default function EditProfilePage() {
       toastError("Mobile number is required.");
       return;
     }
+    if (cleanMobile.length !== 10) {
+      toastError("Mobile number must be exactly 10 digits.");
+      return;
+    }
 
     // Split at frontend, after first space, pass in last name
     const spaceIndex = cleanName.indexOf(" ");
