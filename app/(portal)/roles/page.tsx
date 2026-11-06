@@ -199,16 +199,17 @@ export default function RolesPage() {
           { label: "Roles" },
         ]}
       />
-
+{/* 
       <div className="flex border-b border-slate-200 mb-4 gap-4">
         <button
           type="button"
+          suppressHydrationWarning
           className="pb-2.5 px-3 text-sm font-semibold border-b-2 text-blue-600 border-blue-600 flex items-center gap-2"
         >
           <ShieldCheck className="h-4 w-4" />
           Roles List
         </button>
-      </div>
+      </div> */}
 
       <DataTable
         title="Roles List"

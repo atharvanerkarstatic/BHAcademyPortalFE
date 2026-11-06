@@ -200,7 +200,7 @@ export default function RolePermissionsPage() {
         </CardHeader>
 
         <CardContent className="p-6">
-          <form onSubmit={handleSave} className="space-y-6">
+          <form onSubmit={handleSave} className="space-y-6 max-w-4xl mx-auto">
             {/* Search and Quick Filters */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
               <div className="relative w-full sm:w-80">
@@ -290,12 +290,26 @@ export default function RolePermissionsPage() {
                             <div
                               key={p.permissionId}
                               onClick={() => togglePermission(p.permissionId)}
-                              className={`flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-50/70 transition-colors ${
-                                isAssigned ? "bg-blue-50/20" : ""
+                              className={`flex items-start gap-3.5 px-4 py-3 cursor-pointer hover:bg-slate-50/80 transition-colors ${
+                                isAssigned ? "bg-blue-50/25" : ""
                               }`}
                             >
-                              <div className="space-y-0.5 pr-4">
-                                <div className="flex items-center gap-2">
+                              {/* Left Checkbox */}
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex items-center pt-0.5 shrink-0"
+                              >
+                                <Checkbox
+                                  id={inputId}
+                                  checked={isAssigned}
+                                  onCheckedChange={() => togglePermission(p.permissionId)}
+                                  className="h-4 w-4 rounded border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                                />
+                              </div>
+
+                              {/* Permission Details */}
+                              <div className="space-y-0.5 min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
                                   <label
                                     htmlFor={inputId}
                                     className="text-xs font-semibold text-slate-900 cursor-pointer"
@@ -311,39 +325,30 @@ export default function RolePermissionsPage() {
                                 </p>
                               </div>
 
-                              {/* Right Actions: Scope Selector & Checkbox */}
-                              <div
-                                onClick={(e) => e.stopPropagation()}
-                                className="flex items-center gap-3 pl-2 shrink-0"
-                              >
-                                {isAssigned && p.availableScopes && p.availableScopes.length > 1 && (
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-[10px] uppercase font-medium text-slate-400">
-                                      Scope:
-                                    </span>
-                                    <select
-                                      value={permissionScopes[p.permissionId] || p.availableScopes[0]}
-                                      onChange={(e) =>
-                                        handleScopeChange(p.permissionId, e.target.value)
-                                      }
-                                      className="h-7 rounded border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 shadow-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                    >
-                                      {p.availableScopes.map((sc) => (
-                                        <option key={sc} value={sc}>
-                                          {sc}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                )}
-
-                                <Checkbox
-                                  id={inputId}
-                                  checked={isAssigned}
-                                  onCheckedChange={() => togglePermission(p.permissionId)}
-                                  className="h-4 w-4 rounded border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-                                />
-                              </div>
+                              {/* Scope Selector (tightly integrated beside content) */}
+                              {isAssigned && p.availableScopes && p.availableScopes.length > 1 && (
+                                <div
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex items-center gap-1.5 shrink-0 pt-0.5"
+                                >
+                                  <span className="text-[10px] uppercase font-semibold text-slate-400">
+                                    Scope:
+                                  </span>
+                                  <select
+                                    value={permissionScopes[p.permissionId] || p.availableScopes[0]}
+                                    onChange={(e) =>
+                                      handleScopeChange(p.permissionId, e.target.value)
+                                    }
+                                    className="h-7 rounded border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 shadow-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  >
+                                    {p.availableScopes.map((sc) => (
+                                      <option key={sc} value={sc}>
+                                        {sc}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
