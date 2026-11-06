@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Info,
   Link2,
   Loader2,
   Plus,
@@ -351,6 +352,11 @@ export default function SendAssessmentLinkPage() {
                 Participant Mobiles <span className="text-rose-500">*</span>
               </label>
               <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-1.5 rounded-md border border-blue-100 bg-blue-50/70 px-2.5 py-1.5 text-xs text-blue-700">
+                  <Info className="h-3.5 w-3.5 shrink-0 text-blue-600" />
+                  <span>The assessment links will be sent to the mobile numbers entered below.</span>
+                </div>
+
                 {mobileNumbers.map((num, idx) => (
                   <div key={idx} className="flex items-center gap-2">
                     <div className="relative flex-1">
