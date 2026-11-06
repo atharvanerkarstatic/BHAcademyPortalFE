@@ -117,9 +117,9 @@ export default function RolesPage() {
     const cols: Column<RoleItem>[] = [
       {
         header: "#",
-        cell: (r, index) => (
+        cell: (r: RoleItem, index?: number) => (
           <span className="font-mono text-xs text-slate-500">
-            {(page - 1) * pageSize + index + 1}
+            {(page - 1) * pageSize + (index ?? 0) + 1}
           </span>
         ),
         className: "w-12 text-center",
