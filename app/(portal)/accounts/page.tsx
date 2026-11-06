@@ -93,6 +93,7 @@ export default function AccountsPage() {
 
   const canCreate = can("users.create") || can("accounts.create");
   const canExport = can("users.read") || can("accounts.export");
+  const canImport = can("accounts.import") || can("system.all");
 
   const loadAccounts = (
     targetPage = page,
@@ -117,53 +118,51 @@ export default function AccountsPage() {
     });
   };
 
+  // Reset search filter whenever navigating away or returning to this route
   useEffect(() => {
-    const handleReset = () => {
-      setActiveTab("list");
-      setBulkBpFile(null);
-      setBulkUsersFile(null);
+    return () => {
       setSearchInput("");
       setActiveSearch("");
       setPage(1);
     };
-
-    window.addEventListener("popstate", handleReset);
-    window.addEventListener("pageshow", handleReset);
-    return () => {
-      window.removeEventListener("popstate", handleReset);
-      window.removeEventListener("pageshow", handleReset);
-      handleReset();
-    };
   }, [pathname]);
 
+  // Debounced search: as soon as typing stops, update activeSearch and query API
   useEffect(() => {
     const timer = setTimeout(() => {
-      setPage(1);
-      setActiveSearch(searchInput.trim());
-    }, 350);
+      if (searchInput !== activeSearch) {
+        setActiveSearch(searchInput);
+        setPage(1);
+        loadAccounts(1, searchInput);
+      }
+    }, 400);
 
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput]);
 
   useEffect(() => {
-    loadAccounts(page, activeSearch);
+    loadAccounts(1, "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, activeSearch]);
+  }, []);
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
+    loadAccounts(newPage, activeSearch);
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setActiveSearch(searchInput);
     setPage(1);
-    setActiveSearch(searchInput.trim());
+    loadAccounts(1, searchInput);
   };
 
   const handleSearchClear = () => {
     setSearchInput("");
-    setPage(1);
     setActiveSearch("");
+    setPage(1);
+    loadAccounts(1, "");
   };
 
   const handleDownloadAccounts = async () => {
@@ -171,71 +170,44 @@ export default function AccountsPage() {
     try {
       const res = await exportAccountsAction();
       if (res.success && res.data) {
-        let csvText = "";
-        if (typeof res.data === "string") {
-          csvText = res.data;
-        } else {
-          // Format as CSV
-          const headers = "ID,Name,Mobile,BP Number,State,City,District,Status\n";
-          const rows = pageData.content
-            .map(
-              (a) =>
-                `"${a.id}","${a.name}","${a.mobile || ""}","${a.bhBp || ""}","${a.state || ""}","${a.city || ""}","${a.district || ""}","${a.status || "Active"}"`
-            )
-            .join("\n");
-          csvText = headers + rows;
-        }
-
-        const blob = new Blob([csvText], { type: "text/csv;charset=utf-8;" });
+        const blob = new Blob([res.data], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `accounts_export_${Date.now()}.csv`;
-        a.click();
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", res.filename || "accounts_export.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        success("Accounts downloaded successfully!");
+        success("Accounts CSV downloaded successfully");
       } else {
-        // Fallback export with current data
-        const headers = "ID,Name,Mobile,BP Number,State,City,District,Status\n";
-        const rows = pageData.content
-          .map(
-            (a) =>
-              `"${a.id}","${a.name}","${a.mobile || ""}","${a.bhBp || ""}","${a.state || ""}","${a.city || ""}","${a.district || ""}","${a.status || "Active"}"`
-          )
-          .join("\n");
-        const blob = new Blob([headers + rows], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `accounts_export_${Date.now()}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-        success("Accounts exported successfully!");
+        toastError(res.error || "Failed to download accounts CSV");
       }
     } catch {
-      toastError("Failed to download accounts");
+      toastError("Failed to export accounts");
     } finally {
       setIsExporting(false);
     }
   };
 
-  // State for Import Error Dialog
+  // Bulk Import result dialog state
   const [importResult, setImportResult] = useState<BulkImportResponse | null>(null);
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
-  const [downloadingSample, setDownloadingSample] = useState<string | null>(null);
+  const [downloadingSample, setDownloadingSample] = useState<"bhbp" | "users" | null>(null);
 
-  // Download sample file from API
-  const handleDownloadSample = async (type: "ACCOUNTS" | "ACCOUNT_BHBP") => {
+  const handleDownloadSample = async (type: "bhbp" | "users") => {
     setDownloadingSample(type);
     try {
-      const res = await getSampleImportAction(type);
+      const res = await getSampleImportAction(type === "bhbp" ? "ACCOUNT_BHBP" : "ACCOUNT");
       if (res.success && res.data) {
         const blob = new Blob([res.data], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = res.filename || `${type.toLowerCase()}_sample.csv`;
-        a.click();
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", res.filename || `${type}_sample.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
         URL.revokeObjectURL(url);
         success("Sample template downloaded successfully!");
       } else {
@@ -248,203 +220,161 @@ export default function AccountsPage() {
     }
   };
 
-  // Bulk Upload Accounts Handler
-  const handleBulkAccountsSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!bulkUsersFile) {
-      toastError("Please choose a file to upload");
-      return;
-    }
-
-    setIsBulkUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", bulkUsersFile);
-
-      const res = await importAccountsAction(formData);
-      if (res.success) {
-        const data = res.data;
-        const hasErrors = data && data.errors && data.errors.length > 0;
-
-        if (hasErrors) {
-          setImportResult(data);
-          setErrorDialogOpen(true);
-          toastError(
-            `Import processed with ${data.errors?.length ?? 0} error(s). Please review the errors.`
-          );
-        } else {
-          success(
-            res.message ||
-              `Import successful! Processed ${data?.totalRows ?? 0} rows.`
-          );
-          setBulkUsersFile(null);
-          setActiveTab("list");
-          loadAccounts(1, "", false);
-        }
-      } else {
-        toastError(res.error || "Bulk upload failed. Please try again.");
-      }
-    } catch {
-      toastError("An unexpected error occurred during bulk upload.");
-    } finally {
-      setIsBulkUploading(false);
-    }
-  };
-
-  // Bulk Upload BP Numbers Handler
-  const handleBulkBhbpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleUploadBpFile = async () => {
     if (!bulkBpFile) {
-      toastError("Please choose a file to upload");
+      toastError("Please select a file to upload");
       return;
     }
-
     setIsBulkUploading(true);
+    const formData = new FormData();
+    formData.append("file", bulkBpFile);
+
     try {
-      const formData = new FormData();
-      formData.append("file", bulkBpFile);
-
       const res = await importAccountBhbpAction(formData);
-      if (res.success) {
-        const data = res.data;
-        const hasErrors = data && data.errors && data.errors.length > 0;
-
-        if (hasErrors) {
-          setImportResult(data);
+      if (res.success && res.data) {
+        setImportResult(res.data);
+        if (res.data.status === "PARTIAL_SUCCESS" || (res.data.failedRecords && res.data.failedRecords > 0)) {
           setErrorDialogOpen(true);
-          toastError(
-            `Import processed with ${data.errors?.length ?? 0} error(s). Please review the errors.`
-          );
+          toastError(res.message || "Bulk import finished with errors. Review below.");
         } else {
-          success(
-            res.message ||
-              `BP numbers imported successfully! Processed ${data?.totalRows ?? 0} rows.`
-          );
-          setBulkBpFile(null);
-          setActiveTab("list");
-          loadAccounts(1, "", false);
+          success(res.message || "BP numbers updated successfully!");
         }
+        setBulkBpFile(null);
+        loadAccounts(page, activeSearch);
       } else {
-        toastError(res.error || "Bulk update failed. Please try again.");
+        toastError(res.error || "Failed to upload BP numbers file");
       }
     } catch {
-      toastError("An unexpected error occurred during BP number update.");
+      toastError("An error occurred during upload");
     } finally {
       setIsBulkUploading(false);
     }
   };
 
-  // Data table columns matching Course List pattern and uniformity
+  const handleUploadUsersFile = async () => {
+    if (!bulkUsersFile) {
+      toastError("Please select a file to upload");
+      return;
+    }
+    setIsBulkUploading(true);
+    const formData = new FormData();
+    formData.append("file", bulkUsersFile);
+
+    try {
+      const res = await importAccountsAction(formData);
+      if (res.success && res.data) {
+        setImportResult(res.data);
+        if (res.data.status === "PARTIAL_SUCCESS" || (res.data.failedRecords && res.data.failedRecords > 0)) {
+          setErrorDialogOpen(true);
+          toastError(res.message || "Bulk import finished with errors. Review below.");
+        } else {
+          success(res.message || "Accounts imported successfully!");
+        }
+        setBulkUsersFile(null);
+        loadAccounts(page, activeSearch);
+      } else {
+        toastError(res.error || "Failed to upload accounts file");
+      }
+    } catch {
+      toastError("An error occurred during upload");
+    } finally {
+      setIsBulkUploading(false);
+    }
+  };
+
   const columns: Column<AccountItem>[] = useMemo(() => {
     const cols: Column<AccountItem>[] = [
       {
-        header: "ID",
-        cell: (r) => (
-          <span className="font-mono text-xs font-semibold text-slate-700">{r.id}</span>
+        header: "#",
+        cell: (r, index) => (
+          <span className="font-mono text-xs text-slate-500">
+            {(page - 1) * pageSize + index + 1}
+          </span>
         ),
-        className: "w-16 text-center",
+        className: "w-12 text-center",
       },
       {
-        header: "Image",
-        cell: (r) => {
-          const imgUrl = r.profilePic || r.profileImage || r.image || r.profilePicture;
-          const validImg = imgUrl && imgUrl.startsWith("http");
-          return (
-            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50">
-              {validImg ? (
-                <button
-                  type="button"
-                  onClick={() => setPreviewImage({ url: imgUrl, title: r.name || r.id })}
-                  className="group relative h-full w-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md overflow-hidden"
-                  title="Click to preview image"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={imgUrl}
-                    alt={r.name}
-                    className="h-full w-full object-cover transition-transform group-hover:scale-110"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = "none";
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <ImageIcon className="h-3.5 w-3.5 text-white drop-shadow" />
-                  </div>
-                </button>
+        header: "User Details",
+        cell: (r) => (
+          <div className="flex items-center gap-3 py-1">
+            <button
+              type="button"
+              onClick={() => {
+                if (r.profilePicUrl) {
+                  setPreviewImage({ url: r.profilePicUrl, title: r.name || "User Avatar" });
+                }
+              }}
+              className={cn(
+                "h-10 w-10 shrink-0 rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center overflow-hidden transition-transform",
+                r.profilePicUrl ? "cursor-pointer hover:scale-105 hover:ring-2 hover:ring-blue-400" : "cursor-default"
+              )}
+              title={r.profilePicUrl ? "Click to enlarge photo" : "No photo available"}
+            >
+              {r.profilePicUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={r.profilePicUrl}
+                  alt={r.name || "User"}
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = "none";
+                  }}
+                />
               ) : (
-                <ImageIcon className="h-4 w-4 text-slate-400" />
+                <User className="h-5 w-5 text-slate-400" />
               )}
+            </button>
+            <div className="space-y-0.5">
+              <span className="font-semibold text-slate-900 block text-xs">
+                {r.name || "—"}
+              </span>
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-mono">
+                <Phone className="h-3 w-3 text-slate-400" />
+                <span>{r.mobileNumber || r.mobile || "—"}</span>
+              </div>
             </div>
-          );
-        },
-        className: "w-16",
-      },
-      {
-        header: "Name",
-        cell: (r) => {
-          const emailVal = r.email || r.emailId;
-          return (
-            <div className="max-w-xs space-y-0.5">
-              <p className="font-medium text-slate-900 leading-snug">{r.name}</p>
-              {emailVal && (
-                <p className="text-[11px] text-slate-500 font-normal truncate max-w-[180px]">
-                  {emailVal}
-                </p>
-              )}
-            </div>
-          );
-        },
-        className: "min-w-40",
-      },
-      {
-        header: "Mobile",
-        cell: (r) => (
-          <span className="font-mono text-xs text-slate-700">{r.mobile || r.mobileNumber || "—"}</span>
+          </div>
         ),
-        className: "w-36",
+        className: "min-w-[200px]",
       },
       {
         header: "BP Number",
         cell: (r) => (
-          <span className="font-mono text-xs font-semibold text-slate-700">{r.bhBp || "—"}</span>
+          <span className="font-mono text-xs font-medium text-slate-800">
+            {r.bhBp || "—"}
+          </span>
         ),
-        className: "w-32",
+        className: "w-32 text-center",
       },
       {
-        header: "State",
+        header: "Location",
         cell: (r) => (
-          <span className="text-xs text-slate-700">{r.state || "—"}</span>
+          <div className="space-y-0.5 text-xs">
+            <div className="font-medium text-slate-800 flex items-center gap-1">
+              <Building className="h-3 w-3 text-slate-400" />
+              <span>{r.city || "—"}</span>
+            </div>
+            <div className="text-[11px] text-slate-500 flex items-center gap-1">
+              <MapPin className="h-3 w-3 text-slate-400" />
+              <span>{[r.district, r.state].filter(Boolean).join(", ") || "—"}</span>
+            </div>
+          </div>
         ),
-        className: "w-36",
-      },
-      {
-        header: "City",
-        cell: (r) => (
-          <span className="text-xs text-slate-700">{r.city || "—"}</span>
-        ),
-        className: "w-32",
-      },
-      {
-        header: "District",
-        cell: (r) => (
-          <span className="text-xs text-slate-700">{r.district?.trim() ? r.district : "—"}</span>
-        ),
-        className: "w-32",
+        className: "min-w-[160px]",
       },
       {
         header: "Status",
         cell: (r) => {
-          const isActive = r.status?.toLowerCase() === "active" || r.active === true;
+          const active = r.status === "ACTIVE" || r.status === "Active" || r.active === true;
           return (
             <span
-              className={cn(
-                "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
-                isActive
+              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
+                active
                   ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : "bg-rose-50 text-rose-700 border-rose-200"
-              )}
+                  : "bg-slate-100 text-slate-600 border-slate-200"
+              }`}
             >
-              {isActive ? "Active" : "Inactive"}
+              {active ? "Active" : "Inactive"}
             </span>
           );
         },
@@ -464,7 +394,7 @@ export default function AccountsPage() {
     ];
 
     return cols;
-  }, []);
+  }, [page, pageSize]);
 
   return (
     <div className="w-full space-y-4 pb-12">
@@ -476,8 +406,8 @@ export default function AccountsPage() {
       <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         {/* Top Tab Bar:
             - Accounts List (Active tab)
-            - Bulk Update BP Numbers
-            - Bulk Update Accounts
+            - Bulk Update BP Numbers (Visible if user has accounts.import permission)
+            - Bulk Update Accounts (Visible if user has accounts.import permission)
         */}
         <div className="flex flex-wrap items-center border-b border-slate-200 bg-slate-50/70 px-2 pt-2 gap-1 text-xs font-medium">
           <button
@@ -495,35 +425,39 @@ export default function AccountsPage() {
             Accounts List
           </button>
 
-          <button
-            type="button"
-            suppressHydrationWarning
-            onClick={() => setActiveTab("bulk_bp")}
-            className={cn(
-              "flex items-center gap-1.5 px-4 py-2.5 rounded-t-lg transition-colors",
-              activeTab === "bulk_bp"
-                ? "font-semibold border-t-2 border-blue-600 bg-white text-blue-600 shadow-xs"
-                : "border-t-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-            )}
-          >
-            <FileSpreadsheet className="h-4 w-4 text-blue-600" />
-            Bulk Update BP Numbers
-          </button>
+          {canImport && (
+            <button
+              type="button"
+              suppressHydrationWarning
+              onClick={() => setActiveTab("bulk_bp")}
+              className={cn(
+                "flex items-center gap-1.5 px-4 py-2.5 rounded-t-lg transition-colors",
+                activeTab === "bulk_bp"
+                  ? "font-semibold border-t-2 border-blue-600 bg-white text-blue-600 shadow-xs"
+                  : "border-t-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              )}
+            >
+              <FileSpreadsheet className="h-4 w-4 text-blue-600" />
+              Bulk Update BP Numbers
+            </button>
+          )}
 
-          <button
-            type="button"
-            suppressHydrationWarning
-            onClick={() => setActiveTab("bulk_users")}
-            className={cn(
-              "flex items-center gap-1.5 px-4 py-2.5 rounded-t-lg transition-colors",
-              activeTab === "bulk_users"
-                ? "font-semibold border-t-2 border-blue-600 bg-white text-blue-600 shadow-xs"
-                : "border-t-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-            )}
-          >
-            <FileSpreadsheet className="h-4 w-4 text-blue-600" />
-            Bulk Update Accounts
-          </button>
+          {canImport && (
+            <button
+              type="button"
+              suppressHydrationWarning
+              onClick={() => setActiveTab("bulk_users")}
+              className={cn(
+                "flex items-center gap-1.5 px-4 py-2.5 rounded-t-lg transition-colors",
+                activeTab === "bulk_users"
+                  ? "font-semibold border-t-2 border-blue-600 bg-white text-blue-600 shadow-xs"
+                  : "border-t-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              )}
+            >
+              <FileSpreadsheet className="h-4 w-4 text-blue-600" />
+              Bulk Update Accounts
+            </button>
+          )}
         </div>
 
         {/* TAB 1: ACCOUNTS LIST TABLE */}
@@ -613,305 +547,213 @@ export default function AccountsPage() {
         )}
 
         {/* TAB 2: BULK UPDATE BP NUMBERS */}
-        {activeTab === "bulk_bp" && (
+        {activeTab === "bulk_bp" && canImport && (
           <div className="p-6 space-y-6">
             <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4 space-y-2 text-xs text-slate-700">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <p className="text-slate-700">
-                  Upload a CSV file containing updated BP numbers for existing accounts.
+                  Upload an Excel or CSV file mapping user Mobile Numbers to their official Berger Paints (BP) numbers.
                 </p>
                 <Button
-                  type="button"
                   variant="outline"
                   size="sm"
-                  disabled={downloadingSample === "ACCOUNT_BHBP"}
-                  onClick={() => handleDownloadSample("ACCOUNT_BHBP")}
-                  className="h-7 text-xs font-medium gap-1.5 border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
+                  onClick={() => handleDownloadSample("bhbp")}
+                  disabled={downloadingSample === "bhbp"}
+                  className="gap-1.5 text-xs text-blue-600 border-blue-300 hover:bg-blue-50 h-8"
                 >
-                  <Download className="h-3 w-3" />
-                  {downloadingSample === "ACCOUNT_BHBP" ? "Downloading…" : "Download Sample File"}
+                  <Download className="h-3.5 w-3.5" />
+                  <span>{downloadingSample === "bhbp" ? "Downloading…" : "Download Sample BP File"}</span>
                 </Button>
               </div>
-              <p className="text-[11px] text-slate-500">
-                <span className="font-semibold text-slate-800">Required Columns:</span>{" "}
-                <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 text-blue-800 font-mono">mobile,bhBp</code>
-              </p>
             </div>
 
-            <form onSubmit={handleBulkBhbpSubmit} className="space-y-5 max-w-xl">
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
-                <Label className="text-xs font-semibold text-slate-700 sm:text-right">
-                  Choose File <span className="text-rose-500">*</span>
+            <div className="max-w-xl space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="bp-file-upload" className="text-xs font-semibold text-slate-700">
+                  Select File (.xlsx, .xls, .csv)
                 </Label>
-                <div className="sm:col-span-3">
-                  <Input
-                    type="file"
-                    accept=".csv, .xlsx, .xls"
-                    onChange={(e) => setBulkBpFile(e.target.files?.[0] || null)}
-                    className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
-                  />
-                  {bulkBpFile && (
-                    <p className="text-[11px] text-emerald-600 mt-1 font-medium">
-                      Selected: {bulkBpFile.name} ({(bulkBpFile.size / 1024).toFixed(1)} KB)
-                    </p>
-                  )}
-                </div>
+                <Input
+                  id="bp-file-upload"
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={(e) => setBulkBpFile(e.target.files?.[0] || null)}
+                  className="text-xs file:text-xs file:font-medium file:text-blue-600 file:bg-blue-50 file:border-0 file:rounded-md file:mr-3"
+                />
               </div>
 
-              <div className="flex items-center gap-2 sm:pl-32 pt-2">
-                <Button
-                  type="submit"
-                  disabled={isBulkUploading || !bulkBpFile}
-                  className="bg-blue-600 hover:bg-blue-700 text-white min-w-28 h-8 text-xs font-semibold gap-1.5"
-                >
-                  <Upload className="h-3.5 w-3.5" />
-                  {isBulkUploading ? "Uploading…" : "Upload & Process"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setBulkBpFile(null);
-                    setActiveTab("list");
-                  }}
-                  className="h-8 text-xs font-medium uppercase border-slate-300"
-                >
-                  CANCEL
-                </Button>
-              </div>
-            </form>
+              <Button
+                type="button"
+                onClick={handleUploadBpFile}
+                disabled={!bulkBpFile || isBulkUploading}
+                className="bg-blue-600 hover:bg-blue-700 text-white gap-2 text-xs font-semibold uppercase h-9"
+              >
+                {isBulkUploading ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                Upload & Update BP Numbers
+              </Button>
+            </div>
           </div>
         )}
 
-        {/* TAB 3: BULK UPLOAD ACCOUNTS */}
-        {activeTab === "bulk_users" && (
+        {/* TAB 3: BULK UPDATE ACCOUNTS */}
+        {activeTab === "bulk_users" && canImport && (
           <div className="p-6 space-y-6">
             <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4 space-y-2 text-xs text-slate-700">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <p className="text-slate-700">
-                  Upload a CSV file containing multiple user accounts to create or import.
+                  Upload an Excel or CSV spreadsheet containing full account profiles (Mobile Number, Name, BP Number, City, State, etc.).
                 </p>
                 <Button
-                  type="button"
                   variant="outline"
                   size="sm"
-                  disabled={downloadingSample === "ACCOUNTS"}
-                  onClick={() => handleDownloadSample("ACCOUNTS")}
-                  className="h-7 text-xs font-medium gap-1.5 border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
+                  onClick={() => handleDownloadSample("users")}
+                  disabled={downloadingSample === "users"}
+                  className="gap-1.5 text-xs text-blue-600 border-blue-300 hover:bg-blue-50 h-8"
                 >
-                  <Download className="h-3 w-3" />
-                  {downloadingSample === "ACCOUNTS" ? "Downloading…" : "Download Sample File"}
+                  <Download className="h-3.5 w-3.5" />
+                  <span>{downloadingSample === "users" ? "Downloading…" : "Download Sample Accounts File"}</span>
                 </Button>
               </div>
-              <p className="text-[11px] text-slate-500">
-                <span className="font-semibold text-slate-800">Supported Headers:</span>{" "}
-                <span className="font-mono text-slate-600">
-                  bhBp, name, mobile, languageId, languageName, professionId, professionName, msBp, msProfile, msRole, msStatus, lmsBp, pincode, city, state, dob, yoe, gender, kycStatus, aadharNumber, region, division, blocked, geolocation, profileImage, userType, points, interestIds, msiBp
-                </span>
-              </p>
             </div>
 
-            <form onSubmit={handleBulkAccountsSubmit} className="space-y-5 max-w-xl">
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
-                <Label className="text-xs font-semibold text-slate-700 sm:text-right">
-                  Choose File <span className="text-rose-500">*</span>
+            <div className="max-w-xl space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="users-file-upload" className="text-xs font-semibold text-slate-700">
+                  Select File (.xlsx, .xls, .csv)
                 </Label>
-                <div className="sm:col-span-3">
-                  <Input
-                    type="file"
-                    accept=".csv, .xlsx, .xls"
-                    onChange={(e) => setBulkUsersFile(e.target.files?.[0] || null)}
-                    className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
-                  />
-                  {bulkUsersFile && (
-                    <p className="text-[11px] text-emerald-600 mt-1 font-medium">
-                      Selected: {bulkUsersFile.name} ({(bulkUsersFile.size / 1024).toFixed(1)} KB)
-                    </p>
-                  )}
-                </div>
+                <Input
+                  id="users-file-upload"
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={(e) => setBulkUsersFile(e.target.files?.[0] || null)}
+                  className="text-xs file:text-xs file:font-medium file:text-blue-600 file:bg-blue-50 file:border-0 file:rounded-md file:mr-3"
+                />
               </div>
 
-              <div className="flex items-center gap-2 sm:pl-32 pt-2">
-                <Button
-                  type="submit"
-                  disabled={isBulkUploading || !bulkUsersFile}
-                  className="bg-blue-600 hover:bg-blue-700 text-white min-w-28 h-8 text-xs font-semibold gap-1.5"
-                >
-                  <Upload className="h-3.5 w-3.5" />
-                  {isBulkUploading ? "Uploading…" : "Upload & Process"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setBulkUsersFile(null);
-                    setActiveTab("list");
-                  }}
-                  className="h-8 text-xs font-medium uppercase border-slate-300"
-                >
-                  CANCEL
-                </Button>
-              </div>
-            </form>
+              <Button
+                type="button"
+                onClick={handleUploadUsersFile}
+                disabled={!bulkUsersFile || isBulkUploading}
+                className="bg-blue-600 hover:bg-blue-700 text-white gap-2 text-xs font-semibold uppercase h-9"
+              >
+                {isBulkUploading ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                Upload & Update Accounts
+              </Button>
+            </div>
           </div>
         )}
       </Card>
 
-      {/* Bulk Import Error Dialog Modal */}
-      <AlertDialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
-        <AlertDialogContent
-          size="xl"
-          className="w-[95vw] sm:max-w-4xl lg:max-w-5xl max-h-[88vh] flex flex-col p-6 overflow-hidden bg-white shadow-2xl border border-slate-200"
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setPreviewImage(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs transition-opacity animate-in fade-in"
         >
-          <AlertDialogHeader className="border-b pb-4">
-            <div className="flex items-center gap-2">
-              <div className="h-9 w-9 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-bold">
-                !
-              </div>
-              <div>
-                <AlertDialogTitle className="text-lg font-bold text-slate-900">
-                  Bulk Upload Validation Errors
-                </AlertDialogTitle>
-                <AlertDialogDescription className="text-xs text-slate-500">
-                  Some rows in your file could not be processed due to validation or duplication issues.
-                </AlertDialogDescription>
-              </div>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-w-lg w-full bg-white rounded-2xl overflow-hidden shadow-2xl p-4 space-y-3"
+          >
+            <div className="flex items-center justify-between border-b pb-2">
+              <h3 className="font-semibold text-sm text-slate-800">{previewImage.title}</h3>
+              <button
+                type="button"
+                onClick={() => setPreviewImage(null)}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
+            <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center border">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewImage.url}
+                alt={previewImage.title}
+                className="h-full w-full object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
-            {/* Counts Summary Cards */}
-            {importResult && (
-              <div className="grid grid-cols-3 gap-3 pt-3 w-full">
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-center">
-                  <div className="text-[11px] font-medium text-slate-500 uppercase">Total Rows</div>
-                  <div className="text-lg font-bold text-slate-800">{importResult.totalRows ?? 0}</div>
-                </div>
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-2.5 text-center">
-                  <div className="text-[11px] font-medium text-emerald-700 uppercase">Success</div>
-                  <div className="text-lg font-bold text-emerald-700">{importResult.successCount ?? 0}</div>
-                </div>
-                <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-2.5 text-center">
-                  <div className="text-[11px] font-medium text-rose-700 uppercase">Failures</div>
-                  <div className="text-lg font-bold text-rose-700">{importResult.failureCount ?? importResult.errors?.length ?? 0}</div>
-                </div>
-              </div>
-            )}
+      {/* Bulk Import Result & Error Dialog */}
+      <AlertDialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
+        <AlertDialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-6">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base font-semibold text-slate-900">
+              Bulk Import Validation Issues
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-slate-500">
+              The import operation completed with errors. Below are the summary statistics and rows that failed validation:
+            </AlertDialogDescription>
           </AlertDialogHeader>
 
-          {/* Errors Table */}
-          <div className="flex-1 overflow-y-auto my-3 border border-slate-200 rounded-lg">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-slate-50 text-slate-700 font-semibold sticky top-0 border-b border-slate-200">
-                <tr>
-                  <th className="py-2 px-3 w-16">Row #</th>
-                  <th className="py-2 px-3 w-28">Identifier</th>
-                  <th className="py-2 px-3 w-28">Field</th>
-                  <th className="py-2 px-3 w-32">Rejected Value</th>
-                  <th className="py-2 px-3">Error Message</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {importResult?.errors && importResult.errors.length > 0 ? (
-                  importResult.errors.map((err, idx) => (
-                    <tr key={idx} className="hover:bg-rose-50/30 transition-colors">
-                      <td className="py-2 px-3 font-mono font-medium text-slate-700">
-                        {err.rowNumber || "—"}
-                      </td>
-                      <td className="py-2 px-3 font-mono text-slate-600 truncate max-w-[120px]">
-                        {err.identifier || "—"}
-                      </td>
-                      <td className="py-2 px-3 font-medium text-slate-800">
-                        <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px]">
-                          {err.field || "—"}
-                        </span>
-                      </td>
-                      <td className="py-2 px-3 font-mono text-rose-700 truncate max-w-[140px]">
-                        {err.rejectedValue ? `"${err.rejectedValue}"` : "—"}
-                      </td>
-                      <td className="py-2 px-3 text-rose-600 font-medium">
-                        {err.errorMessage}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="py-6 text-center text-slate-400">
-                      No errors to display
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          {importResult && (
+            <div className="space-y-4 my-2 overflow-y-auto flex-1 pr-1">
+              {/* Summary Stats Badges */}
+              <div className="grid grid-cols-3 gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+                <div>
+                  <span className="text-slate-500 block text-[11px]">Total Rows</span>
+                  <span className="font-bold text-slate-800 text-sm">{importResult.totalRecords ?? 0}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[11px]">Processed / Succeeded</span>
+                  <span className="font-bold text-emerald-600 text-sm">
+                    {importResult.processedRecords ?? importResult.successRecords ?? 0}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[11px]">Failed Rows</span>
+                  <span className="font-bold text-rose-600 text-sm">{importResult.failedRecords ?? 0}</span>
+                </div>
+              </div>
 
-          <AlertDialogFooter className="border-t pt-3 flex sm:justify-between items-center w-full">
-            <p className="text-xs text-slate-500">
-              Fix the errors in your CSV file and upload again.
-            </p>
-            <AlertDialogAction
-              onClick={() => setErrorDialogOpen(false)}
-              className="bg-slate-800 hover:bg-slate-900 text-white text-xs px-4 h-8"
-            >
-              Close & Fix File
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Image Preview Modal */}
-      <AlertDialog open={Boolean(previewImage)} onOpenChange={(open) => !open && setPreviewImage(null)}>
-        <AlertDialogContent className="max-w-md w-[90vw] p-4 bg-white rounded-xl shadow-xl border border-slate-200">
-          <AlertDialogHeader className="border-b pb-3 flex flex-row items-center justify-between">
-            <div>
-              <AlertDialogTitle className="text-sm font-bold text-slate-900">
-                Image Preview
-              </AlertDialogTitle>
-              {previewImage?.title && (
-                <AlertDialogDescription className="text-xs text-slate-500 truncate max-w-[240px]">
-                  {previewImage.title}
-                </AlertDialogDescription>
+              {/* Failed items table */}
+              {importResult.errors && importResult.errors.length > 0 ? (
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  <div className="bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">
+                    Row-Level Error Details
+                  </div>
+                  <div className="max-h-60 overflow-y-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-slate-50 text-[11px] text-slate-600 border-b">
+                        <tr>
+                          <th className="px-3 py-2 w-16">Row #</th>
+                          <th className="px-3 py-2 w-32">Identifier / Mobile</th>
+                          <th className="px-3 py-2">Failure Reason</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {importResult.errors.map((err: BulkImportError, idx: number) => (
+                          <tr key={idx} className="hover:bg-slate-50/50">
+                            <td className="px-3 py-2 font-mono text-slate-500">{err.rowNumber ?? idx + 1}</td>
+                            <td className="px-3 py-2 font-mono text-slate-800">{err.identifier || err.field || "—"}</td>
+                            <td className="px-3 py-2 text-rose-600 font-medium">{err.errorMessage || err.reason || "Validation error"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-600 italic">No specific row-level error breakdown was returned.</p>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => setPreviewImage(null)}
-              className="rounded-md p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </AlertDialogHeader>
+          )}
 
-          <div className="py-3 flex flex-col items-center justify-center">
-            {previewImage?.url ? (
-              <div className="relative max-h-[380px] w-full flex items-center justify-center overflow-hidden rounded-lg bg-slate-100 border border-slate-200">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={previewImage.url}
-                  alt={previewImage.title || "Preview"}
-                  className="max-h-[360px] w-auto max-w-full object-contain rounded-md"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = "none";
-                  }}
-                />
-              </div>
-            ) : null}
-          </div>
-
-          <AlertDialogFooter className="border-t pt-3 flex flex-row items-center justify-between sm:justify-between w-full">
-            {previewImage?.url && (
-              <a
-                href={previewImage.url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium hover:underline"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Open original
-              </a>
-            )}
+          <AlertDialogFooter className="mt-4">
             <AlertDialogAction
-              onClick={() => setPreviewImage(null)}
-              className="h-8 text-xs bg-slate-800 hover:bg-slate-900 text-white"
+              onClick={() => setErrorDialogOpen(false)}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 px-4"
             >
               Close
             </AlertDialogAction>

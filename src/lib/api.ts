@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 
 import { config } from "@/config/env";
-import { ACCESS_COOKIE } from "@/lib/auth-cookies";
+import { ACCESS_COOKIE, REFRESH_COOKIE, buildAuthCookies } from "@/lib/auth-cookies";
+import { refreshTokens } from "@/lib/auth-api";
 
 export class ApiError extends Error {
   constructor(
@@ -14,26 +15,54 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = (await cookies()).get(ACCESS_COOKIE)?.value;
+  const cookieStore = await cookies();
+  let token = cookieStore.get(ACCESS_COOKIE)?.value;
+  const refreshToken = cookieStore.get(REFRESH_COOKIE)?.value;
 
-  const headers: Record<string, string> = {
-    accept: "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+  const buildHeaders = (bearer?: string) => {
+    const headers: Record<string, string> = {
+      accept: "application/json",
+      ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
+    };
 
-  // Only default to application/json if body is not FormData
-  if (!(init.body instanceof FormData)) {
-    headers["Content-Type"] = "application/json";
-  }
+    if (!(init.body instanceof FormData)) {
+      headers["Content-Type"] = "application/json";
+    }
 
-  const res = await fetch(`${config.apiBaseUrl}${path}`, {
-    ...init,
-    headers: {
+    return {
       ...headers,
       ...init.headers,
-    },
+    };
+  };
+
+  let res = await fetch(`${config.apiBaseUrl}${path}`, {
+    ...init,
+    headers: buildHeaders(token),
     cache: "no-store",
   });
+
+  // If unauthorized and refreshToken is available, try to refresh token and retry
+  if (res.status === 401 && refreshToken) {
+    try {
+      const fresh = await refreshTokens(refreshToken);
+      if (fresh?.accessToken) {
+        token = fresh.accessToken;
+        const cookieList = buildAuthCookies(fresh);
+        for (const c of cookieList) {
+          cookieStore.set(c.name, c.value, c.options);
+        }
+
+        // Retry the original request with the fresh token
+        res = await fetch(`${config.apiBaseUrl}${path}`, {
+          ...init,
+          headers: buildHeaders(token),
+          cache: "no-store",
+        });
+      }
+    } catch (refreshErr) {
+      console.error("Token refresh failed in apiFetch:", refreshErr);
+    }
+  }
 
   if (!res.ok) {
     let errorDetails = `Request failed: ${res.status}`;

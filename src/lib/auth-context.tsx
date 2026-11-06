@@ -14,6 +14,7 @@ type AuthContextType = {
   hasRole: (role: string) => boolean;
   isSuperAdmin: boolean;
   refreshProfile: () => Promise<void>;
+  syncAuthFromCookies: () => void;
 };
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
@@ -53,6 +54,22 @@ export function AuthProvider({
   const [user, setUser] = React.useState<AuthUser | null>(() => initialUser ?? readUserFromCookie());
   const [profile, setProfile] = React.useState<UserProfile | null>(null);
 
+  // Synchronize user state immediately from user_perms cookie
+  const syncAuthFromCookies = React.useCallback(() => {
+    const freshUser = readUserFromCookie();
+    if (!freshUser) return;
+
+    setUser((prev) => {
+      // Check if permissions/roles or user actually changed
+      const prevPerms = prev ? [...prev.roles, ...prev.permissions].sort().join(",") : "";
+      const freshPerms = [...freshUser.roles, ...freshUser.permissions].sort().join(",") ;
+      if (prev?.id === freshUser.id && prev?.email === freshUser.email && prevPerms === freshPerms) {
+        return prev;
+      }
+      return freshUser;
+    });
+  }, []);
+
   // Function to fetch or re-fetch profile details using the existing user-details API
   const refreshProfile = React.useCallback(async () => {
     try {
@@ -65,14 +82,27 @@ export function AuthProvider({
     }
   }, []);
 
-  // Fetch profile details upon mount or whenever session changes
+  // Sync on mount, window focus, visibility change, and periodically
   React.useEffect(() => {
-    if (!initialUser) {
-      const fromCookie = readUserFromCookie();
-      if (fromCookie) setUser(fromCookie);
-    }
+    syncAuthFromCookies();
     refreshProfile();
-  }, [initialUser, refreshProfile]);
+
+    const handleSync = () => {
+      syncAuthFromCookies();
+    };
+
+    window.addEventListener("focus", handleSync);
+    document.addEventListener("visibilitychange", handleSync);
+
+    // Periodic check every 5 seconds to catch token refresh from background actions
+    const interval = setInterval(syncAuthFromCookies, 5000);
+
+    return () => {
+      window.removeEventListener("focus", handleSync);
+      document.removeEventListener("visibilitychange", handleSync);
+      clearInterval(interval);
+    };
+  }, [syncAuthFromCookies, refreshProfile]);
 
   const allAuth = React.useMemo(() => {
     if (!user) return [];
@@ -109,6 +139,7 @@ export function AuthProvider({
         hasRole,
         isSuperAdmin,
         refreshProfile,
+        syncAuthFromCookies,
       }}
     >
       {children}

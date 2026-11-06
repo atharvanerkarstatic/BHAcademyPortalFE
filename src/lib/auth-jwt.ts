@@ -75,14 +75,17 @@ export function extractAuthUser(token: string): AuthUser | null {
  * Automatically handles `system.all` and `ROLE_ADMINISTRATOR` as superadmin overrides.
  */
 export function hasPermission(
-  userPermissions: string[] | undefined,
+  userPermissionsOrRoles: string[] | undefined,
   requiredPermissionOrRole?: string | string[]
 ): boolean {
   if (!requiredPermissionOrRole) return true;
-  if (!userPermissions || !Array.isArray(userPermissions)) return false;
+  if (!userPermissionsOrRoles || !Array.isArray(userPermissionsOrRoles)) return false;
 
   // Superuser wildcards
-  if (userPermissions.includes("system.all") || userPermissions.includes("ROLE_ADMINISTRATOR")) {
+  if (
+    userPermissionsOrRoles.includes("system.all") ||
+    userPermissionsOrRoles.includes("ROLE_ADMINISTRATOR")
+  ) {
     return true;
   }
 
@@ -90,5 +93,5 @@ export function hasPermission(
     ? requiredPermissionOrRole
     : [requiredPermissionOrRole];
 
-  return required.some((perm) => userPermissions.includes(perm));
+  return required.some((perm) => userPermissionsOrRoles.includes(perm));
 }

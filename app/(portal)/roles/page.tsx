@@ -41,6 +41,7 @@ export default function RolesPage() {
   const canCreate = can("roles.create") || can("system.all");
   const canUpdate = can("roles.update") || can("system.all");
   const canDelete = can("roles.delete") || can("system.all");
+  const canViewPermissions = can("roles.read") || can("system.all");
 
   const loadRoles = (
     targetPage = page,
@@ -52,7 +53,6 @@ export default function RolesPage() {
         page: targetPage,
         size: pageSize,
         search: searchTerm,
-        sort: "name,asc",
       });
 
       if (res.success && res.data) {
@@ -75,46 +75,54 @@ export default function RolesPage() {
     };
   }, [pathname]);
 
+  // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
-      setPage(1);
-      setActiveSearch(searchInput.trim());
-    }, 350);
+      if (searchInput !== activeSearch) {
+        setActiveSearch(searchInput);
+        setPage(1);
+        loadRoles(1, searchInput);
+      }
+    }, 400);
 
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput]);
 
   useEffect(() => {
-    loadRoles(page, activeSearch);
+    loadRoles(1, "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, activeSearch]);
+  }, []);
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
+    loadRoles(newPage, activeSearch);
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setActiveSearch(searchInput);
     setPage(1);
-    setActiveSearch(searchInput.trim());
+    loadRoles(1, searchInput);
   };
 
   const handleSearchClear = () => {
     setSearchInput("");
-    setPage(1);
     setActiveSearch("");
+    setPage(1);
+    loadRoles(1, "");
   };
 
   const columns: Column<RoleItem>[] = useMemo(() => {
     const cols: Column<RoleItem>[] = [
       {
-        header: "Role ID",
-        cell: (r) => (
-          <span className="font-mono text-xs font-semibold text-slate-700">
-            {r.id}
+        header: "#",
+        cell: (r, index) => (
+          <span className="font-mono text-xs text-slate-500">
+            {(page - 1) * pageSize + index + 1}
           </span>
         ),
-        className: "w-20 text-center",
+        className: "w-12 text-center",
       },
       {
         header: "Role Name",
@@ -145,7 +153,10 @@ export default function RolesPage() {
         },
         className: "w-28 text-center",
       },
-      {
+    ];
+
+    if (canViewPermissions) {
+      cols.push({
         header: "Permissions",
         cell: (r) => (
           <Link
@@ -157,8 +168,11 @@ export default function RolesPage() {
           </Link>
         ),
         className: "w-32 text-center",
-      },
-      {
+      });
+    }
+
+    if (canUpdate) {
+      cols.push({
         header: "Edit",
         cell: (r) => (
           <Link
@@ -169,8 +183,11 @@ export default function RolesPage() {
           </Link>
         ),
         className: "w-20 text-center",
-      },
-      {
+      });
+    }
+
+    if (canDelete) {
+      cols.push({
         header: "Delete",
         cell: (r) => (
           <button
@@ -184,11 +201,11 @@ export default function RolesPage() {
           </button>
         ),
         className: "w-20 text-center",
-      },
-    ];
+      });
+    }
 
     return cols;
-  }, [toastError]);
+  }, [canViewPermissions, canUpdate, canDelete, page, pageSize, toastError]);
 
   return (
     <>
@@ -199,17 +216,6 @@ export default function RolesPage() {
           { label: "Roles" },
         ]}
       />
-{/* 
-      <div className="flex border-b border-slate-200 mb-4 gap-4">
-        <button
-          type="button"
-          suppressHydrationWarning
-          className="pb-2.5 px-3 text-sm font-semibold border-b-2 text-blue-600 border-blue-600 flex items-center gap-2"
-        >
-          <ShieldCheck className="h-4 w-4" />
-          Roles List
-        </button>
-      </div> */}
 
       <DataTable
         title="Roles List"
@@ -285,4 +291,3 @@ export default function RolesPage() {
     </>
   );
 }
-

@@ -20,8 +20,14 @@ const ROUTE_PERMISSIONS: { pattern: RegExp; permission: string | string[] }[] = 
   { pattern: /^\/categories(\/.*)?$/, permission: "categories.read" },
   { pattern: /^\/courses(\/.*)?$/, permission: "courses.read" },
   { pattern: /^\/users(\/.*)?$/, permission: "users.read" },
-  { pattern: /^\/accounts(\/.*)?$/, permission: "users.read" },
-  { pattern: /^\/trainers(\/.*)?$/, permission: "users.read" },
+  { pattern: /^\/accounts(\/.*)?$/, permission: ["accounts.read", "users.read"] },
+  { pattern: /^\/trainers(\/.*)?$/, permission: ["users.read", "ROLE_TRAINER"] },
+  { pattern: /^\/assessments\/send(\/.*)?$/, permission: ["assessments.create", "courses.read"] },
+  { pattern: /^\/assessments\/links(\/.*)?$/, permission: ["assessments.read", "courses.read"] },
+  { pattern: /^\/assessments\/results(\/.*)?$/, permission: ["assessments.read", "audit.read"] },
+  { pattern: /^\/reports(\/.*)?$/, permission: ["reports.read", "audit.read"] },
+  { pattern: /^\/roles(\/.*)?$/, permission: "roles.read" },
+  { pattern: /^\/admin-users(\/.*)?$/, permission: "users.read" },
   { pattern: /^\/cities(\/.*)?$/, permission: ["pincode.read", "system.all"] },
   { pattern: /^\/dashboard(\/.*)?$/, permission: "dashboard.read" },
 ];
@@ -60,6 +66,7 @@ export async function proxy(request: NextRequest) {
     response = NextResponse.redirect(new URL("/dashboard", request.url));
   } else {
     // Route-level permission authorization check
+    // Always use the freshest token available (either newly refreshed or existing)
     const user = accessToken ? extractAuthUser(accessToken) : null;
     const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
@@ -77,7 +84,7 @@ export async function proxy(request: NextRequest) {
       if (isApi) {
         response = NextResponse.json({ message: "Forbidden" }, { status: 403 });
       } else {
-        // Redirect to dashboard with forbidden flag or access denied
+        // Redirect to dashboard when forbidden
         response = NextResponse.redirect(new URL("/dashboard", request.url));
       }
     } else {
