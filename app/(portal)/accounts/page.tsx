@@ -198,7 +198,7 @@ export default function AccountsPage() {
   const handleDownloadSample = async (type: "bhbp" | "users") => {
     setDownloadingSample(type);
     try {
-      const res = await getSampleImportAction(type === "bhbp" ? "ACCOUNT_BHBP" : "ACCOUNT");
+      const res = await getSampleImportAction(type === "bhbp" ? "ACCOUNT_BHBP" : "ACCOUNTS");
       if (res.success && res.data) {
         const blob = new Blob([res.data], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
@@ -233,7 +233,7 @@ export default function AccountsPage() {
       const res = await importAccountBhbpAction(formData);
       if (res.success && res.data) {
         setImportResult(res.data);
-        if (res.data.status === "PARTIAL_SUCCESS" || (res.data.failedRecords && res.data.failedRecords > 0)) {
+        if (res.data.failureCount > 0) {
           setErrorDialogOpen(true);
           toastError(res.message || "Bulk import finished with errors. Review below.");
         } else {
@@ -264,7 +264,7 @@ export default function AccountsPage() {
       const res = await importAccountsAction(formData);
       if (res.success && res.data) {
         setImportResult(res.data);
-        if (res.data.status === "PARTIAL_SUCCESS" || (res.data.failedRecords && res.data.failedRecords > 0)) {
+        if (res.data.failureCount > 0) {
           setErrorDialogOpen(true);
           toastError(res.message || "Bulk import finished with errors. Review below.");
         } else {
@@ -286,55 +286,58 @@ export default function AccountsPage() {
     const cols: Column<AccountItem>[] = [
       {
         header: "#",
-        cell: (r, index) => (
+        cell: (r: AccountItem, index?: number) => (
           <span className="font-mono text-xs text-slate-500">
-            {(page - 1) * pageSize + index + 1}
+            {(page - 1) * pageSize + (index ?? 0) + 1}
           </span>
         ),
         className: "w-12 text-center",
       },
       {
         header: "User Details",
-        cell: (r) => (
-          <div className="flex items-center gap-3 py-1">
-            <button
-              type="button"
-              onClick={() => {
-                if (r.profilePicUrl) {
-                  setPreviewImage({ url: r.profilePicUrl, title: r.name || "User Avatar" });
-                }
-              }}
-              className={cn(
-                "h-10 w-10 shrink-0 rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center overflow-hidden transition-transform",
-                r.profilePicUrl ? "cursor-pointer hover:scale-105 hover:ring-2 hover:ring-blue-400" : "cursor-default"
-              )}
-              title={r.profilePicUrl ? "Click to enlarge photo" : "No photo available"}
-            >
-              {r.profilePicUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={r.profilePicUrl}
-                  alt={r.name || "User"}
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = "none";
-                  }}
-                />
-              ) : (
-                <User className="h-5 w-5 text-slate-400" />
-              )}
-            </button>
-            <div className="space-y-0.5">
-              <span className="font-semibold text-slate-900 block text-xs">
-                {r.name || "—"}
-              </span>
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-mono">
-                <Phone className="h-3 w-3 text-slate-400" />
-                <span>{r.mobileNumber || r.mobile || "—"}</span>
+        cell: (r) => {
+          const profilePhoto = r.profilePic || r.image || r.profileImage || r.profilePicture;
+          return (
+            <div className="flex items-center gap-3 py-1">
+              <button
+                type="button"
+                onClick={() => {
+                  if (profilePhoto) {
+                    setPreviewImage({ url: profilePhoto, title: r.name || "User Avatar" });
+                  }
+                }}
+                className={cn(
+                  "h-10 w-10 shrink-0 rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center overflow-hidden transition-transform",
+                  profilePhoto ? "cursor-pointer hover:scale-105 hover:ring-2 hover:ring-blue-400" : "cursor-default"
+                )}
+                title={profilePhoto ? "Click to enlarge photo" : "No photo available"}
+              >
+                {profilePhoto ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={profilePhoto}
+                    alt={r.name || "User"}
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <User className="h-5 w-5 text-slate-400" />
+                )}
+              </button>
+              <div className="space-y-0.5">
+                <span className="font-semibold text-slate-900 block text-xs">
+                  {r.name || "—"}
+                </span>
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-mono">
+                  <Phone className="h-3 w-3 text-slate-400" />
+                  <span>{r.mobileNumber || r.mobile || "—"}</span>
+                </div>
               </div>
             </div>
-          </div>
-        ),
+          );
+        },
         className: "min-w-[200px]",
       },
       {
@@ -404,11 +407,7 @@ export default function AccountsPage() {
       />
 
       <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        {/* Top Tab Bar:
-            - Accounts List (Active tab)
-            - Bulk Update BP Numbers (Visible if user has accounts.import permission)
-            - Bulk Update Accounts (Visible if user has accounts.import permission)
-        */}
+        {/* Top Tab Bar */}
         <div className="flex flex-wrap items-center border-b border-slate-200 bg-slate-50/70 px-2 pt-2 gap-1 text-xs font-medium">
           <button
             type="button"
@@ -472,7 +471,6 @@ export default function AccountsPage() {
               emptyMessage={activeSearch ? `No accounts matching "${activeSearch}"` : "No accounts found"}
               action={
                 <div className="flex flex-wrap items-center gap-2.5">
-                  {/* Search Input beside Refresh - exact same behavior & style as Courses page */}
                   <form onSubmit={handleSearchSubmit} className="relative flex items-center">
                     <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <Input
@@ -495,7 +493,6 @@ export default function AccountsPage() {
                     </Button>
                   </form>
 
-                  {/* Refresh button */}
                   <Button
                     variant="outline"
                     size="sm"
@@ -510,7 +507,6 @@ export default function AccountsPage() {
                     <span className="hidden sm:inline">Refresh</span>
                   </Button>
 
-                  {/* Download Accounts button */}
                   {canExport && (
                     <Button
                       variant="outline"
@@ -524,7 +520,6 @@ export default function AccountsPage() {
                     </Button>
                   )}
 
-                  {/* Add Account button */}
                   {canCreate && (
                     <Button asChild size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs font-semibold">
                       <Link href="/accounts/new">
@@ -703,17 +698,17 @@ export default function AccountsPage() {
               <div className="grid grid-cols-3 gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs">
                 <div>
                   <span className="text-slate-500 block text-[11px]">Total Rows</span>
-                  <span className="font-bold text-slate-800 text-sm">{importResult.totalRecords ?? 0}</span>
+                  <span className="font-bold text-slate-800 text-sm">{importResult.totalRows ?? 0}</span>
                 </div>
                 <div>
                   <span className="text-slate-500 block text-[11px]">Processed / Succeeded</span>
                   <span className="font-bold text-emerald-600 text-sm">
-                    {importResult.processedRecords ?? importResult.successRecords ?? 0}
+                    {importResult.successCount ?? 0}
                   </span>
                 </div>
                 <div>
                   <span className="text-slate-500 block text-[11px]">Failed Rows</span>
-                  <span className="font-bold text-rose-600 text-sm">{importResult.failedRecords ?? 0}</span>
+                  <span className="font-bold text-rose-600 text-sm">{importResult.failureCount ?? 0}</span>
                 </div>
               </div>
 
@@ -737,7 +732,7 @@ export default function AccountsPage() {
                           <tr key={idx} className="hover:bg-slate-50/50">
                             <td className="px-3 py-2 font-mono text-slate-500">{err.rowNumber ?? idx + 1}</td>
                             <td className="px-3 py-2 font-mono text-slate-800">{err.identifier || err.field || "—"}</td>
-                            <td className="px-3 py-2 text-rose-600 font-medium">{err.errorMessage || err.reason || "Validation error"}</td>
+                            <td className="px-3 py-2 text-rose-600 font-medium">{err.errorMessage || "Validation error"}</td>
                           </tr>
                         ))}
                       </tbody>
