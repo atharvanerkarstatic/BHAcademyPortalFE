@@ -490,36 +490,7 @@ export default function EditCoursePage() {
                   Allowed formats: PNG, JPG, JPEG (Max 5 MB)
                 </p>
 
-                {/* Image URL preview and manual edit */}
-                <div className="space-y-1 pt-1">
-                  <Label htmlFor="edit-course-image" className="text-[11px] font-medium text-slate-500">
-                    Image URL
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="edit-course-image"
-                      value={imageUrl}
-                      onChange={(e) => setImageUrl(e.target.value)}
-                      placeholder="Image URL will appear here once uploaded (or enter URL)"
-                      maxLength={500}
-                      className="h-9 text-xs font-mono text-[11px]"
-                    />
-                    {imageUrl && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setImageUrl("")}
-                        className="h-9 px-2 text-slate-400 hover:text-slate-600"
-                        title="Clear image"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Image Preview Thumbnail */}
+                {/* Uploaded Image Preview & Remove */}
                 {imageUrl && (
                   <div className="flex items-center gap-3 p-2 rounded-lg border border-slate-200 bg-slate-50/70 w-fit">
                     <div className="h-14 w-20 shrink-0 overflow-hidden rounded border border-slate-200 bg-white">
@@ -533,11 +504,23 @@ export default function EditCoursePage() {
                         }}
                       />
                     </div>
-                    <div className="text-[11px] text-slate-600">
-                      <span className="font-semibold text-emerald-600 block">
-                        Image ready
-                      </span>
-                      <span className="text-slate-400 block max-w-xs truncate">{imageUrl}</span>
+                    <div className="text-[11px] text-slate-600 flex items-center gap-2">
+                      <div>
+                        <span className="font-semibold text-emerald-600 block">
+                          Image uploaded successfully
+                        </span>
+                        <span className="text-[10px] text-slate-400">Ready to save</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setImageUrl("")}
+                        className="h-7 px-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                        title="Remove image"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 )}
