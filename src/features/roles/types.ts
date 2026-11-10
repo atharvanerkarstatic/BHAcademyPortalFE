@@ -10,6 +10,12 @@ export interface RoleItem {
   updatedAt?: string;
 }
 
+export interface CreateRolePayload {
+  name: string;
+  code: string;
+  description?: string | null;
+}
+
 export interface UpdateRolePayload {
   name: string;
   description?: string | null;

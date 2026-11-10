@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth-server";
 import { hasPermission } from "@/lib/auth-jwt";
 import { refreshUserSessionAction } from "@/features/auth/action";
 import type {
+  CreateRolePayload,
   RoleDetailResponse,
   RoleItem,
   RolePageResponse,
@@ -185,6 +186,60 @@ export async function getRoleByIdAction(roleId: number | string): Promise<{
       success: false,
       status: 500,
       error: err instanceof Error ? err.message : "Failed to fetch role details",
+    };
+  }
+}
+
+export async function createRoleAction(payload: CreateRolePayload): Promise<{
+  success: boolean;
+  status: number;
+  message?: string;
+  data?: RoleItem;
+  error?: string;
+}> {
+  const user = await getCurrentUser();
+  const userPerms = user ? [...user.roles, ...user.permissions] : [];
+
+  if (
+    !hasPermission(userPerms, "roles.create") &&
+    !hasPermission(userPerms, "system.all")
+  ) {
+    return {
+      success: false,
+      status: 403,
+      error: "You do not have permission to create roles.",
+    };
+  }
+
+  try {
+    const res = await apiFetch<RoleDetailResponse>("/v1/roles", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    return {
+      success: res.success ?? true,
+      status: res.status ?? 201,
+      message: res.message || "Role created successfully",
+      data: res.data,
+    };
+  } catch (err: unknown) {
+    console.error("createRoleAction error:", err);
+    if (err instanceof ApiError) {
+      return {
+        success: false,
+        status: err.status,
+        error: err.message,
+      };
+    }
+    return {
+      success: false,
+      status: 500,
+      error: err instanceof Error ? err.message : "Failed to create role",
     };
   }
 }

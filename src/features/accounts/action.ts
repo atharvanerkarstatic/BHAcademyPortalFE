@@ -92,7 +92,7 @@ export async function getAccountByIdAction(idOrBhBp: string) {
   const user = await getCurrentUser();
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
-  if (!hasPermission(userPerms, "accounts.read") && !hasPermission(userPerms, "accounts.read")) {
+  if (!hasPermission(userPerms,  "accounts.read")) {
     return {
       success: false,
       error: "You do not have permission to view this account.",
@@ -204,7 +204,7 @@ export async function createAccountAction(payload: FormData | Record<string, unk
   const user = await getCurrentUser();
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
-  if (!hasPermission(userPerms, "users.create") && !hasPermission(userPerms, "accounts.create")) {
+  if (!hasPermission(userPerms, "accounts.create")) {
     return {
       success: false,
       error: "You do not have permission to create accounts.",

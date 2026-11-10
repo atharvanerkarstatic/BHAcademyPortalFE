@@ -150,16 +150,24 @@ export default function AssessmentResultsPage() {
       {
         header: "Result",
         cell: (r) => {
-          const res = (r.result || "").toUpperCase();
+          const raw = (r.result || "").trim().toUpperCase();
           const isPass =
-            res === "ACTIVE" ||
-            res.includes("PASS") ||
-            res.includes("SUCCESS") ||
-            res.includes("COMPLETED");
-          const isFail = res.includes("FAIL");
+            raw === "ACTIVE" ||
+            raw === "PASS" ||
+            raw === "PASSED" ||
+            raw === "SUCCESS" ||
+            raw === "COMPLETED";
+          const isFail =
+            raw === "INACTIVE" ||
+            raw === "FAIL" ||
+            raw === "FAILED";
+
+          // Strictly display Passed / Failed (never Active / Inactive)
+          const displayLabel = isPass ? "Passed" : isFail ? "Failed" : r.result || "—";
+
           return (
             <span
-              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${
+              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
                 isPass
                   ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                   : isFail
@@ -169,7 +177,7 @@ export default function AssessmentResultsPage() {
             >
               {isPass && <CheckCircle2 className="h-3 w-3" />}
               {isFail && <XCircle className="h-3 w-3" />}
-              {r.result || "—"}
+              {displayLabel}
             </span>
           );
         },
