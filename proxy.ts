@@ -4,13 +4,14 @@ import { refreshTokens } from "@/lib/auth-api";
 import {
   ACCESS_COOKIE,
   ALL_AUTH_COOKIES,
+  AUTH_UPDATED_COOKIE,
   REFRESH_COOKIE,
   buildAuthCookies,
   type TokenResponse,
 } from "@/lib/auth-cookies";
 import { extractAuthUser, hasPermission } from "@/lib/auth-jwt";
 
-// Map routes to required permissions
+  // Map routes to required permissions
 const ROUTE_PERMISSIONS: { pattern: RegExp; permission: string | string[] }[] = [
   { pattern: /^\/faqs\/new(\/.*)?$/, permission: "faqs.create" },
   { pattern: /^\/faqs\/[^/]+\/edit(\/.*)?$/, permission: "faqs.update" },
@@ -29,6 +30,7 @@ const ROUTE_PERMISSIONS: { pattern: RegExp; permission: string | string[] }[] = 
   { pattern: /^\/roles(\/.*)?$/, permission: "roles.read" },
   { pattern: /^\/admin-users(\/.*)?$/, permission: "users.read" },
   { pattern: /^\/cities(\/.*)?$/, permission: ["pincode.read", "system.all"] },
+  { pattern: /^\/report-scheduler(\/.*)?$/, permission: "system.all" },
   { pattern: /^\/dashboard(\/.*)?$/, permission: "dashboard.read" },
 ];
 
@@ -84,8 +86,15 @@ export async function proxy(request: NextRequest) {
       if (isApi) {
         response = NextResponse.json({ message: "Forbidden" }, { status: 403 });
       } else {
-        // Redirect to dashboard when forbidden
+        // Redirect to dashboard when forbidden without browser reload page
         response = NextResponse.redirect(new URL("/dashboard", request.url));
+        response.cookies.set(AUTH_UPDATED_COOKIE, "1", {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: 60,
+        });
       }
     } else {
       response = NextResponse.next({ request });

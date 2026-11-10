@@ -3,70 +3,57 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Globe, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/components/ui/toast";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/components/ui/toast";
 import { createLanguageAction } from "@/features/languages/action";
 import type { CreateLanguagePayload } from "@/features/languages/types";
+import { sanitizeTextInput } from "@/lib/validations";
 
 export default function NewLanguagePage() {
   const router = useRouter();
   const { success, error: toastError } = useToast();
   const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
 
-  // Form key to force-clear any cached DOM input fields upon remount or reset
-  const [formKey, setFormKey] = useState<number>(() => Date.now());
-
+  const [formKey, setFormKey] = useState<number>(0);
   const [language, setLanguage] = useState("");
   const [languageCode, setLanguageCode] = useState("");
-  const [nativeName, setNativeName] = useState("");
   const [isDefault, setIsDefault] = useState(false);
   const [isActive, setIsActive] = useState(true);
 
-  const resetForm = () => {
+  const handleReset = () => {
     setLanguage("");
     setLanguageCode("");
-    setNativeName("");
     setIsDefault(false);
     setIsActive(true);
-    setError(null);
-    setFormKey(Date.now());
+    setFormKey((k) => k + 1);
   };
 
-  // Always reset fields when opening or unmounting the New Language page
   useEffect(() => {
-    resetForm();
+    handleReset();
     return () => {
-      resetForm();
+      handleReset();
     };
   }, []);
 
-  const handleCancel = () => {
-    resetForm();
-    router.push("/languages");
-  };
-
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
 
-    if (!language.trim()) {
-      setError("Language name is required.");
+    const cleanName = sanitizeTextInput(language, 100);
+    if (!cleanName) {
+      toastError("Language name is required.");
       return;
     }
 
     const payload: CreateLanguagePayload = {
-      language: language.trim(),
+      language: cleanName,
       languageCode: languageCode.trim() || null,
-      nativeName: nativeName.trim() || null,
       isDefault,
       isActive,
     };
@@ -75,144 +62,124 @@ export default function NewLanguagePage() {
       const res = await createLanguageAction(payload);
       if (res.success) {
         success("Language created successfully");
-        resetForm();
         router.push("/languages");
       } else {
-        const msg = res.error || "Failed to create language. Please try again.";
-        setError(msg);
-        toastError(msg);
+        toastError(res.error || "Failed to create language. Please try again.");
       }
     });
   };
 
   return (
-    <div className="w-full space-y-6 pb-12">
-      <div className="flex items-center justify-between">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={handleCancel}
-          className="gap-1.5 text-slate-600 hover:text-slate-900"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Languages
-        </Button>
-      </div>
-
+    <div className="w-full space-y-4 pb-12">
       <PageHeader
-        title="Add New Language"
+        title="Manage Languages"
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Languages", href: "/languages" },
-          { label: "New Language" },
+          { label: "Add New Language" },
         ]}
       />
 
-      <form key={formKey} onSubmit={handleSubmit} autoComplete="off" className="w-full space-y-6">
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
-          </div>
-        )}
+      <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <CardHeader className="border-b px-6 py-4 bg-white flex flex-row items-center justify-between">
+          <CardTitle className="text-base font-bold text-slate-900">Add New Language</CardTitle>
+          <Button variant="ghost" size="sm" asChild className="gap-1.5 text-slate-600 hover:text-slate-900">
+            <Link href="/languages">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Languages List
+            </Link>
+          </Button>
+        </CardHeader>
 
-        <Card className="w-full shadow-sm">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                <Globe className="h-5 w-5" />
-              </div>
-              <div>
-                <CardTitle>Language Details</CardTitle>
-                <CardDescription>
-                  Enter the language name, ISO code, and native name.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="language">
-                  Language Name <span className="text-rose-500">*</span>
-                </Label>
+        <CardContent className="p-6">
+          <form key={formKey} onSubmit={handleSubmit} autoComplete="off" className="mx-auto max-w-2xl space-y-4">
+            {/* Language Name */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <Label htmlFor="lang-name" className="text-xs font-semibold text-slate-700 sm:text-right">
+                Language Name <span className="text-rose-500">*</span>
+              </Label>
+              <div className="sm:col-span-3">
                 <Input
-                  id="language"
-                  autoComplete="off"
+                  id="lang-name"
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
                   placeholder="e.g. English, Hindi, Bengali"
+                  maxLength={100}
+                  className="h-9 text-xs"
                   required
                 />
               </div>
+            </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="languageCode">Language Code</Label>
+            {/* Language Code */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <Label htmlFor="lang-code" className="text-xs font-semibold text-slate-700 sm:text-right">
+                Language Code
+              </Label>
+              <div className="sm:col-span-3">
                 <Input
-                  id="languageCode"
-                  autoComplete="off"
+                  id="lang-code"
                   value={languageCode}
-                  onChange={(e) => setLanguageCode(e.target.value)}
+                  onChange={(e) => setLanguageCode(e.target.value.toLowerCase())}
                   placeholder="e.g. en, hi, bn"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="nativeName">Native Name</Label>
-                <Input
-                  id="nativeName"
-                  autoComplete="off"
-                  value={nativeName}
-                  onChange={(e) => setNativeName(e.target.value)}
-                  placeholder="e.g. English, हिन्दी, বাংলা"
+                  maxLength={10}
+                  className="h-9 text-xs font-mono"
                 />
               </div>
             </div>
 
-            <div className="pt-2 space-y-3">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="isDefault"
-                  checked={isDefault}
-                  onCheckedChange={(checked) => setIsDefault(Boolean(checked))}
-                />
-                <Label htmlFor="isDefault" className="text-sm font-medium text-slate-700 cursor-pointer">
-                  Set as Default Language
-                </Label>
+            {/* Checkbox Options */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-4 pt-1">
+              <div className="sm:text-right">
+                <span className="text-xs font-semibold text-slate-700">Options</span>
               </div>
+              <div className="sm:col-span-3 space-y-3">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="isDefault"
+                    checked={isDefault}
+                    onCheckedChange={(checked) => setIsDefault(Boolean(checked))}
+                  />
+                  <Label htmlFor="isDefault" className="text-xs font-medium text-slate-700 cursor-pointer">
+                    Set as Default Language
+                  </Label>
+                </div>
 
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="isActive"
-                  checked={isActive}
-                  onCheckedChange={(checked) => setIsActive(Boolean(checked))}
-                />
-                <Label htmlFor="isActive" className="text-sm font-medium text-slate-700 cursor-pointer">
-                  Active
-                </Label>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="isActive"
+                    checked={isActive}
+                    onCheckedChange={(checked) => setIsActive(Boolean(checked))}
+                  />
+                  <Label htmlFor="isActive" className="text-xs font-medium text-slate-700 cursor-pointer">
+                    Active
+                  </Label>
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        <div className="flex items-center justify-end gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={isPending}
-            onClick={handleCancel}
-          >
-            Cancel
-          </Button>
-
-          <Button type="submit" disabled={isPending} className="bg-blue-600 text-white hover:bg-blue-700">
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save Language
-          </Button>
-        </div>
-      </form>
+            {/* Action Buttons matching Add Account */}
+            <div className="flex items-center justify-center gap-3 pt-6 border-t border-slate-100">
+              <Button
+                type="submit"
+                disabled={isPending}
+                className="bg-blue-600 hover:bg-blue-700 text-white min-w-24 h-8 text-xs font-semibold uppercase"
+              >
+                {isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                SAVE
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleReset}
+                className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
+              >
+                CANCEL
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
-

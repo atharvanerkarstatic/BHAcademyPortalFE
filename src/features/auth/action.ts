@@ -6,10 +6,13 @@ import { redirect } from "next/navigation";
 import { config } from "@/config/env";
 import {
   ALL_AUTH_COOKIES,
+  AUTH_UPDATED_COOKIE,
+  REFRESH_COOKIE,
   buildAuthCookies,
   userCookie,
   type TokenResponse,
 } from "@/lib/auth-cookies";
+import { refreshTokens } from "@/lib/auth-api";
 
 type LoginResult = {
   success: boolean;
@@ -390,4 +393,47 @@ export async function logoutAction() {
     cookieStore.delete(name);
   }
   redirect("/login");
+}
+
+export async function refreshUserSessionAction(): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  const cookieStore = await cookies();
+  const refreshToken = cookieStore.get(REFRESH_COOKIE)?.value;
+
+  if (!refreshToken) {
+    for (const name of ALL_AUTH_COOKIES) {
+      cookieStore.delete(name);
+    }
+    return { success: false, error: "No refresh token available." };
+  }
+
+  try {
+    const fresh = await refreshTokens(refreshToken);
+    if (!fresh?.accessToken) {
+      for (const name of ALL_AUTH_COOKIES) {
+        cookieStore.delete(name);
+      }
+      return { success: false, error: "Session expired." };
+    }
+
+    const cookieList = buildAuthCookies(fresh);
+    for (const c of cookieList) {
+      cookieStore.set(c.name, c.value, c.options);
+    }
+
+    cookieStore.set(AUTH_UPDATED_COOKIE, "1", {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60,
+    });
+
+    return { success: true };
+  } catch (err: unknown) {
+    console.error("refreshUserSessionAction error:", err);
+    return { success: false, error: "Failed to refresh token." };
+  }
 }

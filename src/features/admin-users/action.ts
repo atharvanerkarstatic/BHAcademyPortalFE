@@ -49,10 +49,10 @@ export async function getAdminUsersAction(params: GetAdminUsersParams = {}) {
   const searchParams = new URLSearchParams({
     page: String(apiPage),
     size: String(size),
-    sort: params.sort || "",
+    sort: params.sort || "id,desc",
   });
 
-  if (params.search && params.search.trim()) {
+  if (params.search?.trim()) {
     searchParams.set("search", params.search.trim());
   }
 
@@ -67,12 +67,11 @@ export async function getAdminUsersAction(params: GetAdminUsersParams = {}) {
     return {
       success: true,
       data: res.data,
-      message: res.message || "Users retrieved successfully",
     };
   } catch (error) {
     console.error("Failed to fetch admin users:", error);
     const message =
-      error instanceof ApiError ? error.message : "Failed to load admin users. Please try again.";
+      error instanceof ApiError ? error.message : "Failed to load admin users.";
     return {
       success: false,
       error: message,
@@ -91,17 +90,7 @@ export async function getAdminUsersAction(params: GetAdminUsersParams = {}) {
   }
 }
 
-export async function getAdminUserByIdAction(id: number | string) {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, "users.read") && !hasPermission(userPerms, "system.all")) {
-    return {
-      success: false,
-      error: "You do not have permission to view user details.",
-    };
-  }
-
+export async function getAdminUserByIdAction(id: string | number) {
   try {
     const res = await apiFetch<{
       success: boolean;
@@ -113,7 +102,6 @@ export async function getAdminUserByIdAction(id: number | string) {
     return {
       success: true,
       data: res.data,
-      message: res.message,
     };
   } catch (error) {
     console.error(`Failed to fetch user ${id}:`, error);
@@ -138,22 +126,6 @@ export async function createAdminUserAction(payload: CreateAdminUserPayload) {
   }
 
   try {
-    const body: Record<string, unknown> = {
-      firstName: payload.firstName,
-      lastName: payload.lastName,
-      email: payload.email,
-      password: payload.password,
-      departmentId: payload.departmentId || null,
-      roleIds: payload.roleIds,
-    };
-
-    if (payload.mobileNumber !== undefined) {
-      body.mobileNumber = payload.mobileNumber;
-    }
-    if (payload.profilePic !== undefined) {
-      body.profilePic = payload.profilePic;
-    }
-
     const res = await apiFetch<{
       success: boolean;
       status: number;
@@ -161,7 +133,7 @@ export async function createAdminUserAction(payload: CreateAdminUserPayload) {
       data: AdminUserItem;
     }>("/v1/users", {
       method: "POST",
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
     });
 
     revalidatePath("/admin-users");
@@ -169,13 +141,13 @@ export async function createAdminUserAction(payload: CreateAdminUserPayload) {
 
     return {
       success: true,
-      data: res?.data,
-      message: res?.message || "User created successfully",
+      data: res.data,
+      message: res.message || "User created successfully",
     };
   } catch (error) {
     console.error("Failed to create admin user:", error);
     const message =
-      error instanceof ApiError ? error.message : "Failed to create user. Please try again.";
+      error instanceof ApiError ? error.message : "Failed to create user.";
     return {
       success: false,
       error: message,
@@ -184,7 +156,7 @@ export async function createAdminUserAction(payload: CreateAdminUserPayload) {
 }
 
 export async function updateAdminUserAction(
-  id: number | string,
+  id: string | number,
   payload: UpdateAdminUserPayload
 ) {
   const user = await getCurrentUser();
@@ -198,19 +170,6 @@ export async function updateAdminUserAction(
   }
 
   try {
-    const body: Record<string, unknown> = {
-      firstName: payload.firstName,
-      lastName: payload.lastName,
-      email: payload.email,
-      departmentId: payload.departmentId || null,
-      mobileNumber: payload.mobileNumber ?? null,
-      profilePic: payload.profilePic ?? null,
-    };
-
-    if (payload.roleIds && payload.roleIds.length > 0) {
-      body.roleIds = payload.roleIds;
-    }
-
     const res = await apiFetch<{
       success: boolean;
       status: number;
@@ -218,22 +177,61 @@ export async function updateAdminUserAction(
       data: AdminUserItem;
     }>(`/v1/users/${id}`, {
       method: "PUT",
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
     });
 
-    revalidatePath(`/admin-users/${id}/edit`);
     revalidatePath("/admin-users");
     revalidatePath("/users");
 
     return {
       success: true,
-      data: res?.data,
-      message: res?.message || "User updated successfully",
+      data: res.data,
+      message: res.message || "User updated successfully",
     };
   } catch (error) {
     console.error(`Failed to update user ${id}:`, error);
     const message =
-      error instanceof ApiError ? error.message : "Failed to update user. Please try again.";
+      error instanceof ApiError ? error.message : "Failed to update user.";
+    return {
+      success: false,
+      error: message,
+    };
+  }
+}
+
+export async function resetUserPasswordAction(
+  id: string | number,
+  newPassword: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const user = await getCurrentUser();
+  const userPerms = user ? [...user.roles, ...user.permissions] : [];
+
+  if (!hasPermission(userPerms, "users.update") && !hasPermission(userPerms, "system.all")) {
+    return {
+      success: false,
+      error: "You do not have permission to reset user passwords.",
+    };
+  }
+
+  try {
+    const res = await apiFetch<{
+      success: boolean;
+      status: number;
+      message: string;
+      data?: { message?: string };
+    }>(`/v1/users/${id}/reset-password`, {
+      method: "POST",
+      body: JSON.stringify({ newPassword }),
+    });
+
+    return {
+      success: true,
+      message: res.message || res.data?.message || "User password reset successfully",
+    };
+  } catch (error) {
+    console.error(`Failed to reset password for user ${id}:`, error);
+    const message =
+      error instanceof ApiError ? error.message : "Failed to reset password.";
     return {
       success: false,
       error: message,
@@ -242,8 +240,8 @@ export async function updateAdminUserAction(
 }
 
 export async function updateAdminUserStatusAction(
-  id: number | string,
-  status: "ACTIVE" | "SUSPENDED" | "INACTIVE" | string
+  id: string | number,
+  status: "ACTIVE" | "SUSPENDED" | "DELETED"
 ) {
   const user = await getCurrentUser();
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
@@ -260,7 +258,7 @@ export async function updateAdminUserStatusAction(
       success: boolean;
       status: number;
       message: string;
-      data?: unknown;
+      data: AdminUserItem;
     }>(`/v1/users/${id}/status`, {
       method: "PATCH",
       body: JSON.stringify({ status }),
@@ -271,11 +269,11 @@ export async function updateAdminUserStatusAction(
 
     return {
       success: true,
-      data: res?.data,
-      message: res?.message || `User status updated to ${status}`,
+      data: res.data,
+      message: res.message || `User status changed to ${status}`,
     };
   } catch (error) {
-    console.error(`Failed to update status for user ${id}:`, error);
+    console.error(`Failed to update user status ${id}:`, error);
     const message =
       error instanceof ApiError ? error.message : "Failed to update user status.";
     return {
@@ -285,7 +283,7 @@ export async function updateAdminUserStatusAction(
   }
 }
 
-export async function deleteAdminUserAction(id: number | string) {
+export async function deleteAdminUserAction(id: string | number) {
   const user = await getCurrentUser();
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
@@ -334,7 +332,7 @@ export async function getRolesPicklistAction(): Promise<{
       status: number;
       message: string;
       data: RolePageResponse;
-    }>("/v1/roles?page=0&size=100&sort=name,asc");
+    }>("/v1/roles?page=0&size=100&sort=name,asc&search=");
 
     return {
       success: true,
@@ -349,4 +347,3 @@ export async function getRolesPicklistAction(): Promise<{
     };
   }
 }
-

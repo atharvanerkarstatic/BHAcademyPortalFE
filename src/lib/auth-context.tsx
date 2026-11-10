@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { AUTH_PERMS_COOKIE } from "@/lib/auth-cookies";
+import { useRouter } from "next/navigation";
+import { AUTH_PERMS_COOKIE, AUTH_UPDATED_COOKIE } from "@/lib/auth-cookies";
 import { hasPermission, type AuthUser } from "@/lib/auth-jwt";
 import { getCurrentUserProfile, type UserProfile } from "@/features/profile/action";
+import { useToast } from "@/components/ui/toast";
 
 type AuthContextType = {
   user: AuthUser | null;
@@ -51,6 +53,8 @@ export function AuthProvider({
   children: React.ReactNode;
   initialUser?: AuthUser | null;
 }) {
+  const router = useRouter();
+  const { info: toastInfo } = useToast();
   const [user, setUser] = React.useState<AuthUser | null>(() => initialUser ?? readUserFromCookie());
   const [profile, setProfile] = React.useState<UserProfile | null>(null);
 
@@ -62,7 +66,7 @@ export function AuthProvider({
     setUser((prev) => {
       // Check if permissions/roles or user actually changed
       const prevPerms = prev ? [...prev.roles, ...prev.permissions].sort().join(",") : "";
-      const freshPerms = [...freshUser.roles, ...freshUser.permissions].sort().join(",") ;
+      const freshPerms = [...freshUser.roles, ...freshUser.permissions].sort().join(",");
       if (prev?.id === freshUser.id && prev?.email === freshUser.email && prevPerms === freshPerms) {
         return prev;
       }
@@ -81,6 +85,28 @@ export function AuthProvider({
       console.error("Failed to load user profile in AuthProvider:", err);
     }
   }, []);
+
+  // Check for auth_updated cookie to display "Your access has been updated." toast
+  React.useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const checkUpdatedFlag = () => {
+      const match = document.cookie
+        .split("; ")
+        .find((row) => row.startsWith(`${AUTH_UPDATED_COOKIE}=`));
+
+      if (match) {
+        // Clear the cookie immediately to prevent duplicate toast notifications
+        document.cookie = `${AUTH_UPDATED_COOKIE}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+        syncAuthFromCookies();
+        toastInfo("Your access has been updated.");
+      }
+    };
+
+    checkUpdatedFlag();
+    const interval = setInterval(checkUpdatedFlag, 1000);
+    return () => clearInterval(interval);
+  }, [syncAuthFromCookies, toastInfo]);
 
   // Sync on mount, window focus, visibility change, and periodically
   React.useEffect(() => {

@@ -21,7 +21,7 @@ async function fetchCsvReport(pathWithQuery: string, defaultFilename: string): P
   const user = await getCurrentUser();
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
-  if (!hasPermission(userPerms, "audit.read") && !hasPermission(userPerms, "courses.read") && !hasPermission(userPerms, "system.all")) {
+  if (!hasPermission(userPerms, "audit.read") && !hasPermission(userPerms, "reports.read") && !hasPermission(userPerms, "courses.read") && !hasPermission(userPerms, "system.all")) {
     return {
       success: false,
       error: "You do not have permission to generate reports.",
@@ -49,30 +49,34 @@ async function fetchCsvReport(pathWithQuery: string, defaultFilename: string): P
         const text = await res.text();
         if (text) errMsg = text;
       }
-      return { success: false, error: errMsg };
+      console.error(`Export failed for ${pathWithQuery}:`, errMsg);
+      return {
+        success: false,
+        error: errMsg,
+      };
     }
 
-    const disposition = res.headers.get("content-disposition");
+    const contentDisposition = res.headers.get("content-disposition");
     let filename = defaultFilename;
-    if (disposition && disposition.includes("filename=")) {
-      const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename\*?=['"]?(?:UTF-\d['"]*)?([^;\r\n"']*)['"]?/i);
       if (match && match[1]) {
-        filename = match[1].replace(/['"]/g, "").trim();
+        filename = decodeURIComponent(match[1]);
       }
     }
 
-    const csvData = await res.text();
+    const data = await res.text();
     return {
       success: true,
-      data: csvData,
+      data,
       filename,
-      message: "Report generated successfully.",
+      message: "Report generated successfully",
     };
-  } catch (err: unknown) {
-    console.error("Report export failed:", err);
+  } catch (error) {
+    console.error(`Export error for ${pathWithQuery}:`, error);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to connect to report server.",
+      error: error instanceof Error ? error.message : "Failed to generate report.",
     };
   }
 }
@@ -183,6 +187,44 @@ export async function exportCourseWiseAssessmentAction(params: CourseWiseAssessm
   });
 
   return fetchCsvReport(`/v1/report/module-wise-summary/export?${query.toString()}`, "module-wise-assessment.csv");
+}
+
+export type TrainerAccessLogsParams = {
+  startDate?: string;
+  endDate?: string;
+  trainerId?: string;
+};
+
+export async function exportTrainerAccessLogsAction(params: TrainerAccessLogsParams): Promise<ExportReportResult> {
+  const query = new URLSearchParams({
+    startDate: params.startDate ?? "",
+    endDate: params.endDate ?? "",
+    trainerId: params.trainerId ?? "",
+  });
+
+  return fetchCsvReport(
+    `/v1/report/trainers-access-log-report/export?${query.toString()}`,
+    "trainer-access-logs.csv"
+  );
+}
+
+export type TrainerIpReportParams = {
+  startDate?: string;
+  endDate?: string;
+  trainerId?: string;
+};
+
+export async function exportTrainerIpReportAction(params: TrainerIpReportParams): Promise<ExportReportResult> {
+  const query = new URLSearchParams({
+    startDate: params.startDate ?? "",
+    endDate: params.endDate ?? "",
+    trainerId: params.trainerId ?? "",
+  });
+
+  return fetchCsvReport(
+    `/v1/report/trainers-assessment-ip-report/export?${query.toString()}`,
+    "trainer-ip-report.csv"
+  );
 }
 
 export async function getReportFilterOptionsAction() {

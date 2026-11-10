@@ -34,7 +34,7 @@ type DataTableProps<T> = {
   logoSrc?: string;
   columns: Column<T>[];
   data: T[];
-  getRowId?: (row: T) => string | number;
+  getRowId?: (row: T, index?: number) => string | number;
   loading?: boolean;
   search?: string;
   onSearchChange?: (value: string) => void;
@@ -121,7 +121,7 @@ export function DataTable<T>({
               </TableRow>
             ) : (
               data.map((row, index) => (
-                <TableRow key={getRowId ? getRowId(row) : ((row as any)?.id ?? (row as any)?.key ?? Math.random())}>
+                <TableRow key={getRowId ? getRowId(row, index) : ((row as any)?._rowId ?? (row as any)?.id ?? (row as any)?.key ?? index)}>
                   {columns.map((col) => (
                     <TableCell key={col.header} className={col.className}>
                       {col.cell(row, index)}

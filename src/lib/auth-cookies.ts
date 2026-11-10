@@ -4,7 +4,14 @@ export const ACCESS_COOKIE = "access_token";
 export const REFRESH_COOKIE = "refresh_token";
 export const USER_COOKIE = "user_email";
 export const AUTH_PERMS_COOKIE = "user_perms";
-export const ALL_AUTH_COOKIES = [ACCESS_COOKIE, REFRESH_COOKIE, USER_COOKIE, AUTH_PERMS_COOKIE];
+export const AUTH_UPDATED_COOKIE = "auth_updated";
+export const ALL_AUTH_COOKIES = [
+  ACCESS_COOKIE,
+  REFRESH_COOKIE,
+  USER_COOKIE,
+  AUTH_PERMS_COOKIE,
+  AUTH_UPDATED_COOKIE,
+];
 
 const REFRESH_MAX_AGE = 60 * 60 * 24 * 7; 
 const EXPIRY_BUFFER = 30; // seconds

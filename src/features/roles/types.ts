@@ -2,12 +2,26 @@ export interface RoleItem {
   id: number;
   name: string;
   code: string;
-  description?: string;
+  description?: string | null;
   isSystemRole?: boolean;
-  isActive?: boolean;
+  isActive?: boolean | null;
   assignedUsersCount?: number;
   assignedPermissionsCount?: number;
   updatedAt?: string;
+}
+
+export interface UpdateRolePayload {
+  name: string;
+  description?: string | null;
+  isActive?: boolean | null;
+}
+
+export interface RoleDetailResponse {
+  success: boolean;
+  status: number;
+  message: string;
+  data: RoleItem;
+  timestamp?: string;
 }
 
 export interface RolePageResponse {

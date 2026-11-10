@@ -72,6 +72,8 @@ export const navSections: NavSection[] = [
       { label: "Module Wise Summary", href: "/reports/module-wise-summary", icon: BarChart3, permission: ["reports.read", "audit.read"] },
       { label: "Assessment Summary", href: "/reports/assessment-summary", icon: BarChart3, permission: ["reports.read", "audit.read"] },
       { label: "Trainer-wise Summary", href: "/reports/trainer-wise", icon: BarChart3, permission: ["reports.read", "audit.read"] },
+      { label: "Trainer IP Report", href: "/reports/trainer-ip-report", icon: BarChart3, permission: ["reports.read", "audit.read"] },
+      { label: "Trainer Access Logs", href: "/reports/trainer-access-logs", icon: BarChart3, permission: ["reports.read", "audit.read"] },
     ],
   },
   {

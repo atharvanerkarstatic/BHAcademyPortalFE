@@ -41,8 +41,8 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     cache: "no-store",
   });
 
-  // If unauthorized and refreshToken is available, try to refresh token and retry
-  if (res.status === 401 && refreshToken) {
+  // If unauthorized, redirect/revoked access (307), or forbidden and refreshToken is available, try to refresh token and retry
+  if ((res.status === 401 || res.status === 307 || res.status === 403) && refreshToken) {
     try {
       const fresh = await refreshTokens(refreshToken);
       if (fresh?.accessToken) {

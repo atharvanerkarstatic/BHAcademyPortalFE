@@ -117,7 +117,7 @@ export default function AdminUsersPage() {
       if (res.success && res.data) {
         setPageData(res.data);
         if (showSuccessToast) {
-          success(res.message || "Users refreshed successfully");
+          success("Users refreshed successfully");
         }
       } else {
         toastError(res.error || "Failed to load users");

@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, UserRound } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Loader2, Lock, UserRound } from "lucide-react";
 
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
   getAdminUserByIdAction,
   updateAdminUserAction,
   getRolesPicklistAction,
+  resetUserPasswordAction,
 } from "@/features/admin-users/action";
 import type { AdminUserItem, RoleItem } from "@/features/admin-users/types";
 import { validateImageFile } from "@/lib/validations";
@@ -58,6 +59,10 @@ export default function EditAdminUserPage({
   const [loadingRoles, setLoadingRoles] = useState(true);
 
   const [newImageFile, setNewImageFile] = useState<File | null>(null);
+
+  // Change Password state
+  const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const [isPending, startTransition] = useTransition();
 
@@ -106,7 +111,7 @@ export default function EditAdminUserPage({
     return () => {
       active = false;
     };
-  }, [userId]);
+  }, [userId, toastError]);
 
   const handleReset = () => {
     if (adminUser) {
@@ -119,6 +124,8 @@ export default function EditAdminUserPage({
         setSelectedRoleId(String(adminUser.roles[0].id));
       }
       setNewImageFile(null);
+      setNewPassword("");
+      setShowPassword(false);
     }
   };
 
@@ -141,6 +148,13 @@ export default function EditAdminUserPage({
       return;
     }
 
+    // Password validation if entered
+    const trimmedPassword = newPassword.trim();
+    if (trimmedPassword && trimmedPassword.length < 6) {
+      toastError("Password must be at least 6 characters long.");
+      return;
+    }
+
     startTransition(async () => {
       let profilePicValue: string | null = currentProfilePic;
 
@@ -159,12 +173,13 @@ export default function EditAdminUserPage({
           }
         } catch (err) {
           console.error("Image upload exception:", err);
-          toastError("Failed to upload image file.");
+          toastError("An error occurred during image upload");
           return;
         }
       }
 
-      const res = await updateAdminUserAction(userId, {
+      // 1. Update user profile details
+      const updateRes = await updateAdminUserAction(userId, {
         firstName,
         lastName,
         email: email.trim(),
@@ -173,12 +188,24 @@ export default function EditAdminUserPage({
         roleIds: selectedRoleId ? [selectedRoleId] : undefined,
       });
 
-      if (res.success) {
-        success(res.message || "User updated successfully");
-        router.push("/admin-users");
-      } else {
-        toastError(res.error || "Failed to update user. Please try again.");
+      if (!updateRes.success) {
+        toastError(updateRes.error || "Failed to update user profile. Please try again.");
+        return;
       }
+
+      // 2. Only call reset password API if password field contains a newly entered value
+      if (trimmedPassword) {
+        const passwordRes = await resetUserPasswordAction(userId, trimmedPassword);
+        if (!passwordRes.success) {
+          toastError(passwordRes.error || "User details updated, but failed to reset password.");
+          return;
+        }
+        success("User details and password updated successfully");
+      } else {
+        success(updateRes.message || "User updated successfully");
+      }
+
+      router.push("/admin-users");
     });
   };
 
@@ -370,8 +397,46 @@ export default function EditAdminUserPage({
               </div>
             </div>
 
+            {/* Change Password field below Profile Picture & above Save/Cancel */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <Label
+                htmlFor="edit-password"
+                className="text-xs font-semibold text-slate-700 sm:text-right"
+              >
+                Change Password
+              </Label>
+              <div className="sm:col-span-3">
+                <div className="relative">
+                  <Input
+                    id="edit-password"
+                    type={showPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password to reset (leave blank to keep unchanged)"
+                    autoComplete="new-password"
+                    className="h-9 text-xs pr-9"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                    title={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Leave empty if you do not wish to change the user&apos;s password. Minimum 6 characters if entered.
+                </p>
+              </div>
+            </div>
+
             {/* Action Buttons */}
-            <div className="flex items-center justify-center gap-3 pt-6">
+            <div className="flex items-center justify-center gap-3 pt-6 border-t border-slate-100">
               <Button
                 type="submit"
                 disabled={isPending}

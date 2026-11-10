@@ -138,10 +138,6 @@ export default function LanguagesPage() {
         className: "w-32",
       },
       {
-        header: "Native Name",
-        cell: (r) => r.nativeName || "-",
-      },
-      {
         header: "Default",
         cell: (r) => (
           <span

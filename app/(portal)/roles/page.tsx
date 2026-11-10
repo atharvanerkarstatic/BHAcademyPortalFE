@@ -11,7 +11,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
-import { getRolesAction } from "@/features/roles/action";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { getRolesAction, deleteRoleAction } from "@/features/roles/action";
 import type { RoleItem, RolePageResponse } from "@/features/roles/types";
 
 export default function RolesPage() {
@@ -37,6 +47,8 @@ export default function RolesPage() {
   });
 
   const [isPending, startTransition] = useTransition();
+  const [roleToDelete, setRoleToDelete] = useState<RoleItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const canCreate = can("roles.create") || can("system.all");
   const canUpdate = can("roles.update") || can("system.all");
@@ -193,7 +205,11 @@ export default function RolesPage() {
           <button
             type="button"
             onClick={() => {
-              toastError("Role deletion is not permitted for system roles.");
+              if (r.isSystemRole) {
+                toastError("Role deletion is not permitted for system roles.");
+                return;
+              }
+              setRoleToDelete(r);
             }}
             className="text-xs font-medium text-rose-600 hover:text-rose-800 hover:underline"
           >
@@ -288,6 +304,48 @@ export default function RolesPage() {
           onPageChange: handlePageChange,
         }}
       />
+
+      {/* Delete Confirmation Modal */}
+      <AlertDialog
+        open={Boolean(roleToDelete)}
+        onOpenChange={(open) => !open && setRoleToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Role?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete role{" "}
+              <strong className="text-slate-900 font-semibold">
+                {roleToDelete?.name}
+              </strong>
+              ? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!roleToDelete) return;
+                setIsDeleting(true);
+                const res = await deleteRoleAction(roleToDelete.id);
+                setIsDeleting(false);
+                if (res.success) {
+                  success(res.message || "Role deleted successfully");
+                  setRoleToDelete(null);
+                  loadRoles(page, activeSearch);
+                } else {
+                  toastError(res.error || "Failed to delete role");
+                }
+              }}
+              disabled={isDeleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {isDeleting ? "Deleting..." : "Delete Role"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
