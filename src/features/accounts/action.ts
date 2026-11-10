@@ -22,7 +22,7 @@ export async function getAccountsAction(params: GetAccountsParams = {}) {
   const user = await getCurrentUser();
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
-  if (!hasPermission(userPerms, "users.read")) {
+  if (!hasPermission(userPerms, "accounts.read")) {
     return {
       success: false,
       error: "You do not have permission to view accounts.",
@@ -92,7 +92,7 @@ export async function getAccountByIdAction(idOrBhBp: string) {
   const user = await getCurrentUser();
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
-  if (!hasPermission(userPerms, "users.read") && !hasPermission(userPerms, "accounts.read")) {
+  if (!hasPermission(userPerms, "accounts.read") && !hasPermission(userPerms, "accounts.read")) {
     return {
       success: false,
       error: "You do not have permission to view this account.",
