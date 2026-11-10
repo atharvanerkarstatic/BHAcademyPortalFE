@@ -325,8 +325,8 @@ export default function RolePermissionsPage() {
                                 </p>
                               </div>
 
-                              {/* Scope Selector (tightly integrated beside content) */}
-                              {isAssigned && p.availableScopes && p.availableScopes.length > 1 && (
+                              {/* Scope Selector (always visible if availableScopes > 1) */}
+                              {p.availableScopes && p.availableScopes.length > 1 && (
                                 <div
                                   onClick={(e) => e.stopPropagation()}
                                   className="flex items-center gap-1.5 shrink-0 pt-0.5"
