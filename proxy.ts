@@ -46,18 +46,38 @@ export async function proxy(request: NextRequest) {
   let fresh: TokenResponse | null = null;
   let sessionExpired = false;
 
+  // Validate current access token
+  let currentUser = accessToken ? extractAuthUser(accessToken) : null;
+  if (accessToken && !currentUser) {
+    // Access token is present but expired or malformed
+    accessToken = undefined;
+  }
+
+  // If no valid access token but refreshToken exists, try to refresh
   if (!accessToken && refreshToken) {
     fresh = await refreshTokens(refreshToken);
-    if (fresh) {
-      accessToken = fresh.accessToken;
-      request.cookies.set(ACCESS_COOKIE, fresh.accessToken);
-      request.cookies.set(REFRESH_COOKIE, fresh.refreshToken);
+    if (fresh?.accessToken) {
+      const refreshedUser = extractAuthUser(fresh.accessToken);
+      if (refreshedUser) {
+        accessToken = fresh.accessToken;
+        currentUser = refreshedUser;
+        request.cookies.set(ACCESS_COOKIE, fresh.accessToken);
+        request.cookies.set(REFRESH_COOKIE, fresh.refreshToken);
+      } else {
+        sessionExpired = true;
+      }
     } else {
       sessionExpired = true; 
     }
   }
 
-  const isLoggedIn = Boolean(accessToken);
+  // If session is expired or invalid, ensure any stale tokens are cleared
+  if (sessionExpired || (!accessToken && !refreshToken)) {
+    accessToken = undefined;
+    currentUser = null;
+  }
+
+  const isLoggedIn = Boolean(accessToken && currentUser);
   let response: NextResponse;
 
   if (!isLoggedIn) {
@@ -68,9 +88,7 @@ export async function proxy(request: NextRequest) {
     response = NextResponse.redirect(new URL("/dashboard", request.url));
   } else {
     // Route-level permission authorization check
-    // Always use the freshest token available (either newly refreshed or existing)
-    const user = accessToken ? extractAuthUser(accessToken) : null;
-    const userPerms = user ? [...user.roles, ...user.permissions] : [];
+    const userPerms = currentUser ? [...currentUser.roles, ...currentUser.permissions] : [];
 
     let allowed = true;
     for (const rule of ROUTE_PERMISSIONS) {
@@ -86,15 +104,22 @@ export async function proxy(request: NextRequest) {
       if (isApi) {
         response = NextResponse.json({ message: "Forbidden" }, { status: 403 });
       } else {
-        // Redirect to dashboard when forbidden without browser reload page
-        response = NextResponse.redirect(new URL("/dashboard", request.url));
-        response.cookies.set(AUTH_UPDATED_COOKIE, "1", {
-          httpOnly: false,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          path: "/",
-          maxAge: 60,
-        });
+        // If user doesn't have permission for this route, check if they can access dashboard
+        if (pathname !== "/dashboard" && hasPermission(userPerms, "dashboard.read")) {
+          response = NextResponse.redirect(new URL("/dashboard", request.url));
+          response.cookies.set(AUTH_UPDATED_COOKIE, "1", {
+            httpOnly: false,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
+            maxAge: 60,
+          });
+        } else {
+          // If the user does not even have dashboard permission or has zero permissions,
+          // expire the session and send to login to break redirect loops
+          sessionExpired = true;
+          response = NextResponse.redirect(new URL("/login", request.url));
+        }
       }
     } else {
       response = NextResponse.next({ request });

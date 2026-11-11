@@ -13,6 +13,7 @@ import {
   type TokenResponse,
 } from "@/lib/auth-cookies";
 import { refreshTokens } from "@/lib/auth-api";
+import { extractAuthUser } from "@/lib/auth-jwt";
 
 type LoginResult = {
   success: boolean;
@@ -144,6 +145,12 @@ export async function loginAction(
       }
     }
 
+    // Clear any previous stale cookies on login failure
+    const cookieStore = await cookies();
+    for (const name of ALL_AUTH_COOKIES) {
+      cookieStore.delete(name);
+    }
+
     return {
       success: false,
       error:
@@ -155,6 +162,10 @@ export async function loginAction(
   }
 
   if (!jsonResponse) {
+    const cookieStore = await cookies();
+    for (const name of ALL_AUTH_COOKIES) {
+      cookieStore.delete(name);
+    }
     return {
       success: false,
       error: "The login service returned an invalid response.",
@@ -174,9 +185,27 @@ export async function loginAction(
 
   if (!isTokenResponse(tokens)) {
     console.error("Login response failed isTokenResponse validation:", jsonResponse);
+    const cookieStore = await cookies();
+    for (const name of ALL_AUTH_COOKIES) {
+      cookieStore.delete(name);
+    }
     return {
       success: false,
       error: "The login service returned an invalid response.",
+    };
+  }
+
+  // Validate the access token payload
+  const authUser = extractAuthUser(tokens.accessToken);
+  if (!authUser) {
+    console.error("Failed to extract valid user from login accessToken");
+    const cookieStore = await cookies();
+    for (const name of ALL_AUTH_COOKIES) {
+      cookieStore.delete(name);
+    }
+    return {
+      success: false,
+      error: "Authentication token is invalid or expired. Please contact administrator.",
     };
   }
 

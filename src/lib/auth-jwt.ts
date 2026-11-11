@@ -46,11 +46,25 @@ export function parseJwtPayload(token: string): JwtPayload | null {
 
   try {
     const jsonStr = base64UrlDecode(parts[1]);
-    return JSON.parse(jsonStr) as JwtPayload;
+    const payload = JSON.parse(jsonStr) as JwtPayload;
+
+    // Reject expired JWTs if exp is provided
+    if (typeof payload.exp === "number" && Number.isFinite(payload.exp)) {
+      const nowInSeconds = Math.floor(Date.now() / 1000);
+      if (payload.exp <= nowInSeconds) {
+        return null;
+      }
+    }
+
+    return payload;
   } catch (e) {
     console.error("Failed to parse JWT payload:", e);
     return null;
   }
+}
+
+export function isJwtValid(token: string): boolean {
+  return parseJwtPayload(token) !== null;
 }
 
 export function extractAuthUser(token: string): AuthUser | null {

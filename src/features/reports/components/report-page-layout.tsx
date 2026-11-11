@@ -465,7 +465,7 @@ export function ReportPageLayout({
                 <p>It will be available for download below.</p>
               </div>
             )}
-
+{/* 
             {downloadLink && (
               <div className="mt-4 pt-4 border-t border-slate-200 w-full flex flex-col items-center">
                 <a
@@ -477,7 +477,7 @@ export function ReportPageLayout({
                   Download {downloadLink.filename}
                 </a>
               </div>
-            )}
+            )} */}
           </div>
         </div>
       )}

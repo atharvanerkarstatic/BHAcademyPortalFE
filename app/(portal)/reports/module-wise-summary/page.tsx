@@ -24,9 +24,9 @@ export default function ModuleWiseSummaryReportPage() {
       division: filters.division || null,
       region: filters.region || null,
       languageId: filters.languageId || null,
-      startDate: filters.startDate || "2025-01-01",
-      endDate: filters.endDate || "2026-11-02",
-      modeOfTraining: filters.modeOfTraining || "PHYSICAL",
+      startDate: filters.startDate || null,
+      endDate: filters.endDate || null,
+      modeOfTraining: filters.modeOfTraining || "VIRTUAL",
     });
 
     if (res.success && res.data) {

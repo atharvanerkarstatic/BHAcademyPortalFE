@@ -1,8 +1,9 @@
 import { cookies } from "next/headers";
 
 import { config } from "@/config/env";
-import { ACCESS_COOKIE, REFRESH_COOKIE, buildAuthCookies } from "@/lib/auth-cookies";
+import { ACCESS_COOKIE, ALL_AUTH_COOKIES, REFRESH_COOKIE, buildAuthCookies } from "@/lib/auth-cookies";
 import { refreshTokens } from "@/lib/auth-api";
+import { extractAuthUser } from "@/lib/auth-jwt";
 
 export class ApiError extends Error {
   constructor(
@@ -45,7 +46,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   if ((res.status === 401 || res.status === 307 || res.status === 403) && refreshToken) {
     try {
       const fresh = await refreshTokens(refreshToken);
-      if (fresh?.accessToken) {
+      if (fresh?.accessToken && extractAuthUser(fresh.accessToken)) {
         token = fresh.accessToken;
         const cookieList = buildAuthCookies(fresh);
         for (const c of cookieList) {
@@ -58,9 +59,17 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
           headers: buildHeaders(token),
           cache: "no-store",
         });
+      } else {
+        // Refresh token failed or returned invalid/expired user: clear session cookies
+        for (const name of ALL_AUTH_COOKIES) {
+          cookieStore.delete(name);
+        }
       }
     } catch (refreshErr) {
       console.error("Token refresh failed in apiFetch:", refreshErr);
+      for (const name of ALL_AUTH_COOKIES) {
+        cookieStore.delete(name);
+      }
     }
   }
 

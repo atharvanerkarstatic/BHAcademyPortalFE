@@ -40,7 +40,15 @@ function ShellBody({ children, user }: { children: ReactNode; user: ReactNode })
 
   // Instant route-level redirect to Dashboard when current route permission is revoked
   useEffect(() => {
-    if (!authUser || pathname === "/dashboard") return;
+    if (!authUser) return;
+
+    if (!can("dashboard.read")) {
+      // If user lacks dashboard permission or has zero permissions, redirect to login
+      router.replace("/login");
+      return;
+    }
+
+    if (pathname === "/dashboard") return;
 
     for (const rule of ROUTE_PERMISSIONS) {
       if (rule.pattern.test(pathname)) {
