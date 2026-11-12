@@ -23,6 +23,8 @@ export default function ModuleWiseSummaryReportPage() {
     const res = await getModuleWiseDashboardAction({
       division: filters.division || null,
       region: filters.region || null,
+      trainerId: filters.trainer || null,
+      trainer: filters.trainer || null,
       languageId: filters.languageId || null,
       startDate: filters.startDate || null,
       endDate: filters.endDate || null,
@@ -54,7 +56,7 @@ export default function ModuleWiseSummaryReportPage() {
     <ReportPageLayout
       title="Module Wise Assessment"
       breadcrumbTitle="Module Wise Summary"
-      fields={["modeOfTraining", "division", "region", "language", "course", "dateRange"]}
+      fields={["modeOfTraining", "trainer", "division", "region", "language", "course", "dateRange"]}
       autoFetchOnMount={true}
       onViewReport={async (filters) => {
         await fetchDashboardData(filters, true);
@@ -64,6 +66,8 @@ export default function ModuleWiseSummaryReportPage() {
           modeOfTraining: filters.modeOfTraining,
           division: filters.division,
           region: filters.region,
+          trainer: filters.trainer,
+          trainerId: filters.trainer,
           languageId: filters.languageId,
           courseId: filters.courseId,
           startDate: filters.startDate,

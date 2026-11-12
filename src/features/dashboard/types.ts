@@ -43,6 +43,8 @@ export type AssessmentSummaryData = {
 export type ModuleWiseFilterPayload = {
   division?: string | null;
   region?: string | null;
+  trainerId?: string | number | null;
+  trainer?: string | number | null;
   languageId?: string | number | null;
   startDate?: string | null;
   endDate?: string | null;

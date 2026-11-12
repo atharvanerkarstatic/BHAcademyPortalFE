@@ -169,6 +169,8 @@ export type CourseWiseAssessmentReportParams = {
   modeOfTraining?: string;
   division?: string;
   region?: string;
+  trainer?: string;
+  trainerId?: string;
   languageId?: string;
   courseId?: string;
   startDate?: string;
@@ -176,10 +178,13 @@ export type CourseWiseAssessmentReportParams = {
 };
 
 export async function exportCourseWiseAssessmentAction(params: CourseWiseAssessmentReportParams): Promise<ExportReportResult> {
+  const trainerVal = params.trainer || params.trainerId || "";
   const query = new URLSearchParams({
     modeOfTraining: params.modeOfTraining ?? "",
     division: params.division ?? "",
     region: params.region ?? "",
+    trainer: trainerVal,
+    trainerId: trainerVal,
     languageId: params.languageId ?? "",
     courseId: params.courseId ?? "",
     startDate: params.startDate ?? "",

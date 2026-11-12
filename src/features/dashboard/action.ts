@@ -68,6 +68,11 @@ export async function getModuleWiseDashboardAction(payload: ModuleWiseFilterPayl
   const queryParams = new URLSearchParams();
   if (payload.division) queryParams.set("division", payload.division);
   if (payload.region) queryParams.set("region", payload.region);
+  const trainerVal = payload.trainerId || payload.trainer;
+  if (trainerVal) {
+    queryParams.set("trainerId", String(trainerVal));
+    queryParams.set("trainer", String(trainerVal));
+  }
   if (payload.languageId) queryParams.set("languageId", String(payload.languageId));
   if (payload.startDate) queryParams.set("startDate", payload.startDate);
   if (payload.endDate) queryParams.set("endDate", payload.endDate);
@@ -104,6 +109,8 @@ export async function getModuleWiseDashboardAction(payload: ModuleWiseFilterPayl
       const body = {
         division: payload.division || null,
         region: payload.region || null,
+        trainerId: trainerVal ? Number(trainerVal) || trainerVal : null,
+        trainer: trainerVal || null,
         languageId: payload.languageId ? Number(payload.languageId) : null,
         startDate: payload.startDate || null,
         endDate: payload.endDate || null,

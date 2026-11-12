@@ -224,7 +224,6 @@ export function ReportPageLayout({
                   suppressHydrationWarning
                   className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
-                  <option value="">All</option>
                   <option value="PHYSICAL">PHYSICAL</option>
                   <option value="VIRTUAL">VIRTUAL</option>
                 </select>
