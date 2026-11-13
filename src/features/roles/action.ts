@@ -159,7 +159,31 @@ export async function getRoleByIdAction(roleId: number | string): Promise<{
     };
   }
 
-  // Attempt 1: Direct GET /v1/roles/:id
+  // Attempt 1: Fetch from roles list (GET /v1/roles?page=0&size=100&sort=name,asc&search=)
+  // This endpoint returns full role details including description, code, isActive, isSystemRole
+  try {
+    const listRes = await apiFetch<{
+      success: boolean;
+      status: number;
+      message: string;
+      data: RolePageResponse;
+    }>(`/v1/roles?page=0&size=100&sort=name,asc&search=`, {
+      method: "GET",
+    });
+
+    const found = listRes.data?.content?.find((r) => String(r.id) === String(roleId));
+    if (found) {
+      return {
+        success: true,
+        status: 200,
+        data: found,
+      };
+    }
+  } catch (listErr) {
+    console.warn(`GET /v1/roles lookup for role ${roleId} failed:`, listErr);
+  }
+
+  // Attempt 2: Direct GET /v1/roles/:id (if supported in some environments)
   try {
     const res = await apiFetch<RoleDetailResponse>(
       `/v1/roles/${encodeURIComponent(roleId)}`,
@@ -182,11 +206,11 @@ export async function getRoleByIdAction(roleId: number | string): Promise<{
       (err instanceof Error && err.message?.toLowerCase().includes("not supported"));
 
     if (!isMethodNotAllowed) {
-      console.warn(`GET /v1/roles/${roleId} failed, falling back to role list/permissions:`, err);
+      console.warn(`GET /v1/roles/${roleId} failed:`, err);
     }
   }
 
-  // Attempt 2: Fallback to role permissions endpoint GET /v1/permissions/roles/:roleId which has roleName, roleCode
+  // Attempt 3: Fallback to role permissions endpoint GET /v1/permissions/roles/:roleId which has roleName, roleCode
   try {
     const permRes = await apiFetch<RolePermissionsResponse>(
       `/v1/permissions/roles/${encodeURIComponent(roleId)}`,
@@ -212,29 +236,6 @@ export async function getRoleByIdAction(roleId: number | string): Promise<{
     }
   } catch (permErr) {
     console.warn(`Fallback GET /v1/permissions/roles/${roleId} failed:`, permErr);
-  }
-
-  // Attempt 3: Fallback to searching the role by id in the roles list GET /v1/roles
-  try {
-    const listRes = await apiFetch<{
-      success: boolean;
-      status: number;
-      message: string;
-      data: RolePageResponse;
-    }>(`/v1/roles?page=0&size=100&sort=name,asc&search=`, {
-      method: "GET",
-    });
-
-    const found = listRes.data?.content?.find((r) => String(r.id) === String(roleId));
-    if (found) {
-      return {
-        success: true,
-        status: 200,
-        data: found,
-      };
-    }
-  } catch (listErr) {
-    console.error(`Fallback GET /v1/roles search failed:`, listErr);
   }
 
   return {
