@@ -14,7 +14,7 @@ import type {
   AssessmentSummaryFilterPayload,
 } from "./types";
 
-export async function getDashboardDataAction(): Promise<{
+export async function getDashboardDataAction(division?: string | null): Promise<{
   success: boolean;
   data: DashboardData;
   error?: string;
@@ -31,7 +31,8 @@ export async function getDashboardDataAction(): Promise<{
   }
 
   try {
-    const res = await apiFetch<DashboardApiResponse>("/v1/dashboard");
+    const query = division !== undefined && division !== null ? `?division=${encodeURIComponent(division.trim())}` : "?division=";
+    const res = await apiFetch<DashboardApiResponse>(`/v1/dashboard${query}`);
     return {
       success: true,
       data: res.data || {},
@@ -44,6 +45,45 @@ export async function getDashboardDataAction(): Promise<{
       success: false,
       error: message,
       data: {},
+    };
+  }
+}
+
+export async function getDivisionsAction(): Promise<{
+  success: boolean;
+  data: string[];
+  error?: string;
+}> {
+  const user = await getCurrentUser();
+  const userPerms = user ? [...user.roles, ...user.permissions] : [];
+
+  if (!hasPermission(userPerms, "dashboard.read")) {
+    return {
+      success: false,
+      error: "You do not have permission to view division data.",
+      data: [],
+    };
+  }
+
+  try {
+    const res = await apiFetch<{
+      success: boolean;
+      status: number;
+      message: string;
+      data: string[];
+    }>("/v1/city/division");
+    return {
+      success: true,
+      data: Array.isArray(res.data) ? res.data : [],
+    };
+  } catch (error) {
+    console.error("Failed to fetch divisions:", error);
+    const message =
+      error instanceof ApiError ? error.message : "Failed to load divisions.";
+    return {
+      success: false,
+      error: message,
+      data: [],
     };
   }
 }
