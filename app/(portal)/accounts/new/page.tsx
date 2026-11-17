@@ -102,13 +102,32 @@ export default function NewAccountPage() {
     }
 
     const cleanEmail = sanitizeTextInput(emailId, 255);
-    if (cleanEmail && !isValidEmail(cleanEmail)) {
+    if (!cleanEmail) {
+      toastError("Email ID is required.");
+      return;
+    }
+
+    if (!isValidEmail(cleanEmail)) {
       toastError("Please enter a valid email address.");
       return;
     }
 
     const cleanBhBp = sanitizeTextInput(bhBp, 50);
-    const cleanPincode = sanitizeTextInput(pincode, 10);
+    if (!cleanBhBp) {
+      toastError("BP Number is required.");
+      return;
+    }
+
+    const cleanPincode = sanitizeTextInput(pincode, 6);
+    if (!cleanPincode) {
+      toastError("Pincode is required.");
+      return;
+    }
+
+    if (cleanPincode.length !== 6) {
+      toastError("Pincode must be exactly 6 digits.");
+      return;
+    }
 
     startTransition(async () => {
       let imageUrl = "";
@@ -228,7 +247,7 @@ export default function NewAccountPage() {
             {/* BP Number */}
             <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
               <Label htmlFor="acc-bp" className="text-xs font-semibold text-slate-700 sm:text-right">
-                BP Number
+                BP Number <span className="text-rose-500">*</span>
               </Label>
               <div className="sm:col-span-3">
                 <Input
@@ -238,6 +257,7 @@ export default function NewAccountPage() {
                   placeholder="e.g. 12345678"
                   maxLength={50}
                   className="h-9 text-xs font-mono"
+                  required
                 />
               </div>
             </div>
@@ -245,7 +265,7 @@ export default function NewAccountPage() {
             {/* Email ID */}
             <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
               <Label htmlFor="acc-email" className="text-xs font-semibold text-slate-700 sm:text-right">
-                Email ID
+                Email ID <span className="text-rose-500">*</span>
               </Label>
               <div className="sm:col-span-3">
                 <Input
@@ -256,6 +276,7 @@ export default function NewAccountPage() {
                   placeholder="e.g. rahul.sharma@example.com"
                   maxLength={255}
                   className="h-9 text-xs"
+                  required
                 />
               </div>
             </div>
@@ -263,7 +284,7 @@ export default function NewAccountPage() {
             {/* Pincode */}
             <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
               <Label htmlFor="acc-pincode" className="text-xs font-semibold text-slate-700 sm:text-right">
-                Pincode
+                Pincode <span className="text-rose-500">*</span>
               </Label>
               <div className="sm:col-span-3">
                 <Input
@@ -273,6 +294,7 @@ export default function NewAccountPage() {
                   placeholder="e.g. 245101"
                   maxLength={6}
                   className="h-9 text-xs font-mono"
+                  required
                 />
               </div>
             </div>
