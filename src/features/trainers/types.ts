@@ -9,6 +9,8 @@ export interface TrainerItem {
   isEmailVerified?: boolean;
   mobileNumber?: string;
   profilePic?: string;
+  pinCode?: string | null;
+  pincode?: string | null;
   roleCodes?: string[];
   roles?: {
     id: number;
@@ -42,6 +44,8 @@ export interface CreateTrainerPayload {
   departmentId?: string | null;
   mobileNumber?: string;
   profilePic?: string;
+  pinCode?: string | null;
+  pincode?: string | null;
   roleIds?: string[];
 }
 
@@ -52,5 +56,7 @@ export interface UpdateTrainerPayload {
   departmentId?: string | null;
   profilePic?: string | null;
   mobileNumber?: string;
+  pinCode?: string | null;
+  pincode?: string | null;
 }
 

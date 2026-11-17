@@ -46,6 +46,7 @@ export default function EditTrainerPage({
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [pincode, setPincode] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [currentProfilePic, setCurrentProfilePic] = useState<string | null>(null);
 
@@ -70,6 +71,7 @@ export default function EditTrainerPage({
         const name = [t.firstName, t.lastName].filter(Boolean).join(" ");
         setFullName(name);
         setEmail(t.email || "");
+        setPincode(t.pinCode || t.pincode || "");
         setMobileNumber(t.mobileNumber || "");
         setCurrentProfilePic(t.profilePic || null);
       } else {
@@ -129,6 +131,17 @@ export default function EditTrainerPage({
       return;
     }
 
+    const cleanPincode = pincode.replace(/\D/g, "").slice(0, 6);
+    if (!cleanPincode) {
+      toastError("Pincode is required.");
+      return;
+    }
+
+    if (cleanPincode.length !== 6) {
+      toastError("Pincode must be exactly 6 digits.");
+      return;
+    }
+
     const cleanMobile = mobileNumber.replace(/\D/g, "");
     if (cleanMobile && cleanMobile.length !== 10) {
       toastError("Mobile number must be exactly 10 digits.");
@@ -162,6 +175,7 @@ export default function EditTrainerPage({
         lastName,
         email: email.trim(),
         mobileNumber: mobileNumber.trim() || undefined,
+        pinCode: cleanPincode,
         // Send null for no update, or new generated URL if new file was uploaded
         profilePic: profilePicValue,
       });
@@ -243,6 +257,24 @@ export default function EditTrainerPage({
                   disabled
                   placeholder="e.g. trainer@example.com"
                   className="h-9 text-xs bg-slate-100 text-slate-500 cursor-not-allowed"
+                />
+              </div>
+            </div>
+
+            {/* Pincode */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-trainer-pincode" className="text-xs font-semibold text-slate-700 sm:text-right">
+                Pincode <span className="text-rose-500">*</span>
+              </Label>
+              <div className="sm:col-span-3">
+                <Input
+                  id="edit-trainer-pincode"
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="e.g. 245101"
+                  maxLength={6}
+                  className="h-9 text-xs font-mono"
+                  required
                 />
               </div>
             </div>

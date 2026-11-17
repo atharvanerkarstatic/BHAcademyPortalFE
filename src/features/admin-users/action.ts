@@ -126,6 +126,18 @@ export async function createAdminUserAction(payload: CreateAdminUserPayload) {
   }
 
   try {
+    const body = {
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      email: payload.email,
+      password: payload.password,
+      departmentId: payload.departmentId || null,
+      roleIds: payload.roleIds,
+      mobileNumber: payload.mobileNumber || null,
+      profilePic: payload.profilePic || null,
+      pinCode: payload.pinCode || payload.pincode || "",
+    };
+
     const res = await apiFetch<{
       success: boolean;
       status: number;
@@ -133,7 +145,7 @@ export async function createAdminUserAction(payload: CreateAdminUserPayload) {
       data: AdminUserItem;
     }>("/v1/users", {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
     });
 
     revalidatePath("/admin-users");
@@ -170,6 +182,17 @@ export async function updateAdminUserAction(
   }
 
   try {
+    const body = {
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      email: payload.email,
+      departmentId: payload.departmentId || null,
+      mobileNumber: payload.mobileNumber || null,
+      profilePic: payload.profilePic ?? null,
+      roleIds: payload.roleIds,
+      pinCode: payload.pinCode !== undefined ? payload.pinCode : payload.pincode !== undefined ? payload.pincode : "",
+    };
+
     const res = await apiFetch<{
       success: boolean;
       status: number;
@@ -177,7 +200,7 @@ export async function updateAdminUserAction(
       data: AdminUserItem;
     }>(`/v1/users/${id}`, {
       method: "PUT",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
     });
 
     revalidatePath("/admin-users");

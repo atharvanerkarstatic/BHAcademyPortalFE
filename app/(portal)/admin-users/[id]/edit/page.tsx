@@ -51,6 +51,7 @@ export default function EditAdminUserPage({
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [pincode, setPincode] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [currentProfilePic, setCurrentProfilePic] = useState<string | null>(null);
 
@@ -90,6 +91,7 @@ export default function EditAdminUserPage({
         const name = [u.firstName, u.lastName].filter(Boolean).join(" ");
         setFullName(name);
         setEmail(u.email || "");
+        setPincode(u.pinCode || u.pincode || "");
         setMobileNumber(u.mobileNumber || "");
         setCurrentProfilePic(u.profilePic || null);
 
@@ -118,6 +120,7 @@ export default function EditAdminUserPage({
       const name = [adminUser.firstName, adminUser.lastName].filter(Boolean).join(" ");
       setFullName(name);
       setEmail(adminUser.email || "");
+      setPincode(adminUser.pinCode || adminUser.pincode || "");
       setMobileNumber(adminUser.mobileNumber || "");
       setCurrentProfilePic(adminUser.profilePic || null);
       if (adminUser.roles && adminUser.roles.length > 0) {
@@ -145,6 +148,17 @@ export default function EditAdminUserPage({
 
     if (!email.trim()) {
       toastError("Email address is required.");
+      return;
+    }
+
+    const cleanPincode = pincode.replace(/\D/g, "").slice(0, 6);
+    if (!cleanPincode) {
+      toastError("Pincode is required.");
+      return;
+    }
+
+    if (cleanPincode.length !== 6) {
+      toastError("Pincode must be exactly 6 digits.");
       return;
     }
 
@@ -186,6 +200,7 @@ export default function EditAdminUserPage({
         mobileNumber: mobileNumber.trim() || null,
         profilePic: profilePicValue,
         roleIds: selectedRoleId ? [selectedRoleId] : undefined,
+        pinCode: cleanPincode,
       });
 
       if (!updateRes.success) {
@@ -346,6 +361,29 @@ export default function EditAdminUserPage({
                   disabled
                   placeholder="10-digit mobile number"
                   className="h-9 text-xs font-mono bg-slate-100 text-slate-500 cursor-not-allowed"
+                />
+              </div>
+            </div>
+
+            {/* Pincode */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <Label
+                htmlFor="edit-pincode"
+                className="text-xs font-semibold text-slate-700 sm:text-right"
+              >
+                Pincode <span className="text-rose-500">*</span>
+              </Label>
+              <div className="sm:col-span-3">
+                <Input
+                  id="edit-pincode"
+                  value={pincode}
+                  onChange={(e) =>
+                    setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
+                  placeholder="6-digit pincode"
+                  maxLength={6}
+                  className="h-9 text-xs font-mono"
+                  required
                 />
               </div>
             </div>

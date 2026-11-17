@@ -33,6 +33,8 @@ export interface AdminUserItem {
   isEmailVerified?: boolean;
   mobileNumber?: string | null;
   profilePic?: string | null;
+  pinCode?: string | null;
+  pincode?: string | null;
   roleCodes?: string[];
   roles?: {
     id: number;
@@ -71,6 +73,8 @@ export interface CreateAdminUserPayload {
   roleIds: string[];
   mobileNumber?: string | null;
   profilePic?: string | null;
+  pinCode?: string | null;
+  pincode?: string | null;
 }
 
 export interface UpdateAdminUserPayload {
@@ -81,5 +85,7 @@ export interface UpdateAdminUserPayload {
   mobileNumber?: string | null;
   profilePic?: string | null;
   roleIds?: string[];
+  pinCode?: string | null;
+  pincode?: string | null;
 }
 

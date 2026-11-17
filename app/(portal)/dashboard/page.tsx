@@ -96,26 +96,12 @@ export default function DashboardPage() {
       ? data.trainers
       : 0;
 
-  // Cards layout matching the reference UI without "Links Shared"
+  // Cards layout with single Assessment card
   const stats = [
     { label: "USERS/PARTICIPANTS", href: "/accounts", icon: Users, color: CYAN, value: data.users },
     { label: "ACTIVE TRAINERS", href: "/trainers", icon: GraduationCap, color: BLUE, value: activeTrainers },
     {
-      label: "ASSESSMENTS TAKEN (TRAINER)",
-      href: "/assessments/results",
-      icon: CheckCircle2,
-      color: GREEN,
-      value: data.assessmentTakenTrainer,
-    },
-    {
-      label: "ASSESSMENTS TAKEN (SELF)",
-      href: "/assessments/results",
-      icon: CheckCircle2,
-      color: GREEN,
-      value: data.assessmentTakenSelf,
-    },
-    {
-      label: "ASSESSMENTS TAKEN (TOTAL)",
+      label: "ASSESSMENT",
       href: "/assessments/results",
       icon: CheckCircle2,
       color: GREEN,

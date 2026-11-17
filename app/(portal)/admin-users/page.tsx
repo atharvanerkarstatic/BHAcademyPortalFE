@@ -251,6 +251,14 @@ export default function AdminUsersPage() {
         ),
       },
       {
+        header: "Pincode",
+        cell: (r) => (
+          <span className="font-mono text-xs text-slate-700">
+            {r.pincode || r.pinCode || "—"}
+          </span>
+        ),
+      },
+      {
         header: "Status",
         cell: (r) => {
           const isActive = r.status === "ACTIVE";

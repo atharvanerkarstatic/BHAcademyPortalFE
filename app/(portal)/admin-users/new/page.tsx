@@ -41,6 +41,7 @@ export default function NewAdminUserPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [pincode, setPincode] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [selectedRoleId, setSelectedRoleId] = useState<string>("1");
   const [roles, setRoles] = useState<RoleItem[]>([]);
@@ -79,6 +80,7 @@ export default function NewAdminUserPage() {
     setFullName("");
     setEmail("");
     setPassword("");
+    setPincode("");
     setMobileNumber("");
     setImageFile(null);
     setFormKey((k) => k + 1);
@@ -110,6 +112,17 @@ export default function NewAdminUserPage() {
 
     if (password.length < 8) {
       toastError("Password must be at least 8 characters long.");
+      return;
+    }
+
+    const cleanPincode = pincode.replace(/\D/g, "").slice(0, 6);
+    if (!cleanPincode) {
+      toastError("Pincode is required.");
+      return;
+    }
+
+    if (cleanPincode.length !== 6) {
+      toastError("Pincode must be exactly 6 digits.");
       return;
     }
 
@@ -154,6 +167,7 @@ export default function NewAdminUserPage() {
         mobileNumber: cleanMobile || null,
         profilePic: uploadedPicUrl,
         roleIds: [selectedRoleId],
+        pinCode: cleanPincode,
       });
 
       if (res.success) {
@@ -275,6 +289,29 @@ export default function NewAdminUserPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Minimum 8 characters"
                   className="h-9 text-xs"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Pincode */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <Label
+                htmlFor="user-pincode"
+                className="text-xs font-semibold text-slate-700 sm:text-right"
+              >
+                Pincode <span className="text-rose-500">*</span>
+              </Label>
+              <div className="sm:col-span-3">
+                <Input
+                  id="user-pincode"
+                  value={pincode}
+                  onChange={(e) =>
+                    setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
+                  placeholder="6-digit pincode"
+                  maxLength={6}
+                  className="h-9 text-xs font-mono"
                   required
                 />
               </div>

@@ -37,6 +37,7 @@ export default function NewTrainerPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [pincode, setPincode] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -82,6 +83,7 @@ export default function NewTrainerPage() {
     setFullName("");
     setEmail("");
     setPassword("");
+    setPincode("");
     setMobileNumber("");
     handleImageChange(null);
     setFormKey((k) => k + 1);
@@ -107,6 +109,17 @@ export default function NewTrainerPage() {
 
     if (!password.trim()) {
       toastError("Password is required.");
+      return;
+    }
+
+    const cleanPincode = pincode.replace(/\D/g, "").slice(0, 6);
+    if (!cleanPincode) {
+      toastError("Pincode is required.");
+      return;
+    }
+
+    if (cleanPincode.length !== 6) {
+      toastError("Pincode must be exactly 6 digits.");
       return;
     }
 
@@ -145,6 +158,7 @@ export default function NewTrainerPage() {
         password: password.trim(),
         mobileNumber: cleanMobile || undefined,
         profilePic: profilePicUrl || undefined,
+        pinCode: cleanPincode,
         roleIds: ["12"],
       });
 
@@ -233,6 +247,24 @@ export default function NewTrainerPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter initial password"
                   className="h-9 text-xs"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Pincode */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <Label htmlFor="trainer-pincode" className="text-xs font-semibold text-slate-700 sm:text-right">
+                Pincode <span className="text-rose-500">*</span>
+              </Label>
+              <div className="sm:col-span-3">
+                <Input
+                  id="trainer-pincode"
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="e.g. 245101"
+                  maxLength={6}
+                  className="h-9 text-xs font-mono"
                   required
                 />
               </div>

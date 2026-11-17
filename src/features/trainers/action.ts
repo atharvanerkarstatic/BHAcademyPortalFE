@@ -149,6 +149,7 @@ export async function createTrainerAction(payload: CreateTrainerPayload) {
       mobileNumber: payload.mobileNumber,
       profilePic: payload.profilePic,
       roleIds: payload.roleIds && payload.roleIds.length > 0 ? payload.roleIds : ["12"],
+      pinCode: payload.pinCode || payload.pincode || "",
     };
 
     const res = await apiFetch<{
@@ -198,6 +199,7 @@ export async function updateTrainerAction(id: number | string, payload: UpdateTr
       departmentId: payload.departmentId || null,
       profilePic: payload.profilePic ?? null,
       mobileNumber: payload.mobileNumber,
+      pinCode: payload.pinCode !== undefined ? payload.pinCode : payload.pincode !== undefined ? payload.pincode : "",
     };
 
     const res = await apiFetch<{
