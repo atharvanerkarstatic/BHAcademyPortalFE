@@ -2057,20 +2057,23 @@ export default function CourseDetailPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                <Label htmlFor="trans-duration" className="text-xs font-bold text-slate-800 sm:text-right">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-4">
+                <Label htmlFor="trans-duration" className="text-xs font-bold text-slate-800 sm:text-right pt-2">
                   Course Duration
                 </Label>
-                <div className="sm:col-span-3">
+                <div className="sm:col-span-3 space-y-1">
                   <Input
                     id="trans-duration"
                     value={transDuration}
-                    type="number"
-                    min="0"
-                    onChange={(e) => setTransDuration(e.target.value === "" ? "" : String(Math.max(0, parseInt(e.target.value, 10) || 0)))}
-                    placeholder="Duration (e.g. 11.07)"
+                    type="text"
+                    onChange={(e) => setTransDuration(e.target.value)}
+                    placeholder="e.g. 32.03 mins or 1:20:39 hours"
+                    maxLength={100}
                     className="h-9 text-xs"
                   />
+                  <p className="text-[11px] text-slate-500">
+                    Allow decimal values or time formats. E.g. <span className="font-medium text-slate-700">32.03 mins</span> or <span className="font-medium text-slate-700">1:20:39 hours</span>
+                  </p>
                 </div>
               </div>
 
@@ -2338,20 +2341,23 @@ export default function CourseDetailPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                  <Label htmlFor="v-duration" className="text-xs font-bold text-slate-800 sm:text-right">
+                <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-4">
+                  <Label htmlFor="v-duration" className="text-xs font-bold text-slate-800 sm:text-right pt-2">
                     Duration
                   </Label>
-                  <div className="sm:col-span-3">
+                  <div className="sm:col-span-3 space-y-1">
                     <Input
                       id="v-duration"
                       value={videoDuration}
-                      type="number"
-                      min="0"
-                      onChange={(e) => setVideoDuration(e.target.value === "" ? "" : String(Math.max(0, parseInt(e.target.value, 10) || 0)))}
-                      placeholder="e.g. 12:45 or 10m"
+                      type="text"
+                      onChange={(e) => setVideoDuration(e.target.value)}
+                      placeholder="e.g. 32.03 mins or 1:20:39 hours"
+                      maxLength={100}
                       className="h-9 text-xs"
                     />
+                    <p className="text-[11px] text-slate-500">
+                      Allow decimal values or time formats. E.g. <span className="font-medium text-slate-700">32.03 mins</span> or <span className="font-medium text-slate-700">1:20:39 hours</span>
+                    </p>
                   </div>
                 </div>
 
