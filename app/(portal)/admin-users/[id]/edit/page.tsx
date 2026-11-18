@@ -129,6 +129,23 @@ export default function EditAdminUserPage({
     };
   }, [userId, toastError]);
 
+  const handleReset = () => {
+    if (adminUser) {
+      const name = [adminUser.firstName, adminUser.lastName].filter(Boolean).join(" ");
+      setFullName(name);
+      setEmail(adminUser.email || "");
+      setPincode(adminUser.pinCode || adminUser.pincode || "");
+      setMobileNumber(adminUser.mobileNumber || "");
+      setCurrentProfilePic(adminUser.profilePic || null);
+      if (adminUser.roles && adminUser.roles.length > 0) {
+        setSelectedRoleId(String(adminUser.roles[0].id));
+      }
+      setNewImageFile(null);
+      setNewPassword("");
+      setShowPassword(false);
+    }
+  };
+
   const handleBack = () => {
     handleReset();
     router.back();
