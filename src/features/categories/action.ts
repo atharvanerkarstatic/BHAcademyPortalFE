@@ -16,6 +16,7 @@ export type GetCategoriesParams = {
   page?: number;
   size?: number;
   sort?: "asc" | "desc";
+  status?: "ACTIVE" | "INACTIVE" | string | null;
 };
 
 function sanitizePayload<T extends CreateCategoryPayload | UpdateCategoryPayload>(payload: T): T {
@@ -92,6 +93,10 @@ export async function getCategoriesAction(params: GetCategoriesParams = {}) {
     size: String(size),
     sort,
   });
+
+  if (params.status) {
+    query.set("status", params.status);
+  }
 
   try {
     const res = await apiFetch<ApiResponse<CategoryPageResponse>>(`/v1/category?${query.toString()}`);

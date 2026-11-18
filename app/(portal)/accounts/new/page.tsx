@@ -68,6 +68,11 @@ export default function NewAccountPage() {
     setFormKey((k) => k + 1);
   };
 
+  const handleBack = () => {
+    handleReset();
+    router.back();
+  };
+
   const handleImageChange = (file: File | null) => {
     if (!file) {
       setImageFile(null);
@@ -331,10 +336,10 @@ export default function NewAccountPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleReset}
+                onClick={handleBack}
                 className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
               >
-                CANCEL
+                BACK
               </Button>
             </div>
           </form>

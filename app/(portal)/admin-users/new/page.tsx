@@ -86,6 +86,11 @@ export default function NewAdminUserPage() {
     setFormKey((k) => k + 1);
   };
 
+  const handleBack = () => {
+    handleReset();
+    router.back();
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -331,10 +336,11 @@ export default function NewAdminUserPage() {
                   value={selectedRoleId}
                   onChange={(e) => setSelectedRoleId(e.target.value)}
                   disabled={loadingRoles}
+                  suppressHydrationWarning
                   className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
                   required
                 >
-                  {roles.length === 0 && <option value="">Loading roles...</option>}
+                  {roles.length === 0 && <option value="1">Loading roles...</option>}
                   {roles.map((r) => (
                     <option key={r.id} value={String(r.id)}>
                       {r.name} ({r.code})
@@ -413,10 +419,10 @@ export default function NewAdminUserPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleReset}
+                onClick={handleBack}
                 className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
               >
-                CANCEL
+                BACK
               </Button>
             </div>
           </form>

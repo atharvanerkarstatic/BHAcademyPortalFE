@@ -89,6 +89,11 @@ export default function NewTrainerPage() {
     setFormKey((k) => k + 1);
   };
 
+  const handleBack = () => {
+    handleReset();
+    router.back();
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -329,10 +334,10 @@ export default function NewTrainerPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleReset}
+                onClick={handleBack}
                 className="min-w-28 h-8 text-xs font-medium uppercase border-slate-300"
               >
-                CANCEL
+                BACK
               </Button>
             </div>
           </form>

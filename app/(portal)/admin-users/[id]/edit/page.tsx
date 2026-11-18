@@ -43,7 +43,7 @@ export default function EditAdminUserPage({
   const userId = params.id;
 
   const router = useRouter();
-  const { can } = useAuth();
+  const { user: loggedInUser, can } = useAuth();
   const { success, error: toastError } = useToast();
 
   const [loadingInitial, setLoadingInitial] = useState(true);
@@ -67,7 +67,21 @@ export default function EditAdminUserPage({
 
   const [isPending, startTransition] = useTransition();
 
+  const isPendingTransition = isPending;
   const canUpdate = can("users.update") || can("system.all");
+
+  // Role can only be edited if createdById is present and matches the logged in user's ID
+  const rawCreatedById =
+    adminUser?.createdById !== undefined && adminUser?.createdById !== null
+      ? adminUser.createdById
+      : typeof adminUser?.createdBy === "object" && adminUser?.createdBy !== null
+      ? adminUser.createdBy.id
+      : adminUser?.createdBy;
+
+  const canEditRole =
+    Boolean(rawCreatedById) &&
+    Boolean(loggedInUser?.id) &&
+    String(rawCreatedById) === String(loggedInUser?.id);
 
   useEffect(() => {
     let active = true;
@@ -320,20 +334,26 @@ export default function EditAdminUserPage({
               </div>
             </div>
 
-            {/* Role Picklist (Read-only) */}
+            {/* Role Picklist */}
             <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
               <Label
                 htmlFor="edit-role"
                 className="text-xs font-semibold text-slate-700 sm:text-right"
               >
-                Role
+                Role {canEditRole && <span className="text-rose-500">*</span>}
               </Label>
               <div className="sm:col-span-3">
                 <select
                   id="edit-role"
                   value={selectedRoleId}
-                  disabled
-                  className="h-9 w-full rounded-md border border-slate-300 bg-slate-100 px-3 py-1.5 text-xs text-slate-500 shadow-xs cursor-not-allowed opacity-80"
+                  onChange={(e) => setSelectedRoleId(e.target.value)}
+                  disabled={!canEditRole || loadingRoles}
+                  suppressHydrationWarning
+                  className={`h-9 w-full rounded-md border border-slate-300 px-3 py-1.5 text-xs shadow-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                    canEditRole
+                      ? "bg-white text-slate-800"
+                      : "bg-slate-100 text-slate-500 cursor-not-allowed opacity-80"
+                  }`}
                 >
                   <option value="">Select a Role</option>
                   {roles.map((r) => (
@@ -342,6 +362,11 @@ export default function EditAdminUserPage({
                     </option>
                   ))}
                 </select>
+                {!canEditRole && (
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Role can only be edited by the user who created this account.
+                  </p>
+                )}
               </div>
             </div>
 

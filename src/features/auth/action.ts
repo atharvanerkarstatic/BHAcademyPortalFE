@@ -70,9 +70,6 @@ export async function loginAction(
     return { success: false, error: "Please enter your email ID and password." };
   }
 
-  // Try standard normalized lowercase email first (e.g. test.admin@asianpaints.com)
-  const candidateEmail = rawEmail.toLowerCase();
-
   let response: Response;
   try {
     response = await fetch(`${config.apiBaseUrl}/auth/login`, {
@@ -81,41 +78,9 @@ export async function loginAction(
         "Content-Type": "application/json",
         accept: "*/*",
       },
-      body: JSON.stringify({ email: candidateEmail, password: rawPassword }),
+      body: JSON.stringify({ email: rawEmail, password: rawPassword }),
       cache: "no-store",
     });
-
-    // If 401 and the typed email had uppercase, retry with exact typed casing
-    if (!response.ok && candidateEmail !== rawEmail) {
-      const retryRes = await fetch(`${config.apiBaseUrl}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          accept: "*/*",
-        },
-        body: JSON.stringify({ email: rawEmail, password: rawPassword }),
-        cache: "no-store",
-      });
-      if (retryRes.ok) {
-        response = retryRes;
-      }
-    }
-
-    // If still 401 and password had leading/trailing spaces, retry with untrimmed password
-    if (!response.ok && rawPassword !== password) {
-      const retryRes = await fetch(`${config.apiBaseUrl}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          accept: "*/*",
-        },
-        body: JSON.stringify({ email: candidateEmail, password }),
-        cache: "no-store",
-      });
-      if (retryRes.ok) {
-        response = retryRes;
-      }
-    }
   } catch (err) {
     console.error("Login fetch error:", err);
     return {
@@ -209,11 +174,24 @@ export async function loginAction(
     };
   }
 
+  // Strict case-sensitive check between entered email and token subject email
+  if (authUser.email && authUser.email !== rawEmail) {
+    console.warn(`Email casing mismatch: entered '${rawEmail}', token has '${authUser.email}'`);
+    const cookieStore = await cookies();
+    for (const name of ALL_AUTH_COOKIES) {
+      cookieStore.delete(name);
+    }
+    return {
+      success: false,
+      error: "Invalid email or password.",
+    };
+  }
+
   const cookieStore = await cookies();
   for (const cookie of buildAuthCookies(tokens)) {
     cookieStore.set(cookie.name, cookie.value, cookie.options);
   }
-  const emailCookie = userCookie(candidateEmail);
+  const emailCookie = userCookie(rawEmail);
   cookieStore.set(emailCookie.name, emailCookie.value, emailCookie.options);
 
   redirect("/dashboard");

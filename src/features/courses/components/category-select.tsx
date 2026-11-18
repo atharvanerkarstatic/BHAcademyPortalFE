@@ -27,18 +27,21 @@ export function CategorySelect({
   const [loadingMore, setLoadingMore] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const pageSize = 10;
+  const pageSize = 50;
 
   // Load initial page of categories
   useEffect(() => {
     let mounted = true;
     setLoading(true);
 
-    getCategoriesAction({ page: 1, size: pageSize, sort: "asc" })
+    getCategoriesAction({ page: 1, size: pageSize, sort: "asc", status: "ACTIVE" })
       .then((res) => {
         if (!mounted) return;
         if (res.success && res.data) {
-          setCategories(res.data.content || []);
+          const list = (res.data.content || []).filter(
+            (c) => !c.status || c.status.toUpperCase() === "ACTIVE"
+          );
+          setCategories(list);
           setHasNext(Boolean(res.data.hasNext));
           setPage(1);
         }
@@ -75,9 +78,17 @@ export function CategorySelect({
     setLoadingMore(true);
     const nextPage = page + 1;
     try {
-      const res = await getCategoriesAction({ page: nextPage, size: pageSize, sort: "asc" });
+      const res = await getCategoriesAction({
+        page: nextPage,
+        size: pageSize,
+        sort: "asc",
+        status: "ACTIVE",
+      });
       if (res.success && res.data) {
-        setCategories((prev) => [...prev, ...(res.data?.content || [])]);
+        const nextList = (res.data.content || []).filter(
+          (c) => !c.status || c.status.toUpperCase() === "ACTIVE"
+        );
+        setCategories((prev) => [...prev, ...nextList]);
         setHasNext(Boolean(res.data.hasNext));
         setPage(nextPage);
       }
@@ -148,7 +159,7 @@ export function CategorySelect({
                   >
                     <div className="flex flex-col truncate">
                       <span className="truncate text-slate-900 font-medium">{cat.category}</span>
-                      <span className="font-mono text-xs text-slate-400">{cat.categoryId}</span>
+                      {/* <span className="font-mono text-xs text-slate-400">{cat.categoryId}</span> */}
                     </div>
                     {isSelected && <Check className="h-4 w-4 shrink-0 text-blue-600 ml-2" />}
                   </button>

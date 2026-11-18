@@ -138,9 +138,9 @@ export default function NewCoursePage() {
     };
   }, []);
 
-  const handleCancel = () => {
+  const handleBack = () => {
     resetForm();
-    router.push("/courses");
+    router.back();
   };
 
   const handleImageUpload = async (file: File | null) => {
@@ -194,7 +194,7 @@ export default function NewCoursePage() {
     }
 
     const cleanCourseLevel = sanitizeTextInput(courseLevel, 100) || "Beginner";
-    const cleanDuration = duration === "" ? "" : String(sanitizeNonNegativeNumber(duration, 0, 0));
+    const cleanDuration = sanitizeTextInput(duration, 100);
     const cleanCertifications = noOfCertifications === "" ? "0" : String(sanitizeNonNegativeNumber(noOfCertifications, 0, 0));
     const cleanImageUrl = sanitizeTextInput(imageUrl, 500);
     const cleanCourseDetails = sanitizeTextInput(courseDetails, 5000);
@@ -324,36 +324,41 @@ export default function NewCoursePage() {
                 Course Level
               </Label>
               <div className="sm:col-span-3">
-                <Input
+                <select
                   id="course-level"
                   value={courseLevel}
                   onChange={(e) => setCourseLevel(e.target.value)}
-                  placeholder="e.g. Beginner, Intermediate, Advanced"
-                  maxLength={100}
-                  className="h-9 text-xs"
-                />
+                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="Beginner">Beginner</option>
+                  <option value="Intermediate">Intermediate</option>
+                  <option value="Advanced">Advanced</option>
+                </select>
               </div>
             </div>
 
             {/* Duration */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-4">
               <Label
                 htmlFor="course-duration"
-                className="text-xs font-semibold text-slate-700 sm:text-right"
+                className="text-xs font-semibold text-slate-700 sm:text-right pt-2"
               >
                 Duration <span className="text-rose-500">*</span>
               </Label>
-              <div className="sm:col-span-3">
+              <div className="sm:col-span-3 space-y-1">
                 <Input
                   id="course-duration"
                   value={duration}
-                  onChange={(e) => setDuration(e.target.value === "" ? "" : String(sanitizeNonNegativeNumber(e.target.value, 0, 0)))}
-                  type="number"
-                  min="0"
-                  placeholder="0"
+                  onChange={(e) => setDuration(e.target.value)}
+                  type="text"
+                  placeholder="e.g. 32.03 mins or 1:20:39 hours"
                   maxLength={100}
                   className="h-9 text-xs"
+                  required
                 />
+                <p className="text-[11px] text-slate-500">
+                  Allowed decimal values or time formats. E.g. <span className="font-medium text-slate-700">32.03 mins</span> or <span className="font-medium text-slate-700">1:20:39 hours</span>
+                </p>
               </div>
             </div>
 
@@ -574,11 +579,11 @@ export default function NewCoursePage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleCancel}
+                onClick={handleBack}
                 disabled={isPending}
                 className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
               >
-                CANCEL
+                BACK
               </Button>
             </div>
           </form>

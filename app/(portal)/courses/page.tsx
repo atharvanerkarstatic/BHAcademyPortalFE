@@ -3,7 +3,8 @@
 import { useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus, RefreshCw, Search, Image as ImageIcon, Award, Video, Clock, Pencil, Trash2, Download } from "lucide-react";
+import { Plus, RefreshCw, Search, Image as ImageIcon, Award, Video, Clock, Pencil, Trash2, Download, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 import { DataTable, type Column } from "@/components/common/data-table";
 import { PageHeader } from "@/components/common/page-header";
@@ -22,7 +23,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
-import { getCoursesAction, deleteCourseAction, exportCoursesAction } from "@/features/courses/action";
+import {
+  getCoursesAction,
+  deleteCourseAction,
+  exportCoursesAction,
+  toggleCourseStatusAction,
+} from "@/features/courses/action";
 import type { CourseItem, CoursePageResponse } from "@/features/courses/types";
 
 export default function CoursesPage() {
@@ -55,6 +61,9 @@ export default function CoursesPage() {
   // Delete modal state
   const [courseToDelete, setCourseToDelete] = useState<CourseItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Status toggle state
+  const [togglingCourseId, setTogglingCourseId] = useState<number | null>(null);
 
   // Permission flags
   const canCreate = can("courses.create");
@@ -142,6 +151,43 @@ export default function CoursesPage() {
     }
   };
 
+  const handleToggleStatus = async (course: CourseItem) => {
+    if (!canUpdate) {
+      toastError("You do not have permission to update course status.");
+      return;
+    }
+
+    setTogglingCourseId(course.id);
+    try {
+      const res = await toggleCourseStatusAction(course.id);
+      if (res.success) {
+        // Optimistically update the status in local state
+        const newStatus =
+          typeof res.data === "string" && res.data
+            ? res.data
+            : course.status?.toUpperCase() === "ACTIVE"
+            ? "INACTIVE"
+            : "ACTIVE";
+
+        setPageData((prev) => ({
+          ...prev,
+          content: prev.content.map((item) =>
+            item.id === course.id ? { ...item, status: newStatus } : item
+          ),
+        }));
+
+        success(res.message || "Course status updated successfully");
+      } else {
+        toastError(res.error || "Failed to update course status");
+      }
+    } catch (err) {
+      console.error("Error toggling course status:", err);
+      toastError("Failed to update course status");
+    } finally {
+      setTogglingCourseId(null);
+    }
+  };
+
   const columns: Column<CourseItem>[] = useMemo(() => {
     const cols: Column<CourseItem>[] = [
       {
@@ -172,6 +218,15 @@ export default function CoursesPage() {
           );
         },
         className: "w-16",
+      },
+      {
+        header: "Course Code",
+        cell: (r) => (
+          <span className="font-mono text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+            {r.courseCode || "—"}
+          </span>
+        ),
+        className: "w-32",
       },
       {
         header: "Course Name",
@@ -264,8 +319,60 @@ export default function CoursesPage() {
       },
       {
         header: "Status",
-        cell: (r) => <StatusText active={r.status === "ACTIVE"} />,
-        className: "w-24 text-center",
+        cell: (r) => {
+          const isActive = r.status?.toUpperCase() === "ACTIVE";
+          const isToggling = togglingCourseId === r.id;
+
+          if (!canUpdate) {
+            return (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold shadow-xs border",
+                  isActive
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-rose-200 bg-rose-50 text-rose-700"
+                )}
+              >
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full shrink-0",
+                    isActive ? "bg-emerald-500" : "bg-rose-500"
+                  )}
+                />
+                <span>{isActive ? "Active" : "Inactive"}</span>
+              </span>
+            );
+          }
+
+          return (
+            <button
+              type="button"
+              disabled={isToggling}
+              onClick={() => handleToggleStatus(r)}
+              title={`Click to toggle status (${isActive ? "Inactivate" : "Activate"})`}
+              className={cn(
+                "group relative inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-all shadow-xs border cursor-pointer",
+                isActive
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300"
+                  : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:border-rose-300",
+                isToggling && "opacity-60 cursor-not-allowed"
+              )}
+            >
+              {isToggling ? (
+                <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+              ) : (
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full shrink-0 transition-transform group-hover:scale-125",
+                    isActive ? "bg-emerald-500" : "bg-rose-500"
+                  )}
+                />
+              )}
+              <span>{isActive ? "Active" : "Inactive"}</span>
+            </button>
+          );
+        },
+        className: "w-28 text-center",
       },
       {
         header: "Manage",
@@ -320,7 +427,7 @@ export default function CoursesPage() {
     }
 
     return cols;
-  }, [canUpdate, canDelete]);
+  }, [canUpdate, canDelete, togglingCourseId]);
 
   const handleDownloadCourses = async () => {
     setIsExporting(true);

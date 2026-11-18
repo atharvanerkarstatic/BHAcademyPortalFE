@@ -48,6 +48,8 @@ export interface AdminUserItem {
   passwordChangedAt?: string;
   passwordExpiresAt?: string;
   lastLoginAt?: string | null;
+  createdById?: number | string | null;
+  createdBy?: number | string | { id?: number | string } | null;
   createdAt: string;
   updatedAt?: string;
 }

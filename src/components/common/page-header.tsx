@@ -5,7 +5,7 @@ type Crumb = { label: string; href?: string };
 export function PageHeader({ title, breadcrumbs }: { title: string; breadcrumbs?: Crumb[] }) {
   return (
     <div className="mb-5 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-      <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
+      <h1 suppressHydrationWarning className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
 
       {breadcrumbs && breadcrumbs.length > 0 && (
         <nav aria-label="Breadcrumb">

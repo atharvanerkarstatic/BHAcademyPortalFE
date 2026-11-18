@@ -1686,7 +1686,7 @@ export default function CourseDetailPage() {
                     <p className="text-[11px] text-slate-500">
                       <span className="font-semibold text-slate-800">Columns in Sample File:</span>{" "}
                       <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 text-blue-800 font-mono">
-                        courseId,languageId,courseName,description,courseDuration,courseLevel
+                        courseName, description, courseLevel, languageCode
                       </code>
                     </p>
                   </div>

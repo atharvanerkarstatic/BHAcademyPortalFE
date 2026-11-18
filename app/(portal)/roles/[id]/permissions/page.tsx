@@ -309,17 +309,12 @@ export default function RolePermissionsPage() {
 
                               {/* Permission Details */}
                               <div className="space-y-0.5 min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <label
-                                    htmlFor={inputId}
-                                    className="text-xs font-semibold text-slate-900 cursor-pointer"
-                                  >
-                                    {p.displayName}
-                                  </label>
-                                  <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
-                                    {p.permissionKey}
-                                  </span>
-                                </div>
+                                <label
+                                  htmlFor={inputId}
+                                  className="text-xs font-semibold text-slate-900 cursor-pointer block"
+                                >
+                                  {p.displayName}
+                                </label>
                                 <p className="text-[11px] text-slate-500 leading-snug">
                                   {p.description}
                                 </p>

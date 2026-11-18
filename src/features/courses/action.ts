@@ -193,6 +193,41 @@ export async function updateCourseAction(id: number | string, payload: UpdateCou
   }
 }
 
+export async function toggleCourseStatusAction(id: number | string) {
+  const user = await getCurrentUser();
+  const userPerms = user ? [...user.roles, ...user.permissions] : [];
+
+  if (!hasPermission(userPerms, "courses.update") && !hasPermission(userPerms, "system.all")) {
+    return {
+      success: false,
+      error: "You do not have permission to update courses.",
+    };
+  }
+
+  try {
+    const res = await apiFetch<ApiResponse<string>>(`/v1/courses/${id}/toggle-status`, {
+      method: "PATCH",
+    });
+
+    revalidatePath("/courses");
+    revalidatePath("/dashboard");
+
+    return {
+      success: true,
+      data: res?.data,
+      message: res?.message || "Course status updated successfully",
+    };
+  } catch (error) {
+    console.error(`Failed to toggle status for course ${id}:`, error);
+    const message =
+      error instanceof ApiError ? error.message : "Failed to toggle course status. Please try again.";
+    return {
+      success: false,
+      error: message,
+    };
+  }
+}
+
 export async function deleteCourseAction(id: number | string) {
   const user = await getCurrentUser();
   const userPerms = user ? [...user.roles, ...user.permissions] : [];

@@ -70,6 +70,7 @@ export default function CategoriesPage() {
         page: targetPage,
         size: pageSize,
         sort: "asc",
+        status: null,
       });
       if (res.success && res.data) {
         setPageData(res.data);

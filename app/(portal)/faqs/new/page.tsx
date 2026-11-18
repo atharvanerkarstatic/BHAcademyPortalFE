@@ -94,9 +94,9 @@ export default function NewFaqPage() {
     };
   }, []);
 
-  const handleCancel = () => {
+  const handleBack = () => {
     resetForm();
-    router.push("/faqs");
+    router.back();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -305,11 +305,11 @@ export default function NewFaqPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleCancel}
+                onClick={handleBack}
                 disabled={isPending}
                 className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
               >
-                CANCEL
+                BACK
               </Button>
             </div>
           </form>

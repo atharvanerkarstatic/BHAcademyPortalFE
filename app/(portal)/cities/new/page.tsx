@@ -321,16 +321,16 @@ export default function NewCityPage() {
             variant="outline"
             onClick={() => {
               resetForm();
-              router.push("/cities");
+              router.back();
             }}
-            className="border-slate-300"
+            className="border-slate-300 uppercase text-xs font-semibold"
           >
-            Cancel
+            Back
           </Button>
           <Button
             type="submit"
             disabled={isPending}
-            className="bg-blue-600 hover:bg-blue-700 text-white min-w-28"
+            className="bg-blue-600 hover:bg-blue-700 text-white min-w-28 uppercase text-xs font-semibold"
           >
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save City

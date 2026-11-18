@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useTransition, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Layers, Languages, Loader2 } from "lucide-react";
+import { ArrowLeft, Layers, Languages, Loader2, X } from "lucide-react";
 
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,9 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/toast";
 import { getCategoryByIdAction, updateCategoryAction } from "@/features/categories/action";
+import { uploadMediaAction } from "@/features/accounts/action";
 import type { CategoryItem, UpdateCategoryPayload } from "@/features/categories/types";
-import { sanitizeTextInput, sanitizeNonNegativeNumber } from "@/lib/validations";
+import { sanitizeTextInput, sanitizeNonNegativeNumber, validateImageFile } from "@/lib/validations";
 
 const TRANSLATION_LANGUAGES = [
   { code: "Hi", name: "Hindi (हिन्दी)" },
@@ -40,6 +41,7 @@ function EditCategoryContent() {
 
   const [category, setCategory] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [displayOrder, setDisplayOrder] = useState<number>(1);
   const [status, setStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
   const [featured, setFeatured] = useState<boolean>(false);
@@ -100,12 +102,51 @@ function EditCategoryContent() {
     };
   }, [id, populateFromItem, toastError]);
 
+  const handleBack = () => {
+    router.back();
+  };
+
+  const handleImageUpload = async (file: File | null) => {
+    if (!file) return;
+
+    const check = validateImageFile(file);
+    if (!check.valid) {
+      toastError(check.error || "Only .png, .jpg, and .jpeg image formats are allowed (Max 5 MB).");
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("path", `category_image_${Date.now()}`);
+
+      const res = await uploadMediaAction(formData);
+      if (res.success && res.data) {
+        setImageUrl(res.data);
+        success("Image uploaded successfully and converted to URL.");
+      } else {
+        toastError(res.error || "Failed to upload image. Please try again.");
+      }
+    } catch (err) {
+      console.error("Category image upload failed:", err);
+      toastError("Failed to upload image file. Please try again.");
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   const handleTranslationChange = (key: string, value: string) => {
     setTranslations((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isUploadingImage) {
+      toastError("Please wait for image upload to complete.");
+      return;
+    }
 
     const cleanCategory = sanitizeTextInput(category, 255);
     if (!cleanCategory) {
@@ -196,23 +237,72 @@ function EditCategoryContent() {
               </div>
             </div>
 
-            {/* Image URL */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+            {/* Category Image Upload */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-4">
               <Label
-                htmlFor="edit-cat-image"
-                className="text-xs font-semibold text-slate-700 sm:text-right"
+                htmlFor="edit-cat-image-file"
+                className="text-xs font-semibold text-slate-700 sm:text-right pt-2"
               >
-                Image URL
+                Category Image
               </Label>
-              <div className="sm:col-span-3">
-                <Input
-                  id="edit-cat-image"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="e.g. https://domain.com/category-image.png"
-                  maxLength={500}
-                  className="h-9 text-xs"
-                />
+              <div className="sm:col-span-3 space-y-2">
+                <div className="flex items-center gap-3">
+                  <Input
+                    id="edit-cat-image-file"
+                    type="file"
+                    accept=".jpg,.jpeg,.png"
+                    disabled={isUploadingImage || isPending}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      if (file) handleImageUpload(file);
+                    }}
+                    className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+                  />
+                  {isUploadingImage && (
+                    <div className="flex items-center gap-1.5 text-xs text-blue-600 font-medium shrink-0">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Uploading...</span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Allowed formats: PNG, JPG, JPEG (Max 5 MB)
+                </p>
+
+                {/* Uploaded Image Preview & Remove */}
+                {imageUrl && (
+                  <div className="flex items-center gap-3 p-2 rounded-lg border border-slate-200 bg-slate-50/70 w-fit">
+                    <div className="h-14 w-20 shrink-0 overflow-hidden rounded border border-slate-200 bg-white">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={imageUrl}
+                        alt="Category Preview"
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    </div>
+                    <div className="text-[11px] text-slate-600 flex items-center gap-2">
+                      <div>
+                        <span className="font-semibold text-emerald-600 block">
+                          Image uploaded successfully
+                        </span>
+                        <span className="text-[10px] text-slate-400">Ready to save</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setImageUrl("")}
+                        className="h-7 px-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                        title="Remove image"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
