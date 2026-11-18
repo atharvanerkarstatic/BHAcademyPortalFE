@@ -5,60 +5,35 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import { getFirstAccessibleRoute, isRouteAllowed } from "@/lib/route-permissions";
 import { Navbar } from "./navbar";
 import { Sidebar } from "./sidebar";
 import { SidebarProvider, useSidebar } from "./sidebar-context";
-
-// Map client paths to permission requirements for instant active-page authorization
-const ROUTE_PERMISSIONS: { pattern: RegExp; permission: string | string[] }[] = [
-  { pattern: /^\/faqs\/new(\/.*)?$/, permission: "faqs.create" },
-  { pattern: /^\/faqs\/[^/]+\/edit(\/.*)?$/, permission: "faqs.update" },
-  { pattern: /^\/faqs(\/.*)?$/, permission: "faqs.read" },
-  { pattern: /^\/categories\/new(\/.*)?$/, permission: "categories.create" },
-  { pattern: /^\/categories\/[^/]+\/edit(\/.*)?$/, permission: "categories.update" },
-  { pattern: /^\/categories(\/.*)?$/, permission: "categories.read" },
-  { pattern: /^\/courses(\/.*)?$/, permission: "courses.read" },
-  { pattern: /^\/users(\/.*)?$/, permission: "users.read" },
-  { pattern: /^\/accounts(\/.*)?$/, permission: ["accounts.read", "users.read"] },
-  { pattern: /^\/trainers(\/.*)?$/, permission: ["users.read", "ROLE_TRAINER"] },
-  { pattern: /^\/assessments\/send(\/.*)?$/, permission: ["assessments.create", "courses.read"] },
-  { pattern: /^\/assessments\/links(\/.*)?$/, permission: ["assessments.read", "courses.read"] },
-  { pattern: /^\/assessments\/results(\/.*)?$/, permission: ["assessments.read", "audit.read"] },
-  { pattern: /^\/reports(\/.*)?$/, permission: ["reports.read", "audit.read"] },
-  { pattern: /^\/roles(\/.*)?$/, permission: "roles.read" },
-  { pattern: /^\/admin-users(\/.*)?$/, permission: "users.read" },
-  { pattern: /^\/cities(\/.*)?$/, permission: ["pincode.read", "system.all"] },
-  { pattern: /^\/report-scheduler(\/.*)?$/, permission: "system.all" },
-  { pattern: /^\/dashboard(\/.*)?$/, permission: "dashboard.read" },
-];
 
 function ShellBody({ children, user }: { children: ReactNode; user: ReactNode }) {
   const { desktopCollapsed } = useSidebar();
   const pathname = usePathname();
   const router = useRouter();
-  const { can, user: authUser } = useAuth();
+  const { user: authUser } = useAuth();
 
-  // Instant route-level redirect to Dashboard when current route permission is revoked
+  // Instant route-level authorization check
   useEffect(() => {
     if (!authUser) return;
 
-    if (!can("dashboard.read")) {
-      // If user lacks dashboard permission or has zero permissions, redirect to login
-      router.replace("/login");
+    const userPerms = [...authUser.roles, ...authUser.permissions];
+    const firstAllowedRoute = getFirstAccessibleRoute(userPerms);
+
+    // If user has no access to any application route, send to Access Denied page
+    if (!firstAllowedRoute) {
+      router.replace("/access-denied");
       return;
     }
 
-    if (pathname === "/dashboard") return;
-
-    for (const rule of ROUTE_PERMISSIONS) {
-      if (rule.pattern.test(pathname)) {
-        if (!can(rule.permission)) {
-          router.replace("/dashboard");
-          break;
-        }
-      }
+    // Check if the current route is authorized for this user
+    if (!isRouteAllowed(pathname, userPerms)) {
+      router.replace(firstAllowedRoute);
     }
-  }, [pathname, can, authUser, router]);
+  }, [pathname, authUser, router]);
 
   return (
     <div className="min-h-screen">

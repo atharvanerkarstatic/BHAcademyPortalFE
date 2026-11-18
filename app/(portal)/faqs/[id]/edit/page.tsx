@@ -327,11 +327,11 @@ function EditFaqContent() {
               <Button
                 type="button"
                 variant="outline"
-                asChild
+                onClick={() => router.back()}
                 disabled={isPending}
                 className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
               >
-                <Link href="/faqs">CANCEL</Link>
+                BACK
               </Button>
             </div>
           </form>

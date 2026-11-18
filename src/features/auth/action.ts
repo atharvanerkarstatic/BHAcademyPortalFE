@@ -194,7 +194,16 @@ export async function loginAction(
   const emailCookie = userCookie(rawEmail);
   cookieStore.set(emailCookie.name, emailCookie.value, emailCookie.options);
 
-  redirect("/dashboard");
+  // Check user permissions and redirect to Dashboard or first accessible route
+  const { getFirstAccessibleRoute } = await import("@/lib/route-permissions");
+  const userPerms = [...authUser.roles, ...authUser.permissions];
+  const targetRoute = getFirstAccessibleRoute(userPerms);
+
+  if (!targetRoute) {
+    redirect("/access-denied");
+  }
+
+  redirect(targetRoute);
 }
 
 export async function requestPasswordResetOtpAction(email: string): Promise<ForgotPasswordOtpResult> {

@@ -419,11 +419,11 @@ function EditCategoryContent() {
               <Button
                 type="button"
                 variant="outline"
-                asChild
+                onClick={handleBack}
                 disabled={isPending}
                 className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
               >
-                <Link href="/categories">CANCEL</Link>
+                BACK
               </Button>
             </div>
           </form>

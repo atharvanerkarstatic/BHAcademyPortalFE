@@ -335,11 +335,11 @@ export default function EditCityPage() {
             variant="outline"
             onClick={() => {
               resetForm();
-              router.push("/cities");
+              router.back();
             }}
             className="border-slate-300"
           >
-            Cancel
+            Back
           </Button>
           <Button
             type="submit"

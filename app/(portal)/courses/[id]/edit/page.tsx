@@ -153,6 +153,10 @@ export default function EditCoursePage() {
     };
   }, [id]);
 
+  const handleBack = () => {
+    router.back();
+  };
+
   const handleImageUpload = async (file: File | null) => {
     if (!file) return;
 
@@ -595,11 +599,11 @@ export default function EditCoursePage() {
               <Button
                 type="button"
                 variant="outline"
-                asChild
+                onClick={handleBack}
                 disabled={isPending}
                 className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
               >
-                <Link href="/courses">CANCEL</Link>
+                BACK
               </Button>
             </div>
           </form>

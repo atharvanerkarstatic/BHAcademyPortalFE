@@ -84,7 +84,7 @@ export const navSections: NavSection[] = [
       { label: "Admin Users", href: "/admin-users", icon: ArrowRight, permission: "users.read" },
       { label: "Roles & Permissions", href: "/roles", icon: ArrowRight, permission: "roles.read" },
       { label: "Manage Cities", href: "/cities", icon: ArrowRight, permission: ["pincode.read", "system.all"] },
-      { label: "Manage Languages", href: "/languages", icon: ArrowRight },
+      { label: "Manage Languages", href: "/languages", icon: ArrowRight, permission: "system.all" },
       { label: "Report Scheduler", href: "/report-scheduler", icon: ArrowRight, permission: "system.all" },
     ],
   },

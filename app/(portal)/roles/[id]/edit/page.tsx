@@ -257,10 +257,13 @@ export default function EditRolePage({
                 type="button"
                 variant="outline"
                 disabled={isPending}
-                onClick={handleReset}
+                onClick={() => {
+                  handleReset();
+                  router.back();
+                }}
                 className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
               >
-                CANCEL
+                BACK
               </Button>
             </div>
           </form>

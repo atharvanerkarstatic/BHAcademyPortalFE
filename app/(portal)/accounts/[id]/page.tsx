@@ -634,7 +634,7 @@ export default function AccountDetailPage() {
                       }}
                       className="min-w-20 h-8 text-xs font-medium uppercase border-slate-300"
                     >
-                      CANCEL
+                      BACK
                     </Button>
                   </div>
                 </form>

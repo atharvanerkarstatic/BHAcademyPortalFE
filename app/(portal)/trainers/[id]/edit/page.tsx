@@ -341,10 +341,10 @@ export default function EditTrainerPage({
               <Button
                 type="button"
                 variant="outline"
-                asChild
+                onClick={() => router.back()}
                 className="min-w-28 h-8 text-xs font-medium uppercase border-slate-300"
               >
-                <Link href="/trainers">CANCEL</Link>
+                BACK
               </Button>
             </div>
           </form>

@@ -217,10 +217,13 @@ export default function EditLanguagePage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleReset}
+                onClick={() => {
+                  handleReset();
+                  router.back();
+                }}
                 className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
               >
-                CANCEL
+                BACK
               </Button>
             </div>
           </form>
