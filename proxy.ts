@@ -126,16 +126,6 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-  if (fresh) {
-    for (const c of buildAuthCookies(fresh)) response.cookies.set(c.name, c.value, c.options);
-  }
-  if (sessionExpired) {
-    for (const name of ALL_AUTH_COOKIES) response.cookies.delete(name);
-  }
-
-  return response;
-}
-
 export const config = {
   matcher: ["/((?!_next/static|_next/image|.*\\..*).*)"],
 };
