@@ -34,12 +34,12 @@ export default function TrainerAccessLogsPage() {
       endDate: filters.endDate || "",
     });
 
-    if (res.success && res.data) {
-      const parsed = parseCsv<TrainerAccessLogRow>(res.data);
+    if (res.success) {
+      const parsed = parseCsv<TrainerAccessLogRow>(res.data ?? "");
       setRows(parsed);
       setHasLoaded(true);
       setPage(1);
-      if (showToast) {
+      if (showToast && parsed.length > 0) {
         toastSuccess("Trainer access logs loaded successfully");
       }
     } else {
@@ -159,7 +159,7 @@ export default function TrainerAccessLogsPage() {
             columns={columns}
             data={pagedRows}
             getRowId={(r, idx) => r._rowId || (r["Login ID"] ? `${r["Login ID"]}-${idx}` : `access-log-${idx}`)}
-            emptyMessage={search ? `No records matching "${search}"` : "No access logs found for the selected criteria."}
+            emptyMessage={rows.length === 0 ? "No records found" : `No records matching "${search}"`}
             headerRight={
               <div className="relative flex items-center">
                 <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -187,4 +187,3 @@ export default function TrainerAccessLogsPage() {
     </ReportPageLayout>
   );
 }
-
