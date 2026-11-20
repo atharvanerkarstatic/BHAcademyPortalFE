@@ -190,21 +190,16 @@ export default function CategoriesPage() {
         className: "w-28",
       },
       {
-        header: "Translations",
+        header: "Category Courses",
         cell: (r) => (
-          <div className="flex flex-wrap gap-1 max-w-xs">
-            {r.categoryHi && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">HI</span>}
-            {r.categoryBn && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">BN</span>}
-            {r.categoryKn && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">KN</span>}
-            {r.categoryMl && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">ML</span>}
-            {r.categoryMr && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">MR</span>}
-            {r.categoryOr && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">OR</span>}
-            {r.categoryTa && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">TA</span>}
-            {r.categoryTe && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">TE</span>}
-            {r.categoryAs && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">AS</span>}
-            {r.categoryGu && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-600">GU</span>}
-          </div>
+          <Link
+            href={`/courses?category=${encodeURIComponent(String(r.categoryId))}`}
+            className="text-xs font-semibold text-blue-600 hover:underline"
+          >
+            View Courses ({r.courseCount ?? 0})
+          </Link>
         ),
+        className: "w-36",
       },
     ];
 

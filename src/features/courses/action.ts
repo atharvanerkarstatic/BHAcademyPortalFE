@@ -92,6 +92,40 @@ export async function getCoursesAction(params: GetCoursesParams = {}) {
   }
 }
 
+export async function getCategoryCoursesAction(categoryId: string | number) {
+  const user = await getCurrentUser();
+  const userPerms = user ? [...user.roles, ...user.permissions] : [];
+
+  if (!hasPermission(userPerms, "courses.read")) {
+    return {
+      success: false,
+      error: "You do not have permission to view courses.",
+      data: [] as CourseItem[],
+    };
+  }
+
+  try {
+    const res = await apiFetch<ApiResponse<CourseItem[]>>(
+      `/v1/category/courses/${encodeURIComponent(String(categoryId))}`
+    );
+
+    return {
+      success: true,
+      data: res.data ?? [],
+      message: res.message,
+    };
+  } catch (error) {
+    console.error(`Failed to fetch courses for category ${categoryId}:`, error);
+    const message =
+      error instanceof ApiError ? error.message : "Failed to load courses. Please try again.";
+    return {
+      success: false,
+      error: message,
+      data: [] as CourseItem[],
+    };
+  }
+}
+
 export async function getCourseByIdAction(id: number | string) {
   const user = await getCurrentUser();
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
@@ -919,5 +953,4 @@ export async function importCourseQuizzesAction(
     };
   }
 }
-
 

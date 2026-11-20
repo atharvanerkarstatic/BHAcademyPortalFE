@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useTransition, useMemo } from "react";
+import { Suspense, useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Plus, RefreshCw, Search, Image as ImageIcon, Award, Video, Clock, Pencil, Trash2, Download, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,21 +25,25 @@ import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
 import {
   getCoursesAction,
+  getCategoryCoursesAction,
   deleteCourseAction,
   exportCoursesAction,
   toggleCourseStatusAction,
 } from "@/features/courses/action";
 import type { CourseItem, CoursePageResponse } from "@/features/courses/types";
 
-export default function CoursesPage() {
+function CoursesView() {
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const categoryId = searchParams.get("category")?.trim() || null;
 
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 10;
+  const [categoryCourses, setCategoryCourses] = useState<CourseItem[]>([]);
 
   const [pageData, setPageData] = useState<CoursePageResponse>({
     content: [],
@@ -77,6 +81,19 @@ export default function CoursesPage() {
     showSuccessToast = false
   ) => {
     startTransition(async () => {
+      if (categoryId) {
+        const res = await getCategoryCoursesAction(categoryId);
+        setCategoryCourses(res.data);
+        if (res.success) {
+          if (showSuccessToast) {
+            success("Courses refreshed successfully");
+          }
+        } else {
+          toastError(res.error || "Failed to load courses");
+        }
+        return;
+      }
+
       const res = await getCoursesAction({
         page: targetPage,
         size: pageSize,
@@ -117,7 +134,7 @@ export default function CoursesPage() {
   useEffect(() => {
     loadCourses(page, activeSearch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, activeSearch]);
+  }, [page, activeSearch, categoryId]);
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
@@ -175,6 +192,11 @@ export default function CoursesPage() {
             item.id === course.id ? { ...item, status: newStatus } : item
           ),
         }));
+        setCategoryCourses((prev) =>
+          prev.map((item) =>
+            item.id === course.id ? { ...item, status: newStatus } : item
+          )
+        );
 
         success(res.message || "Course status updated successfully");
       } else {
@@ -187,6 +209,19 @@ export default function CoursesPage() {
       setTogglingCourseId(null);
     }
   };
+
+  const visibleCourses = useMemo(() => {
+    if (!categoryId) return pageData.content;
+    const query = activeSearch.toLowerCase();
+    if (!query) return categoryCourses;
+
+    return categoryCourses.filter(
+      (course) =>
+        course.courseName?.toLowerCase().includes(query) ||
+        course.categoryName?.toLowerCase().includes(query) ||
+        String(course.id).includes(query)
+    );
+  }, [categoryId, categoryCourses, pageData.content, activeSearch]);
 
   const columns: Column<CourseItem>[] = useMemo(() => {
     const cols: Column<CourseItem>[] = [
@@ -466,10 +501,16 @@ export default function CoursesPage() {
         title="Courses List"
         logoSrc="/logo.png"
         columns={columns}
-        data={pageData.content}
+        data={visibleCourses}
         getRowId={(r) => r.id}
         loading={isPending}
-        emptyMessage={activeSearch ? `No courses matching "${activeSearch}"` : "No courses found"}
+        emptyMessage={
+          activeSearch
+            ? `No courses matching "${activeSearch}"`
+            : categoryId
+              ? "No courses in this category"
+              : "No courses found"
+        }
         action={
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Search Input beside Refresh */}
@@ -536,13 +577,17 @@ export default function CoursesPage() {
           </div>
         }
 
-        pagination={{
-          page,
-          pageSize,
-          totalElements: pageData.totalElements,
-          totalPages: pageData.totalPages,
-          onPageChange: handlePageChange,
-        }}
+        pagination={
+          categoryId
+            ? undefined
+            : {
+                page,
+                pageSize,
+                totalElements: pageData.totalElements,
+                totalPages: pageData.totalPages,
+                onPageChange: handlePageChange,
+              }
+        }
       />
 
       {/* Delete Confirmation Dialog */}
@@ -579,5 +624,13 @@ export default function CoursesPage() {
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+export default function CoursesPage() {
+  return (
+    <Suspense fallback={null}>
+      <CoursesView />
+    </Suspense>
   );
 }
