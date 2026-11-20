@@ -44,12 +44,12 @@ export default function TrainerIpReportPage() {
       endDate: filters.endDate || "",
     });
 
-    if (res.success && res.data) {
-      const parsed = parseCsv<TrainerIpReportRow>(res.data);
+    if (res.success) {
+      const parsed = parseCsv<TrainerIpReportRow>(res.data ?? "");
       setRows(parsed);
       setHasLoaded(true);
       setPage(1);
-      if (showToast) {
+      if (showToast && parsed.length > 0) {
         toastSuccess("Trainer IP report loaded successfully");
       }
     } else {
@@ -207,7 +207,7 @@ export default function TrainerIpReportPage() {
             columns={columns}
             data={pagedRows}
             getRowId={(r, idx) => r._rowId || (r["Assessment Link ID"] ? `${r["Assessment Link ID"]}-${idx}` : `row-${idx}`)}
-            emptyMessage={search ? `No records matching "${search}"` : "No assessment IP records found for the selected criteria."}
+            emptyMessage={rows.length === 0 ? "No records found" : `No records matching "${search}"`}
             headerRight={
               <div className="relative flex items-center">
                 <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -235,4 +235,3 @@ export default function TrainerIpReportPage() {
     </ReportPageLayout>
   );
 }
-
