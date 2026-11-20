@@ -164,7 +164,6 @@ export default function NewTrainerPage() {
         mobileNumber: cleanMobile || undefined,
         profilePic: profilePicUrl || undefined,
         pinCode: cleanPincode,
-        roleIds: ["12"],
       });
 
       if (res.success) {
@@ -346,4 +345,3 @@ export default function NewTrainerPage() {
     </div>
   );
 }
-

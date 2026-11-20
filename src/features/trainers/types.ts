@@ -46,7 +46,6 @@ export interface CreateTrainerPayload {
   profilePic?: string;
   pinCode?: string | null;
   pincode?: string | null;
-  roleIds?: string[];
 }
 
 export interface UpdateTrainerPayload {
@@ -59,4 +58,3 @@ export interface UpdateTrainerPayload {
   pinCode?: string | null;
   pincode?: string | null;
 }
-

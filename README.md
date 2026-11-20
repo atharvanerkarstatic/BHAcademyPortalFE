@@ -35,10 +35,18 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
-
-
-
 ## Feedback
-1. make table cols same as Stetig repo in categories list
-2. remove BP number field in add acc
-3. in trainer IP report, if there is no data then show "No records found"
+
+1. ~~make table cols same as Stetig repo in categories list~~
+
+2. ~~remove BP number field in add acc~~
+
+3. ~~in trainer IP report, if there is no data then show "No records found"~~
+
+4. ~~in add trainer -> createTrainerAction 12 is hardcoded as roleID, fetch from new API instead of using hardcoded value~~
+
+## Dummy Login
+
+email: `testtrainer23@stetig.com`
+
+password: `Realme@9999`

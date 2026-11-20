@@ -7,6 +7,7 @@ import { config } from "@/config/env";
 import { ACCESS_COOKIE } from "@/lib/auth-cookies";
 import { getCurrentUser } from "@/lib/auth-server";
 import { hasPermission } from "@/lib/auth-jwt";
+import type { RolePageResponse } from "@/features/roles/types";
 import type {
   TrainerItem,
   TrainerPageResponse,
@@ -140,6 +141,36 @@ export async function createTrainerAction(payload: CreateTrainerPayload) {
   }
 
   try {
+    const query = new URLSearchParams({
+      page: "0",
+      size: "20",
+      sort: "name,asc",
+      search: "TRAINER",
+    });
+    const rolesRes = await apiFetch<{
+      success: boolean;
+      message: string;
+      data: RolePageResponse;
+    }>(`/v1/roles?${query.toString()}`);
+
+    if (!rolesRes.success) {
+      return {
+        success: false,
+        error: rolesRes.message || "Failed to load the trainer role. Please try again.",
+      };
+    }
+
+    const trainerRole = rolesRes.data?.content?.find(
+      (role) => role.code === "TRAINER" && role.isActive === true
+    );
+
+    if (!trainerRole || trainerRole.id == null) {
+      return {
+        success: false,
+        error: "Trainer role not found. Contact your administrator.",
+      };
+    }
+
     const body = {
       firstName: payload.firstName,
       lastName: payload.lastName,
@@ -148,7 +179,7 @@ export async function createTrainerAction(payload: CreateTrainerPayload) {
       departmentId: payload.departmentId || null,
       mobileNumber: payload.mobileNumber,
       profilePic: payload.profilePic,
-      roleIds: payload.roleIds && payload.roleIds.length > 0 ? payload.roleIds : ["12"],
+      roleIds: [String(trainerRole.id)],
       pinCode: payload.pinCode || payload.pincode || "",
     };
 
@@ -354,4 +385,3 @@ export async function exportTrainersAction() {
     };
   }
 }
-
