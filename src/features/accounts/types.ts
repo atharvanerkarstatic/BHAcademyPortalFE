@@ -38,7 +38,6 @@ export type AccountItem = {
 export type CreateAccountPayload = {
   name: string;
   mobileNumber: string;
-  bhBp?: string;
   emailId?: string;
   image?: string;
   pincode?: string;

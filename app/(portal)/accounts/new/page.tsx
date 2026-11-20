@@ -29,7 +29,6 @@ export default function NewAccountPage() {
   const [formKey, setFormKey] = useState(0);
   const [name, setName] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
-  const [bhBp, setBhBp] = useState("");
   const [emailId, setEmailId] = useState("");
   const [pincode, setPincode] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -42,7 +41,6 @@ export default function NewAccountPage() {
     // Prevent Next.js client caching on mount/revisit
     setName("");
     setMobileNumber("");
-    setBhBp("");
     setEmailId("");
     setPincode("");
     setImageFile(null);
@@ -51,7 +49,6 @@ export default function NewAccountPage() {
     return () => {
       setName("");
       setMobileNumber("");
-      setBhBp("");
       setEmailId("");
       setPincode("");
       setImageFile(null);
@@ -61,7 +58,6 @@ export default function NewAccountPage() {
   const handleReset = () => {
     setName("");
     setMobileNumber("");
-    setBhBp("");
     setEmailId("");
     setPincode("");
     setImageFile(null);
@@ -117,12 +113,6 @@ export default function NewAccountPage() {
       return;
     }
 
-    const cleanBhBp = sanitizeTextInput(bhBp, 50);
-    if (!cleanBhBp) {
-      toastError("BP Number is required.");
-      return;
-    }
-
     const cleanPincode = sanitizeTextInput(pincode, 6);
     if (!cleanPincode) {
       toastError("Pincode is required.");
@@ -156,7 +146,6 @@ export default function NewAccountPage() {
       const payload: Record<string, unknown> = {
         name: cleanName,
         mobileNumber: cleanMobile,
-        bhBp: cleanBhBp,
         emailId: cleanEmail,
         image: imageUrl,
         pincode: cleanPincode,
@@ -243,24 +232,6 @@ export default function NewAccountPage() {
                   value={mobileNumber}
                   onChange={(e) => setMobileNumber(sanitizeMobileNumber(e.target.value))}
                   placeholder="10-digit mobile number"
-                  className="h-9 text-xs font-mono"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* BP Number */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label htmlFor="acc-bp" className="text-xs font-semibold text-slate-700 sm:text-right">
-                BP Number <span className="text-rose-500">*</span>
-              </Label>
-              <div className="sm:col-span-3">
-                <Input
-                  id="acc-bp"
-                  value={bhBp}
-                  onChange={(e) => setBhBp(e.target.value)}
-                  placeholder="e.g. 12345678"
-                  maxLength={50}
                   className="h-9 text-xs font-mono"
                   required
                 />
