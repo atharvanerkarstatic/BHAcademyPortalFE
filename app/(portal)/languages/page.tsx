@@ -1,31 +1,30 @@
 "use client";
 
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
-import Link from "next/link";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { Plus, RefreshCw, Pencil, Trash2, Search } from "lucide-react";
+import Link from "next/link";
+import { useState, useMemo } from "react";
 
-import { DataTable } from '@/components/common/data-table';
-import type { Column } from '@/components/common/data-table';
+import { ConfirmDeleteDialog } from "@/components/common/confirm-delete-dialog";
+import { DataTable } from "@/components/common/data-table";
+import type { Column } from "@/components/common/data-table";
 import { PageHeader } from "@/components/common/page-header";
 import { StatusText } from "@/components/common/status-text";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/toast";
+import { deleteLanguageAction } from "@/features/languages/action";
+import type {
+  LanguageItem,
+  LanguagePageResponse,
+} from "@/features/languages/types";
 import { portalGet } from "@/lib/portal-client";
 import { queryKeys } from "@/lib/query-keys";
-import { deleteLanguageAction } from "@/features/languages/action";
-import type { LanguageItem, LanguagePageResponse } from "@/features/languages/types";
 
 const PAGE_SIZE = 10;
 
@@ -48,26 +47,39 @@ export default function LanguagesPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = PAGE_SIZE;
-  const [languageToDelete, setLanguageToDelete] = useState<LanguageItem | null>(null);
+  const [languageToDelete, setLanguageToDelete] = useState<LanguageItem | null>(
+    null
+  );
 
-  const { data: pageData = EMPTY_PAGE, isLoading, refetch } = useQuery({
+  const {
+    data: pageData = EMPTY_PAGE,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: queryKeys.languages.list({ page, size: pageSize }),
     queryFn: ({ signal }) =>
-      portalGet<LanguagePageResponse>("languages", { page, size: pageSize }, signal),
+      portalGet<LanguagePageResponse>(
+        "languages",
+        { page, size: pageSize },
+        signal
+      ),
     placeholderData: keepPreviousData,
   });
 
   const isPending = isLoading;
 
+  const refreshLanguages = async (showSuccessToast: boolean) => {
+    const result = await refetch();
+    if (result.error) {
+      toastError(result.error.message || "Failed to load languages");
+    } else if (showSuccessToast) {
+      success("Languages refreshed successfully");
+    }
+  };
+
   const loadLanguages = (targetPage = page, showSuccessToast = false) => {
     setPage(targetPage);
-    void refetch().then((result) => {
-      if (result.error) {
-        toastError(result.error.message || "Failed to load languages");
-      } else if (showSuccessToast) {
-        success("Languages refreshed successfully");
-      }
-    });
+    void refreshLanguages(showSuccessToast);
   };
 
   const handlePageChange = (newPage: number) => {
@@ -107,22 +119,29 @@ export default function LanguagesPage() {
 
   // Live client-side search filtering on current fetched items (same as FAQ page)
   const filteredData = useMemo(() => {
-    if (!search.trim()) {return pageData.content;}
+    if (!search.trim()) {
+      return pageData.content;
+    }
     const query = search.toLowerCase();
     return pageData.content.filter(
       (item) =>
         (item.language && item.language.toLowerCase().includes(query)) ||
-        (item.languageCode && item.languageCode.toLowerCase().includes(query)) ||
+        (item.languageCode &&
+          item.languageCode.toLowerCase().includes(query)) ||
         (item.nativeName && item.nativeName.toLowerCase().includes(query)) ||
-        String(item.languageId).includes(query)
+        item.languageId.includes(query)
     );
   }, [pageData.content, search]);
 
-  const columns: Array<Column<LanguageItem>> = useMemo(() => {
-    return [
+  const columns: Array<Column<LanguageItem>> = useMemo(
+    () => [
       {
         header: "Language ID",
-        cell: (r) => <span className="font-mono text-xs font-semibold text-slate-700">{r.languageId}</span>,
+        cell: (r) => (
+          <span className="font-mono text-xs font-semibold text-slate-700">
+            {r.languageId}
+          </span>
+        ),
         className: "w-28",
       },
       {
@@ -130,7 +149,9 @@ export default function LanguagesPage() {
         cell: (r) => (
           <div>
             <p className="font-medium text-slate-900">{r.language}</p>
-            {r.nativeName && <span className="text-xs text-slate-500">{r.nativeName}</span>}
+            {r.nativeName && (
+              <span className="text-xs text-slate-500">{r.nativeName}</span>
+            )}
           </div>
         ),
       },
@@ -166,7 +187,7 @@ export default function LanguagesPage() {
       {
         header: "Actions",
         cell: (r) => (
-          <div className="flex items-center gap-1.5 justify-end">
+          <div className="flex items-center justify-end gap-1.5">
             <Button
               asChild
               variant="ghost"
@@ -183,7 +204,9 @@ export default function LanguagesPage() {
               type="button"
               variant="ghost"
               size="icon-sm"
-              onClick={() => setLanguageToDelete(r)}
+              onClick={() => {
+                setLanguageToDelete(r);
+              }}
               className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
               title="Delete Language"
             >
@@ -193,14 +216,18 @@ export default function LanguagesPage() {
         ),
         className: "w-24 text-right",
       },
-    ];
-  }, []);
+    ],
+    []
+  );
 
   return (
     <>
       <PageHeader
         title="Manage Languages"
-        breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Languages" }]}
+        breadcrumbs={[
+          { label: "Dashboard", href: "/dashboard" },
+          { label: "Languages" },
+        ]}
       />
 
       <DataTable
@@ -215,11 +242,13 @@ export default function LanguagesPage() {
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Search Input beside Refresh (same as FAQ page) */}
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <Input
                 placeholder="Search languages..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                }}
                 className="h-8 w-44 pl-8 text-xs sm:w-56"
               />
             </div>
@@ -235,12 +264,18 @@ export default function LanguagesPage() {
               disabled={isPending}
               className="gap-1.5 text-slate-600"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`}
+              />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
 
             {/* Add Language button */}
-            <Button asChild size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white">
+            <Button
+              asChild
+              size="sm"
+              className="gap-1.5 bg-blue-600 text-white hover:bg-blue-700"
+            >
               <Link href="/languages/new">
                 <Plus className="h-4 w-4" />
                 Add Language
@@ -258,38 +293,32 @@ export default function LanguagesPage() {
       />
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog
+      <ConfirmDeleteDialog
         open={Boolean(languageToDelete)}
-        onOpenChange={(open) => !open && setLanguageToDelete(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Language?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this language ({languageToDelete?.languageId})?
-              <br />
-              <strong className="text-slate-800 line-clamp-2 mt-2">
-                {languageToDelete?.language} {languageToDelete?.nativeName ? `(${languageToDelete.nativeName})` : ""}
-              </strong>
-              <br />
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={isDeleting}
-              onClick={(e) => {
-                e.preventDefault();
-                confirmDelete();
-              }}
-              className="bg-red-600 text-white hover:bg-red-700"
-            >
-              {isDeleting ? "Deleting…" : "Yes, Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onOpenChange={(open) => {
+          if (!open) {
+            setLanguageToDelete(null);
+          }
+        }}
+        title="Delete Language?"
+        description={
+          <>
+            Are you sure you want to delete this language (
+            {languageToDelete?.languageId})?
+            <br />
+            <strong className="mt-2 line-clamp-2 text-slate-800">
+              {languageToDelete?.language}{" "}
+              {languageToDelete?.nativeName
+                ? `(${languageToDelete.nativeName})`
+                : ""}
+            </strong>
+            <br />
+            This action cannot be undone.
+          </>
+        }
+        onConfirm={confirmDelete}
+        isDeleting={isDeleting}
+      />
     </>
   );
 }

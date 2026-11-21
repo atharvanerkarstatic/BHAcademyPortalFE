@@ -28,7 +28,7 @@ export interface AdminUserItem {
   firstName: string;
   lastName?: string;
   departmentId?: string | null;
-  status: "ACTIVE" | "SUSPENDED" | "INACTIVE" | string;
+  status: string;
   isLocked?: boolean;
   isEmailVerified?: boolean;
   mobileNumber?: string | null;
@@ -90,4 +90,3 @@ export interface UpdateAdminUserPayload {
   pinCode?: string | null;
   pincode?: string | null;
 }
-

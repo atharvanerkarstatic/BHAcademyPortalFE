@@ -1,10 +1,10 @@
-export type FaqItem = {
+export interface FaqItem {
   id: number;
   language: string;
   question: string;
   answer: string;
   displayOrder: number;
-  status: "ACTIVE" | "INACTIVE" | string;
+  status: string;
   translatedLanguages?: number;
   createdAt?: string;
   updatedAt?: string;
@@ -28,9 +28,9 @@ export type FaqItem = {
   answerAs?: string;
   answerGu?: string;
   answerMr?: string;
-};
+}
 
-export type FaqPageResponse = {
+export interface FaqPageResponse {
   content: Array<FaqItem>;
   page: number;
   size: number;
@@ -40,18 +40,18 @@ export type FaqPageResponse = {
   last: boolean;
   hasNext: boolean;
   hasPrevious: boolean;
-};
+}
 
-export type ApiResponse<T> = {
+export interface ApiResponse<T> {
   success: boolean;
   status: number;
   message: string;
   data: T;
   path?: string;
   timestamp?: string;
-};
+}
 
-export type CreateFaqPayload = {
+export interface CreateFaqPayload {
   question: string;
   answer: string;
   displayOrder: number;
@@ -76,6 +76,6 @@ export type CreateFaqPayload = {
   answerAs?: string;
   answerGu?: string;
   answerMr?: string;
-};
+}
 
 export type UpdateFaqPayload = CreateFaqPayload;

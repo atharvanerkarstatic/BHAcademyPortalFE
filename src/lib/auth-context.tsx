@@ -1,19 +1,27 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
+import { usePathname } from "next/navigation";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import type { ReactNode } from "react";
 
 import type { UserProfile } from "@/features/profile/action";
 import { AUTH_PERMS_COOKIE, AUTH_UPDATED_COOKIE } from "@/lib/auth-cookies";
-import { hasPermission } from '@/lib/auth-jwt';
-import type { AuthUser } from '@/lib/auth-jwt';
+import { hasPermission } from "@/lib/auth-jwt";
+import type { AuthUser } from "@/lib/auth-jwt";
 import { portalGet } from "@/lib/portal-client";
 import { queryKeys } from "@/lib/query-keys";
-import { getStringProp, isRecord } from "@/lib/type-guards";
+import { asString, isRecord } from "@/lib/type-guards";
 import { useToastStore } from "@/stores/toast-store";
 
-type AuthContextType = {
+interface AuthContextType {
   user: AuthUser | null;
   profile: UserProfile | null;
   permissions: Array<string>;
@@ -23,7 +31,7 @@ type AuthContextType = {
   isSuperAdmin: boolean;
   refreshProfile: () => Promise<void>;
   syncAuthFromCookies: () => void;
-};
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -47,13 +55,14 @@ function readUserFromCookie(): AuthUser | null {
       return null;
     }
 
-    const authList = Array.isArray(parsed.auth)
-      ? parsed.auth.filter((item): item is string => typeof item === "string")
-      : [];
+    const authList =
+      "auth" in parsed && Array.isArray(parsed.auth)
+        ? parsed.auth.filter((item): item is string => typeof item === "string")
+        : [];
 
     return {
-      id: getStringProp(parsed, "id"),
-      email: getStringProp(parsed, "email") ?? "",
+      id: "id" in parsed ? asString(parsed.id) : undefined,
+      email: ("email" in parsed ? asString(parsed.email) : undefined) ?? "",
       permissions: authList.filter((item) => !item.startsWith("ROLE_")),
       roles: authList.filter((item) => item.startsWith("ROLE_")),
     };
@@ -70,11 +79,15 @@ export function AuthProvider({
   initialUser?: AuthUser | null;
 }) {
   const queryClient = useQueryClient();
-  const [user, setUser] = useState<AuthUser | null>(() => initialUser ?? readUserFromCookie());
+  const pathname = usePathname();
+  const [user, setUser] = useState<AuthUser | null>(
+    () => initialUser ?? readUserFromCookie()
+  );
 
   const { data: profile = null } = useQuery({
     queryKey: queryKeys.profile,
-    queryFn: ({ signal }) => portalGet<UserProfile>("profile", undefined, signal),
+    queryFn: ({ signal }) =>
+      portalGet<UserProfile>("profile", undefined, signal),
     enabled: Boolean(user?.id),
     staleTime: 5 * 60_000,
     retry: 1,
@@ -88,8 +101,12 @@ export function AuthProvider({
     }
 
     setUser((prev) => {
-      const prevPerms = prev ? [...prev.roles, ...prev.permissions].sort().join(",") : "";
-      const freshPerms = [...freshUser.roles, ...freshUser.permissions].sort().join(",");
+      const prevPerms = prev
+        ? [...prev.roles, ...prev.permissions].toSorted().join(",")
+        : "";
+      const freshPerms = [...freshUser.roles, ...freshUser.permissions]
+        .toSorted()
+        .join(",");
       if (
         prev?.id === freshUser.id &&
         prev?.email === freshUser.email &&
@@ -105,44 +122,62 @@ export function AuthProvider({
     await queryClient.invalidateQueries({ queryKey: queryKeys.profile });
   }, [queryClient]);
 
-  // Check for auth_updated cookie to display "Your access has been updated." toast
-  useEffect(() => {
+  const syncAndNotify = useCallback(() => {
     if (typeof document === "undefined") {
       return;
     }
 
-    const checkUpdatedFlag = () => {
-      const match = document.cookie
-        .split("; ")
-        .find((row) => row.startsWith(`${AUTH_UPDATED_COOKIE}=`));
+    const hasUpdatedFlag = document.cookie
+      .split("; ")
+      .some((row) => row.startsWith(`${AUTH_UPDATED_COOKIE}=`));
 
-      if (match) {
-        document.cookie = `${AUTH_UPDATED_COOKIE}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-        syncAuthFromCookies();
-        useToastStore.getState().info("Your access has been updated.");
+    if (hasUpdatedFlag) {
+      document.cookie = `${AUTH_UPDATED_COOKIE}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+    }
+
+    syncAuthFromCookies();
+
+    if (hasUpdatedFlag) {
+      useToastStore.getState().info("Your access has been updated.");
+    }
+  }, [syncAuthFromCookies]);
+
+  // Sync auth state and check auth_updated cookie on route navigation
+  useEffect(() => {
+    let cancelled = false;
+    if (pathname) {
+      queueMicrotask(() => {
+        if (!cancelled) {
+          syncAndNotify();
+        }
+      });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, syncAndNotify]);
+
+  // Sync auth state and check auth_updated cookie on window focus and tab visibility
+  useEffect(() => {
+    const handleFocus = () => {
+      syncAndNotify();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        syncAndNotify();
       }
     };
 
-    const interval = setInterval(checkUpdatedFlag, 1000);
-    return () => clearInterval(interval);
-  }, [syncAuthFromCookies]);
-
-  // Sync on window focus, visibility change, and periodically
-  useEffect(() => {
-    const handleSync = () => {
-      syncAuthFromCookies();
-    };
-
-    window.addEventListener("focus", handleSync);
-    document.addEventListener("visibilitychange", handleSync);
-    const interval = setInterval(syncAuthFromCookies, 5000);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.removeEventListener("focus", handleSync);
-      document.removeEventListener("visibilitychange", handleSync);
-      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [syncAuthFromCookies]);
+  }, [syncAndNotify]);
 
   const allAuth = useMemo(() => {
     if (!user) {
@@ -152,12 +187,14 @@ export function AuthProvider({
   }, [user]);
 
   const isSuperAdmin = useMemo(
-    () => allAuth.includes("system.all") || allAuth.includes("ROLE_ADMINISTRATOR"),
+    () =>
+      allAuth.includes("system.all") || allAuth.includes("ROLE_ADMINISTRATOR"),
     [allAuth]
   );
 
   const can = useCallback(
-    (permissionOrRole: string | Array<string>) => hasPermission(allAuth, permissionOrRole),
+    (permissionOrRole: string | Array<string>) =>
+      hasPermission(allAuth, permissionOrRole),
     [allAuth]
   );
 
@@ -183,7 +220,15 @@ export function AuthProvider({
       refreshProfile,
       syncAuthFromCookies,
     }),
-    [user, profile, can, hasRole, isSuperAdmin, refreshProfile, syncAuthFromCookies]
+    [
+      user,
+      profile,
+      can,
+      hasRole,
+      isSuperAdmin,
+      refreshProfile,
+      syncAuthFromCookies,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -211,7 +256,7 @@ export function Can({
 }) {
   const { can } = useAuth();
   if (can(perform)) {
-    return <>{children}</>;
+    return children;
   }
-  return <>{fallback}</>;
+  return fallback;
 }

@@ -1,10 +1,12 @@
 "use server";
 
 import { ENDPOINTS } from "@/config/endpoints";
-import { apiFetch, ApiError } from "@/lib/api";
-import { getCurrentUser } from "@/lib/auth-server";
-import { hasPermission } from "@/lib/auth-jwt";
 import { refreshUserSessionAction } from "@/features/auth/action";
+import { apiFetch } from "@/lib/api";
+import type { ActionRequestOptions } from "@/lib/api";
+import { requirePermission } from "@/lib/auth-server";
+import { tryCatch } from "@/lib/try-catch";
+
 import type {
   CreateRolePayload,
   RoleDetailResponse,
@@ -16,163 +18,161 @@ import type {
   UpdateRolePermissionsPayload,
 } from "./types";
 
-export async function getRolesAction(params: {
-  page?: number;
-  size?: number;
-  search?: string;
-  sort?: string;
-}): Promise<{
+export async function getRolesAction(
+  params: {
+    page?: number;
+    size?: number;
+    search?: string;
+    sort?: string;
+  },
+  options?: ActionRequestOptions
+): Promise<{
   success: boolean;
   status: number;
   message?: string;
   data?: RolePageResponse;
   error?: string;
 }> {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (
-    !hasPermission(userPerms, "roles.read") &&
-    !hasPermission(userPerms, "system.all")
-  ) {
+  const auth = await requirePermission(
+    ["roles.read", "system.all"],
+    "You do not have permission to view roles."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      status: 403,
-      error: "You do not have permission to view roles.",
+      status: auth.status,
+      error: auth.error,
     };
   }
 
-  try {
-    const page = params.page ? Math.max(0, params.page - 1) : 0;
-    const size = params.size || 10;
-    const sort = params.sort || "name,asc";
+  const page = params.page ? Math.max(0, params.page - 1) : 0;
+  const size = params.size || 10;
+  const sort = params.sort || "name,asc";
 
-    const queryParams = new URLSearchParams();
-    queryParams.set("page", String(page));
-    queryParams.set("size", String(size));
-    queryParams.set("sort", sort);
-    queryParams.set("search", params.search ? params.search.trim() : "");
+  const queryParams = new URLSearchParams();
+  queryParams.set("page", String(page));
+  queryParams.set("size", String(size));
+  queryParams.set("sort", sort);
+  queryParams.set("search", params.search ? params.search.trim() : "");
 
-    const res = await apiFetch<{
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
       data: RolePageResponse;
     }>(`${ENDPOINTS.roles.list}?${queryParams.toString()}`, {
       method: "GET",
-    });
+      signal: options?.signal,
+    }),
+    "Failed to fetch roles"
+  );
 
-    return {
-      success: res.success ?? true,
-      status: res.status ?? 200,
-      message: res.message,
-      data: res.data,
-    };
-  } catch (error: unknown) {
-    console.error("getRolesAction error:", error);
-    if (error instanceof ApiError) {
-      return {
-        success: false,
-        status: error.status,
-        error: error.message,
-      };
-    }
+  if (!res.ok) {
+    console.error("getRolesAction error:", res.error.cause);
     return {
       success: false,
-      status: 500,
-      error: error instanceof Error ? error.message : "Failed to fetch roles",
+      status: res.error.status,
+      error: res.error.message,
     };
   }
+
+  return {
+    success: res.data.success ?? true,
+    status: res.data.status ?? 200,
+    message: res.data.message,
+    data: res.data.data,
+  };
 }
 
-export async function getRolePermissionsAction(roleId: number | string): Promise<{
+export async function getRolePermissionsAction(
+  roleId: number | string,
+  options?: ActionRequestOptions
+): Promise<{
   success: boolean;
   status: number;
   message?: string;
   data?: RolePermissionsData;
   error?: string;
 }> {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (
-    !hasPermission(userPerms, "roles.read") &&
-    !hasPermission(userPerms, "roles.permissions.manage") &&
-    !hasPermission(userPerms, "system.all")
-  ) {
+  const auth = await requirePermission(
+    ["roles.read", "roles.permissions.manage", "system.all"],
+    "You do not have permission to view role permissions."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      status: 403,
-      error: "You do not have permission to view role permissions.",
+      status: auth.status,
+      error: auth.error,
     };
   }
 
-  try {
-    const res = await apiFetch<RolePermissionsResponse>(
-      ENDPOINTS.roles.permissions(roleId),
-      {
-        method: "GET",
-      }
-    );
+  const res = await tryCatch(
+    apiFetch<RolePermissionsResponse>(ENDPOINTS.roles.permissions(roleId), {
+      method: "GET",
+      signal: options?.signal,
+    }),
+    "Failed to fetch role permissions"
+  );
 
-    return {
-      success: res.success ?? true,
-      status: res.status ?? 200,
-      message: res.message,
-      data: res.data,
-    };
-  } catch (error: unknown) {
-    console.error("getRolePermissionsAction error:", error);
-    if (error instanceof ApiError) {
-      return {
-        success: false,
-        status: error.status,
-        error: error.message,
-      };
-    }
+  if (!res.ok) {
+    console.error("getRolePermissionsAction error:", res.error.cause);
     return {
       success: false,
-      status: 500,
-      error: error instanceof Error ? error.message : "Failed to fetch role permissions",
+      status: res.error.status,
+      error: res.error.message,
     };
   }
+
+  return {
+    success: res.data.success ?? true,
+    status: res.data.status ?? 200,
+    message: res.data.message,
+    data: res.data.data,
+  };
 }
 
-export async function getRoleByIdAction(roleId: number | string): Promise<{
+export async function getRoleByIdAction(
+  roleId: number | string,
+  options?: ActionRequestOptions
+): Promise<{
   success: boolean;
   status: number;
   message?: string;
   data?: RoleItem;
   error?: string;
 }> {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (
-    !hasPermission(userPerms, "roles.read") &&
-    !hasPermission(userPerms, "roles.update") &&
-    !hasPermission(userPerms, "system.all")
-  ) {
+  const auth = await requirePermission(
+    ["roles.read", "roles.update", "system.all"],
+    "You do not have permission to view this role."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      status: 403,
-      error: "You do not have permission to view this role.",
+      status: auth.status,
+      error: auth.error,
     };
   }
 
   // Attempt 1: Fetch from roles list (GET /v1/roles?page=0&size=100&sort=name,asc&search=)
   // This endpoint returns full role details including description, code, isActive, isSystemRole
-  try {
-    const listRes = await apiFetch<{
+  const listRes = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
       data: RolePageResponse;
     }>(`${ENDPOINTS.roles.list}?page=0&size=100&sort=name,asc&search=`, {
       method: "GET",
-    });
+      signal: options?.signal,
+    }),
+    "Failed to fetch roles"
+  );
 
-    const found = listRes.data?.content?.find((r) => String(r.id) === String(roleId));
+  if (listRes.ok) {
+    const found = listRes.data.data?.content?.find(
+      (r) => String(r.id) === String(roleId)
+    );
     if (found) {
       return {
         success: true,
@@ -180,53 +180,76 @@ export async function getRoleByIdAction(roleId: number | string): Promise<{
         data: found,
       };
     }
-  } catch (error) {
-    console.warn(`GET /v1/roles lookup for role ${roleId} failed:`, error);
+  } else {
+    console.warn(
+      `GET /v1/roles lookup for role ${roleId} failed:`,
+      listRes.error.cause
+    );
+  }
+
+  if (options?.signal?.aborted) {
+    return {
+      success: false,
+      status: 499,
+      error: "Request aborted",
+    };
   }
 
   // Attempt 2: Direct GET /v1/roles/:id (if supported in some environments)
-  try {
-    const res = await apiFetch<RoleDetailResponse>(
-      ENDPOINTS.roles.byId(roleId),
-      {
-        method: "GET",
-      }
-    );
+  const detailRes = await tryCatch(
+    apiFetch<RoleDetailResponse>(ENDPOINTS.roles.byId(roleId), {
+      method: "GET",
+      signal: options?.signal,
+    }),
+    "Failed to fetch role"
+  );
 
-    if (res?.data) {
+  if (detailRes.ok) {
+    if (detailRes.data?.data) {
       return {
-        success: res.success ?? true,
-        status: res.status ?? 200,
-        message: res.message,
-        data: res.data,
+        success: detailRes.data.success ?? true,
+        status: detailRes.data.status ?? 200,
+        message: detailRes.data.message,
+        data: detailRes.data.data,
       };
     }
-  } catch (error: unknown) {
+  } else {
     const isMethodNotAllowed =
-      (error instanceof ApiError && (error.status === 405 || error.message?.toLowerCase().includes("not supported"))) ||
-      (error instanceof Error && error.message?.toLowerCase().includes("not supported"));
+      (detailRes.error.isApiError &&
+        (detailRes.error.status === 405 ||
+          detailRes.error.message.toLowerCase().includes("not supported"))) ||
+      detailRes.error.message.toLowerCase().includes("not supported");
 
     if (!isMethodNotAllowed) {
-      console.warn(`GET /v1/roles/${roleId} failed:`, error);
+      console.warn(`GET /v1/roles/${roleId} failed:`, detailRes.error.cause);
     }
   }
 
-  // Attempt 3: Fallback to role permissions endpoint GET /v1/permissions/roles/:roleId which has roleName, roleCode
-  try {
-    const permRes = await apiFetch<RolePermissionsResponse>(
-      ENDPOINTS.roles.permissions(roleId),
-      {
-        method: "GET",
-      }
-    );
+  if (options?.signal?.aborted) {
+    return {
+      success: false,
+      status: 499,
+      error: "Request aborted",
+    };
+  }
 
-    if (permRes?.data) {
-      const pData = permRes.data;
+  // Attempt 3: Fallback to role permissions endpoint GET /v1/permissions/roles/:roleId which has roleName, roleCode
+  const permRes = await tryCatch(
+    apiFetch<RolePermissionsResponse>(ENDPOINTS.roles.permissions(roleId), {
+      method: "GET",
+      signal: options?.signal,
+    }),
+    "Failed to fetch role permissions"
+  );
+
+  if (permRes.ok) {
+    if (permRes.data?.data) {
+      const pData = permRes.data.data;
       return {
         success: true,
         status: 200,
         data: {
-          id: Number(pData.roleId) || Number(roleId),
+          id: pData.roleId || Number(roleId),
           name: pData.roleName || "",
           code: pData.roleCode || "",
           description: null,
@@ -235,8 +258,11 @@ export async function getRoleByIdAction(roleId: number | string): Promise<{
         },
       };
     }
-  } catch (error) {
-    console.warn(`Fallback GET /v1/permissions/roles/${roleId} failed:`, error);
+  } else {
+    console.warn(
+      `Fallback GET /v1/permissions/roles/${roleId} failed:`,
+      permRes.error.cause
+    );
   }
 
   return {
@@ -253,51 +279,45 @@ export async function createRoleAction(payload: CreateRolePayload): Promise<{
   data?: RoleItem;
   error?: string;
 }> {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (
-    !hasPermission(userPerms, "roles.create") &&
-    !hasPermission(userPerms, "system.all")
-  ) {
+  const auth = await requirePermission(
+    ["roles.create", "system.all"],
+    "You do not have permission to create roles."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      status: 403,
-      error: "You do not have permission to create roles.",
+      status: auth.status,
+      error: auth.error,
     };
   }
 
-  try {
-    const res = await apiFetch<RoleDetailResponse>(ENDPOINTS.roles.list, {
+  const res = await tryCatch(
+    apiFetch<RoleDetailResponse>(ENDPOINTS.roles.list, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
       body: JSON.stringify(payload),
-    });
+    }),
+    "Failed to create role"
+  );
 
-    return {
-      success: res.success ?? true,
-      status: res.status ?? 201,
-      message: res.message || "Role created successfully",
-      data: res.data,
-    };
-  } catch (error: unknown) {
-    console.error("createRoleAction error:", error);
-    if (error instanceof ApiError) {
-      return {
-        success: false,
-        status: error.status,
-        error: error.message,
-      };
-    }
+  if (!res.ok) {
+    console.error("createRoleAction error:", res.error.cause);
     return {
       success: false,
-      status: 500,
-      error: error instanceof Error ? error.message : "Failed to create role",
+      status: res.error.status,
+      error: res.error.message,
     };
   }
+
+  return {
+    success: res.data.success ?? true,
+    status: res.data.status ?? 201,
+    message: res.data.message || "Role created successfully",
+    data: res.data.data,
+  };
 }
 
 export async function updateRoleAction(
@@ -310,61 +330,54 @@ export async function updateRoleAction(
   data?: RoleItem;
   error?: string;
 }> {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (
-    !hasPermission(userPerms, "roles.update") &&
-    !hasPermission(userPerms, "system.all")
-  ) {
+  const auth = await requirePermission(
+    ["roles.update", "system.all"],
+    "You do not have permission to update roles."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      status: 403,
-      error: "You do not have permission to update roles.",
+      status: auth.status,
+      error: auth.error,
     };
   }
 
-  try {
-    const res = await apiFetch<RoleDetailResponse>(
-      ENDPOINTS.roles.byId(roleId),
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(payload),
-      }
+  const res = await tryCatch(
+    apiFetch<RoleDetailResponse>(ENDPOINTS.roles.byId(roleId), {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(payload),
+    }),
+    "Failed to update role"
+  );
+
+  if (!res.ok) {
+    console.error("updateRoleAction error:", res.error.cause);
+    return {
+      success: false,
+      status: res.error.status,
+      error: res.error.message,
+    };
+  }
+
+  // Refresh current user session tokens in case active role/permissions were affected
+  const refreshRes = await tryCatch(refreshUserSessionAction());
+  if (!refreshRes.ok) {
+    console.warn(
+      "Session auto-refresh after role update:",
+      refreshRes.error.cause
     );
-
-    // Refresh current user session tokens in case active role/permissions were affected
-    try {
-      await refreshUserSessionAction();
-    } catch (error) {
-      console.warn("Session auto-refresh after role update:", error);
-    }
-
-    return {
-      success: res.success ?? true,
-      status: res.status ?? 200,
-      message: res.message || "Role updated successfully",
-      data: res.data,
-    };
-  } catch (error: unknown) {
-    console.error("updateRoleAction error:", error);
-    if (error instanceof ApiError) {
-      return {
-        success: false,
-        status: error.status,
-        error: error.message,
-      };
-    }
-    return {
-      success: false,
-      status: 500,
-      error: error instanceof Error ? error.message : "Failed to update role",
-    };
   }
+
+  return {
+    success: res.data.success ?? true,
+    status: res.data.status ?? 200,
+    message: res.data.message || "Role updated successfully",
+    data: res.data.data,
+  };
 }
 
 export async function deleteRoleAction(roleId: number | string): Promise<{
@@ -373,49 +386,43 @@ export async function deleteRoleAction(roleId: number | string): Promise<{
   message?: string;
   error?: string;
 }> {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (
-    !hasPermission(userPerms, "roles.delete") &&
-    !hasPermission(userPerms, "system.all")
-  ) {
+  const auth = await requirePermission(
+    ["roles.delete", "system.all"],
+    "You do not have permission to delete roles."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      status: 403,
-      error: "You do not have permission to delete roles.",
+      status: auth.status,
+      error: auth.error,
     };
   }
 
-  try {
-    const res = await apiFetch<{
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message?: string;
     }>(ENDPOINTS.roles.byId(roleId), {
       method: "DELETE",
-    });
+    }),
+    "Failed to delete role"
+  );
 
-    return {
-      success: res?.success ?? true,
-      status: res?.status ?? 200,
-      message: res?.message || "Role deleted successfully",
-    };
-  } catch (error: unknown) {
-    console.error("deleteRoleAction error:", error);
-    if (error instanceof ApiError) {
-      return {
-        success: false,
-        status: error.status,
-        error: error.message,
-      };
-    }
+  if (!res.ok) {
+    console.error("deleteRoleAction error:", res.error.cause);
     return {
       success: false,
-      status: 500,
-      error: error instanceof Error ? error.message : "Failed to delete role",
+      status: res.error.status,
+      error: res.error.message,
     };
   }
+
+  return {
+    success: res.data?.success ?? true,
+    status: res.data?.status ?? 200,
+    message: res.data?.message || "Role deleted successfully",
+  };
 }
 
 export async function updateRolePermissionsAction(
@@ -428,62 +435,52 @@ export async function updateRolePermissionsAction(
   data?: RolePermissionsData;
   error?: string;
 }> {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (
-    !hasPermission(userPerms, "roles.permissions.manage") &&
-    !hasPermission(userPerms, "roles.update") &&
-    !hasPermission(userPerms, "system.all")
-  ) {
+  const auth = await requirePermission(
+    ["roles.permissions.manage", "roles.update", "system.all"],
+    "You do not have permission to manage role permissions."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      status: 403,
-      error: "You do not have permission to manage role permissions.",
+      status: auth.status,
+      error: auth.error,
     };
   }
 
-  try {
-    const res = await apiFetch<RolePermissionsResponse>(
-      ENDPOINTS.roles.permissions(roleId),
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(payload),
-      }
+  const res = await tryCatch(
+    apiFetch<RolePermissionsResponse>(ENDPOINTS.roles.permissions(roleId), {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(payload),
+    }),
+    "Failed to update role permissions"
+  );
+
+  if (!res.ok) {
+    console.error("updateRolePermissionsAction error:", res.error.cause);
+    return {
+      success: false,
+      status: res.error.status,
+      error: res.error.message,
+    };
+  }
+
+  // Refresh current user session tokens to immediately decode updated auth array
+  const refreshRes = await tryCatch(refreshUserSessionAction());
+  if (!refreshRes.ok) {
+    console.warn(
+      "Session auto-refresh after role permissions update:",
+      refreshRes.error.cause
     );
-
-    // Refresh current user session tokens to immediately decode updated auth array
-    try {
-      await refreshUserSessionAction();
-    } catch (error) {
-      console.warn("Session auto-refresh after role permissions update:", error);
-    }
-
-    return {
-      success: res.success ?? true,
-      status: res.status ?? 200,
-      message: res.message,
-      data: res.data,
-    };
-  } catch (error: unknown) {
-    console.error("updateRolePermissionsAction error:", error);
-    if (error instanceof ApiError) {
-      return {
-        success: false,
-        status: error.status,
-        error: error.message,
-      };
-    }
-    return {
-      success: false,
-      status: 500,
-      error: error instanceof Error ? error.message : "Failed to update role permissions",
-    };
   }
+
+  return {
+    success: res.data.success ?? true,
+    status: res.data.status ?? 200,
+    message: res.data.message,
+    data: res.data.data,
+  };
 }
-
-

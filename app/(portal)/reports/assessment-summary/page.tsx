@@ -1,13 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { ReportPageLayout } from '@/features/reports/components/report-page-layout';
-import type { ReportFilterState } from '@/features/reports/components/report-page-layout';
+
+import { useToast } from "@/components/ui/toast";
 import { getAssessmentSummaryDashboardAction } from "@/features/dashboard/action";
 import type { AssessmentSummaryData } from "@/features/dashboard/types";
-import { CollapsibleChartCard, DonutPieChart, GroupedBarChart } from '@/features/reports/components/dashboard-charts';
-import type { ChartDataPoint } from '@/features/reports/components/dashboard-charts';
-import { useToast } from "@/components/ui/toast";
+import {
+  CollapsibleChartCard,
+  DonutPieChart,
+  GroupedBarChart,
+} from "@/features/reports/components/dashboard-charts";
+import type { ChartDataPoint } from "@/features/reports/components/dashboard-charts";
+import { ReportPageLayout } from "@/features/reports/components/report-page-layout";
+import type { ReportFilterState } from "@/features/reports/components/report-page-layout";
 
 export default function AssessmentSummaryReportPage() {
   const { error: toastError, success: toastSuccess } = useToast();
@@ -17,7 +22,17 @@ export default function AssessmentSummaryReportPage() {
     total: 0,
   });
 
-  const fetchDashboardData = async (filters: ReportFilterState, showToast = false) => {
+  const [currentMonthName, setCurrentMonthName] = useState(() =>
+    new Date().toLocaleString("en-US", { month: "long", year: "numeric" })
+  );
+
+  const fetchDashboardData = async (
+    filters: ReportFilterState,
+    showToast = false
+  ) => {
+    setCurrentMonthName(
+      new Date().toLocaleString("en-US", { month: "long", year: "numeric" })
+    );
     const res = await getAssessmentSummaryDashboardAction({
       trainingMode: filters.modeOfTraining || "PHYSICAL",
       trainerId: filters.trainer || null,
@@ -38,12 +53,9 @@ export default function AssessmentSummaryReportPage() {
     }
   };
 
-  const total = summaryData.total ?? (summaryData.passed + summaryData.failed);
+  const total = summaryData.total ?? summaryData.passed + summaryData.failed;
 
   // Data for the bottom Monthly / Total Assessments Results Summary bar chart
-  const [currentMonthName] = useState(() =>
-    new Date().toLocaleString("en-US", { month: "long", year: "numeric" })
-  );
   const barChartData: Array<ChartDataPoint> = [
     {
       label: currentMonthName,
@@ -64,15 +76,15 @@ export default function AssessmentSummaryReportPage() {
       onViewReport={async (filters) => {
         await fetchDashboardData(filters, true);
       }}
-      onGenerate={async () => {
+      onGenerate={() => {
         const headers = "Metric,Count\n";
         const rows = `Passed,${summaryData.passed}\nFailed,${summaryData.failed}\nTotal,${total}\n`;
-        return {
+        return Promise.resolve({
           success: true,
           data: headers + rows,
           filename: `assessment-summary_${new Date().toISOString().slice(0, 10)}.csv`,
           message: "Assessment summary exported",
-        };
+        });
       }}
       splitRightSlot={
         /* Right Card: Assessments Results: Total X (Pie Chart) */
@@ -105,4 +117,3 @@ export default function AssessmentSummaryReportPage() {
     </ReportPageLayout>
   );
 }
-

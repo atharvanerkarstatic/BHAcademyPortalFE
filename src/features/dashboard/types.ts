@@ -1,4 +1,4 @@
-export type DashboardData = {
+export interface DashboardData {
   users?: number;
   linksShared?: number;
   assessmentTakenTrainer?: number;
@@ -8,39 +8,39 @@ export type DashboardData = {
   activeLanguages?: number;
   assessmentTakenTotal?: number;
   activeTrainers?: number;
-  [key: string]: unknown;
-};
+  trainers?: number;
+}
 
-export type DashboardApiResponse = {
+export interface DashboardApiResponse {
   success: boolean;
   status: number;
   message: string;
   data: DashboardData;
   path?: string;
   timestamp?: string;
-};
+}
 
-export type ModuleWiseSummaryItem = {
+export interface ModuleWiseSummaryItem {
   moduleName: string;
   total: number;
   passed: number;
   failed: number;
-};
+}
 
-export type TrainerWiseSummaryItem = {
+export interface TrainerWiseSummaryItem {
   trainerName: string;
   total: number;
   passed: number;
   failed: number;
-};
+}
 
-export type AssessmentSummaryData = {
+export interface AssessmentSummaryData {
   passed: number;
   failed: number;
   total?: number;
-};
+}
 
-export type ModuleWiseFilterPayload = {
+export interface ModuleWiseFilterPayload {
   division?: string | null;
   region?: string | null;
   trainerId?: string | number | null;
@@ -49,9 +49,9 @@ export type ModuleWiseFilterPayload = {
   startDate?: string | null;
   endDate?: string | null;
   modeOfTraining?: string | null;
-};
+}
 
-export type TrainerWiseFilterPayload = {
+export interface TrainerWiseFilterPayload {
   division?: string | null;
   region?: string | null;
   languageId?: string | number | null;
@@ -59,9 +59,9 @@ export type TrainerWiseFilterPayload = {
   coursreId?: string | number | null;
   startDate?: string | null;
   endDate?: string | null;
-};
+}
 
-export type AssessmentSummaryFilterPayload = {
+export interface AssessmentSummaryFilterPayload {
   trainingMode?: string | null;
   trainerId?: string | number | null;
   languageId?: string | number | null;
@@ -69,4 +69,4 @@ export type AssessmentSummaryFilterPayload = {
   coursreId?: string | number | null;
   startDate?: string | null;
   endDate?: string | null;
-};
+}

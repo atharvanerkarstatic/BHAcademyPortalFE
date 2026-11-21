@@ -1,7 +1,10 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-import { getAccountByIdAction, getAccountsAction } from "@/features/accounts/action";
+import {
+  getAccountByIdAction,
+  getAccountsAction,
+} from "@/features/accounts/action";
 import {
   getAdminUserByIdAction,
   getAdminUsersAction,
@@ -11,7 +14,10 @@ import {
   getAssessmentLinksAction,
   getAssessmentResultsAction,
 } from "@/features/assessments/action";
-import { getCategoriesAction, getCategoryByIdAction } from "@/features/categories/action";
+import {
+  getCategoriesAction,
+  getCategoryByIdAction,
+} from "@/features/categories/action";
 import { getCitiesAction, getCityByIdAction } from "@/features/cities/action";
 import {
   getCategoryCoursesAction,
@@ -41,13 +47,16 @@ import {
   getRolePermissionsAction,
   getRolesAction,
 } from "@/features/roles/action";
-import { getTrainerByIdAction, getTrainersAction } from "@/features/trainers/action";
+import {
+  getTrainerByIdAction,
+  getTrainersAction,
+} from "@/features/trainers/action";
 
 function parsePositiveInt(raw: string | null, fallback: number): number {
   if (!raw) {
     return fallback;
   }
-  const parsed = Number.parseInt(raw, 10);
+  const parsed = Math.trunc(Number(raw));
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
@@ -62,245 +71,313 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ path: Array<string> }> }
 ): Promise<NextResponse> {
+  const { signal } = request;
+  if (signal.aborted) {
+    return jsonNoStore({ success: false, error: "Request aborted" }, 499);
+  }
+
   const { path } = await context.params;
   const sp = request.nextUrl.searchParams;
   const [resource, sub, sub2] = path;
+  const actionOptions = { signal };
 
   switch (resource) {
     case "dashboard": {
       const division = sp.get("division");
-      return jsonNoStore(await getDashboardDataAction(division));
+      return jsonNoStore(await getDashboardDataAction(division, actionOptions));
     }
 
     case "divisions": {
-      return jsonNoStore(await getDivisionsAction());
+      return jsonNoStore(await getDivisionsAction(actionOptions));
     }
 
     case "profile": {
-      return jsonNoStore(await getCurrentUserProfile());
+      return jsonNoStore(await getCurrentUserProfile(actionOptions));
     }
 
     case "report-filters": {
-      const data = await getReportFilterOptionsAction();
+      const data = await getReportFilterOptionsAction(actionOptions);
       return jsonNoStore({ success: true, data });
     }
 
     case "reports": {
       if (sub === "module-wise") {
         return jsonNoStore(
-          await getModuleWiseDashboardAction({
-            division: sp.get("division") || null,
-            region: sp.get("region") || null,
-            trainerId: sp.get("trainerId") || sp.get("trainer") || null,
-            trainer: sp.get("trainer") || sp.get("trainerId") || null,
-            languageId: sp.get("languageId") || null,
-            startDate: sp.get("startDate") || null,
-            endDate: sp.get("endDate") || null,
-            modeOfTraining: sp.get("modeOfTraining") || "VIRTUAL",
-          })
+          await getModuleWiseDashboardAction(
+            {
+              division: sp.get("division") || null,
+              region: sp.get("region") || null,
+              trainerId: sp.get("trainerId") || sp.get("trainer") || null,
+              trainer: sp.get("trainer") || sp.get("trainerId") || null,
+              languageId: sp.get("languageId") || null,
+              startDate: sp.get("startDate") || null,
+              endDate: sp.get("endDate") || null,
+              modeOfTraining: sp.get("modeOfTraining") || "VIRTUAL",
+            },
+            actionOptions
+          )
         );
       }
       if (sub === "trainer-wise") {
         return jsonNoStore(
-          await getTrainerWiseDashboardAction({
-            division: sp.get("division") || null,
-            region: sp.get("region") || null,
-            languageId: sp.get("languageId") || null,
-            courseId: sp.get("courseId") || null,
-            startDate: sp.get("startDate") || null,
-            endDate: sp.get("endDate") || null,
-          })
+          await getTrainerWiseDashboardAction(
+            {
+              division: sp.get("division") || null,
+              region: sp.get("region") || null,
+              languageId: sp.get("languageId") || null,
+              courseId: sp.get("courseId") || null,
+              startDate: sp.get("startDate") || null,
+              endDate: sp.get("endDate") || null,
+            },
+            actionOptions
+          )
         );
       }
       if (sub === "assessment-summary") {
         return jsonNoStore(
-          await getAssessmentSummaryDashboardAction({
-            trainingMode: sp.get("trainingMode") || "PHYSICAL",
-            trainerId: sp.get("trainerId") || null,
-            languageId: sp.get("languageId") || null,
-            courseId: sp.get("courseId") || null,
-            startDate: sp.get("startDate") || null,
-            endDate: sp.get("endDate") || null,
-          })
+          await getAssessmentSummaryDashboardAction(
+            {
+              trainingMode: sp.get("trainingMode") || "PHYSICAL",
+              trainerId: sp.get("trainerId") || null,
+              languageId: sp.get("languageId") || null,
+              courseId: sp.get("courseId") || null,
+              startDate: sp.get("startDate") || null,
+              endDate: sp.get("endDate") || null,
+            },
+            actionOptions
+          )
         );
       }
-      return jsonNoStore({ success: false, error: "Unknown report endpoint" }, 404);
+      return jsonNoStore(
+        { success: false, error: "Unknown report endpoint" },
+        404
+      );
     }
 
     case "courses": {
       if (!sub) {
         return jsonNoStore(
-          await getCoursesAction({
-            page: parsePositiveInt(sp.get("page"), 1),
-            size: parsePositiveInt(sp.get("size"), 10),
-            search: sp.get("search") ?? undefined,
-            sort: sp.get("sort") ?? "ASC",
-          })
+          await getCoursesAction(
+            {
+              page: parsePositiveInt(sp.get("page"), 1),
+              size: parsePositiveInt(sp.get("size"), 10),
+              search: sp.get("search") ?? undefined,
+              sort: sp.get("sort") ?? "ASC",
+            },
+            actionOptions
+          )
         );
       }
       if (sub === "by-category" && sub2) {
-        return jsonNoStore(await getCategoryCoursesAction(sub2));
+        return jsonNoStore(await getCategoryCoursesAction(sub2, actionOptions));
       }
       if (!sub2) {
-        return jsonNoStore(await getCourseByIdAction(sub));
+        return jsonNoStore(await getCourseByIdAction(sub, actionOptions));
       }
       if (sub2 === "videos") {
-        return jsonNoStore(await getCourseVideosByLangAction(sub, sp.get("lang") ?? "en"));
+        return jsonNoStore(
+          await getCourseVideosByLangAction(
+            sub,
+            sp.get("lang") ?? "en",
+            actionOptions
+          )
+        );
       }
       if (sub2 === "quizzes") {
         return jsonNoStore(
           await getCourseQuizzesAction(
             sub,
             sp.get("lang") ?? "en",
-            sp.get("quizType") ?? undefined
+            sp.get("quizType") ?? undefined,
+            actionOptions
           )
         );
       }
       if (sub2 === "translation") {
         return jsonNoStore(
-          await getCourseTranslationByLanguageAction(sub, sp.get("lang") ?? "en")
+          await getCourseTranslationByLanguageAction(
+            sub,
+            sp.get("lang") ?? "en",
+            actionOptions
+          )
         );
       }
-      return jsonNoStore({ success: false, error: "Unknown course endpoint" }, 404);
+      return jsonNoStore(
+        { success: false, error: "Unknown course endpoint" },
+        404
+      );
     }
 
     case "categories": {
       if (sub) {
-        return jsonNoStore(await getCategoryByIdAction(sub));
+        return jsonNoStore(await getCategoryByIdAction(sub, actionOptions));
       }
       const sortRaw = sp.get("sort");
       return jsonNoStore(
-        await getCategoriesAction({
-          page: parsePositiveInt(sp.get("page"), 1),
-          size: parsePositiveInt(sp.get("size"), 20),
-          sort: sortRaw === "desc" ? "desc" : "asc",
-          status: sp.get("status"),
-        })
+        await getCategoriesAction(
+          {
+            page: parsePositiveInt(sp.get("page"), 1),
+            size: parsePositiveInt(sp.get("size"), 20),
+            sort: sortRaw === "desc" ? "desc" : "asc",
+            status: sp.get("status"),
+          },
+          actionOptions
+        )
       );
     }
 
     case "languages": {
       if (sub) {
-        return jsonNoStore(await getLanguageByIdAction(sub));
+        return jsonNoStore(await getLanguageByIdAction(sub, actionOptions));
       }
       if (sp.get("all") === "1") {
-        return jsonNoStore(await getAllLanguagesAction());
+        return jsonNoStore(await getAllLanguagesAction(actionOptions));
       }
       return jsonNoStore(
-        await getLanguagesAction({
-          page: parsePositiveInt(sp.get("page"), 1),
-          size: parsePositiveInt(sp.get("size"), 10),
-          search: sp.get("search") ?? undefined,
-        })
+        await getLanguagesAction(
+          {
+            page: parsePositiveInt(sp.get("page"), 1),
+            size: parsePositiveInt(sp.get("size"), 10),
+            search: sp.get("search") ?? undefined,
+          },
+          actionOptions
+        )
       );
     }
 
     case "trainers": {
       if (sub) {
-        return jsonNoStore(await getTrainerByIdAction(sub));
+        return jsonNoStore(await getTrainerByIdAction(sub, actionOptions));
       }
       return jsonNoStore(
-        await getTrainersAction({
-          page: parsePositiveInt(sp.get("page"), 1),
-          size: parsePositiveInt(sp.get("size"), 10),
-          search: sp.get("search") ?? undefined,
-          sort: sp.get("sort") ?? undefined,
-        })
+        await getTrainersAction(
+          {
+            page: parsePositiveInt(sp.get("page"), 1),
+            size: parsePositiveInt(sp.get("size"), 10),
+            search: sp.get("search") ?? undefined,
+            sort: sp.get("sort") ?? undefined,
+          },
+          actionOptions
+        )
       );
     }
 
     case "accounts": {
       if (sub) {
-        return jsonNoStore(await getAccountByIdAction(sub));
+        return jsonNoStore(await getAccountByIdAction(sub, actionOptions));
       }
       return jsonNoStore(
-        await getAccountsAction({
-          page: parsePositiveInt(sp.get("page"), 1),
-          size: parsePositiveInt(sp.get("size"), 10),
-          search: sp.get("search") ?? undefined,
-          sort: sp.get("sort") ?? undefined,
-        })
+        await getAccountsAction(
+          {
+            page: parsePositiveInt(sp.get("page"), 1),
+            size: parsePositiveInt(sp.get("size"), 10),
+            search: sp.get("search") ?? undefined,
+            sort: sp.get("sort") ?? undefined,
+          },
+          actionOptions
+        )
       );
     }
 
     case "admin-users": {
       if (sub) {
-        return jsonNoStore(await getAdminUserByIdAction(sub));
+        return jsonNoStore(await getAdminUserByIdAction(sub, actionOptions));
       }
       return jsonNoStore(
-        await getAdminUsersAction({
-          page: parsePositiveInt(sp.get("page"), 1),
-          size: parsePositiveInt(sp.get("size"), 10),
-          search: sp.get("search") ?? undefined,
-          sort: sp.get("sort") ?? undefined,
-        })
+        await getAdminUsersAction(
+          {
+            page: parsePositiveInt(sp.get("page"), 1),
+            size: parsePositiveInt(sp.get("size"), 10),
+            search: sp.get("search") ?? undefined,
+            sort: sp.get("sort") ?? undefined,
+          },
+          actionOptions
+        )
       );
     }
 
     case "roles": {
       if (sub && sub2 === "permissions") {
-        return jsonNoStore(await getRolePermissionsAction(sub));
+        return jsonNoStore(await getRolePermissionsAction(sub, actionOptions));
       }
       if (sub) {
-        return jsonNoStore(await getRoleByIdAction(sub));
+        return jsonNoStore(await getRoleByIdAction(sub, actionOptions));
       }
       if (sp.get("picklist") === "1") {
-        return jsonNoStore(await getRolesPicklistAction());
+        return jsonNoStore(await getRolesPicklistAction(actionOptions));
       }
       return jsonNoStore(
-        await getRolesAction({
-          page: parsePositiveInt(sp.get("page"), 1),
-          size: parsePositiveInt(sp.get("size"), 10),
-          search: sp.get("search") ?? undefined,
-          sort: sp.get("sort") ?? undefined,
-        })
+        await getRolesAction(
+          {
+            page: parsePositiveInt(sp.get("page"), 1),
+            size: parsePositiveInt(sp.get("size"), 10),
+            search: sp.get("search") ?? undefined,
+            sort: sp.get("sort") ?? undefined,
+          },
+          actionOptions
+        )
       );
     }
 
     case "faqs": {
       if (sub) {
-        return jsonNoStore(await getFaqByIdAction(sub));
+        return jsonNoStore(await getFaqByIdAction(sub, actionOptions));
       }
       return jsonNoStore(
-        await getFaqsAction({
-          page: parsePositiveInt(sp.get("page"), 1),
-          size: parsePositiveInt(sp.get("size"), 10),
-          language: sp.get("language") ?? "en",
-        })
+        await getFaqsAction(
+          {
+            page: parsePositiveInt(sp.get("page"), 1),
+            size: parsePositiveInt(sp.get("size"), 10),
+            language: sp.get("language") ?? "en",
+          },
+          actionOptions
+        )
       );
     }
 
     case "cities": {
       if (sub) {
-        return jsonNoStore(await getCityByIdAction(sub));
+        return jsonNoStore(await getCityByIdAction(sub, actionOptions));
       }
-      return jsonNoStore(await getCitiesAction());
+      return jsonNoStore(await getCitiesAction(actionOptions));
     }
 
     case "assessments": {
       if (sub === "links") {
         return jsonNoStore(
-          await getAssessmentLinksAction({
-            page: parsePositiveInt(sp.get("page"), 1),
-            size: parsePositiveInt(sp.get("size"), 10),
-            search: sp.get("search") ?? undefined,
-          })
+          await getAssessmentLinksAction(
+            {
+              page: parsePositiveInt(sp.get("page"), 1),
+              size: parsePositiveInt(sp.get("size"), 10),
+              search: sp.get("search") ?? undefined,
+            },
+            actionOptions
+          )
         );
       }
       if (sub === "results") {
         return jsonNoStore(
-          await getAssessmentResultsAction({
-            page: parsePositiveInt(sp.get("page"), 1),
-            size: parsePositiveInt(sp.get("size"), 10),
-            search: sp.get("search") ?? undefined,
-          })
+          await getAssessmentResultsAction(
+            {
+              page: parsePositiveInt(sp.get("page"), 1),
+              size: parsePositiveInt(sp.get("size"), 10),
+              search: sp.get("search") ?? undefined,
+            },
+            actionOptions
+          )
         );
       }
-      return jsonNoStore({ success: false, error: "Unknown assessments endpoint" }, 404);
+      return jsonNoStore(
+        { success: false, error: "Unknown assessments endpoint" },
+        404
+      );
     }
 
     default: {
-      return jsonNoStore({ success: false, error: "Unknown portal endpoint" }, 404);
+      return jsonNoStore(
+        { success: false, error: "Unknown portal endpoint" },
+        404
+      );
     }
   }
 }

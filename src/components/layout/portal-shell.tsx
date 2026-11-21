@@ -1,17 +1,27 @@
 "use client";
 
-import { Suspense, useEffect } from 'react';
-import type { ReactNode } from 'react';
 import { usePathname, useRouter } from "next/navigation";
+import { Suspense, useEffect } from "react";
+import type { ReactNode } from "react";
 
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
-import { getFirstAccessibleRoute, isRouteAllowed } from "@/lib/route-permissions";
+import {
+  getFirstAccessibleRoute,
+  isRouteAllowed,
+} from "@/lib/route-permissions";
+import { cn } from "@/lib/utils";
+
 import { Navbar } from "./navbar";
 import { Sidebar } from "./sidebar";
 import { SidebarProvider, useSidebar } from "./sidebar-context";
 
-function ShellBody({ children, user }: { children: ReactNode; user: ReactNode }) {
+function ShellBody({
+  children,
+  user,
+}: {
+  children: ReactNode;
+  user: ReactNode;
+}) {
   const { desktopCollapsed } = useSidebar();
   const pathname = usePathname();
   const router = useRouter();
@@ -19,7 +29,9 @@ function ShellBody({ children, user }: { children: ReactNode; user: ReactNode })
 
   // Instant route-level authorization check
   useEffect(() => {
-    if (!authUser) {return;}
+    if (!authUser) {
+      return;
+    }
 
     const userPerms = [...authUser.roles, ...authUser.permissions];
     const firstAllowedRoute = getFirstAccessibleRoute(userPerms);
@@ -38,7 +50,11 @@ function ShellBody({ children, user }: { children: ReactNode; user: ReactNode })
 
   return (
     <div className="min-h-screen">
-      <Suspense fallback={<aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r bg-white lg:block" />}>
+      <Suspense
+        fallback={
+          <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r bg-white lg:block" />
+        }
+      >
         <Sidebar user={user} />
       </Suspense>
 
@@ -56,7 +72,13 @@ function ShellBody({ children, user }: { children: ReactNode; user: ReactNode })
   );
 }
 
-export function PortalShell({ children, user }: { children: ReactNode; user: ReactNode }) {
+export function PortalShell({
+  children,
+  user,
+}: {
+  children: ReactNode;
+  user: ReactNode;
+}) {
   return (
     <SidebarProvider>
       <ShellBody user={user}>{children}</ShellBody>

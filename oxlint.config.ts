@@ -1,8 +1,13 @@
 import cloudflare from "@cloudflare/oxlint-config";
 import { defineConfig } from "oxlint";
+import core from "ultracite/oxlint/core";
+import next from "ultracite/oxlint/next";
+import react from "ultracite/oxlint/react";
+import tanstack from "ultracite/oxlint/tanstack";
 
 export default defineConfig({
-  ...cloudflare,
+  env: core.env,
+  extends: [core, react, next, tanstack, cloudflare],
   ignorePatterns: [
     ...(cloudflare.ignorePatterns ?? []),
     ".next/**",
@@ -12,6 +17,7 @@ export default defineConfig({
     "scripts/**",
     "benchmarks/**",
   ],
+  options: { typeAware: true },
   overrides: [
     ...(cloudflare.overrides ?? []),
     {
@@ -38,34 +44,50 @@ export default defineConfig({
       },
     },
     {
-      // Temporarily disabled on legacy edit/detail pages during incremental migration
-      files: ["app/**/*.{ts,tsx}"],
+      // Generic JSON serialization boundaries (`apiFetch<T>`, `portalGet<T>`) typed by caller contract
+      files: ["src/lib/api.ts", "src/lib/portal-client.ts"],
       rules: {
-        "typescript/no-floating-promises": "off",
+        "typescript/no-unsafe-type-assertion": "off",
+      },
+    },
+    {
+      // AuthProvider synchronously reads/clears non-HttpOnly auth sync cookies across browsers
+      files: ["src/lib/auth-context.tsx"],
+      rules: {
+        "unicorn/no-document-cookie": "off",
       },
     },
   ],
   rules: {
-    ...cloudflare.rules,
-
     // Allow console.warn / console.error for server diagnostics; keep console.log banned
     "no-console": ["error", { allow: ["warn", "error"] }],
 
     // Standard Web API & error class checks (`FormData`, `ApiError`, `HTMLElement`)
     "@nkzw/no-instanceof": "off",
 
-    // Temporarily disabled during incremental legacy-page migration (enable one rule at a time)
-    "no-unused-vars": "off",
-    "react-hooks/exhaustive-deps": "off",
-    "react/preserve-manual-memoization": "off",
-    "typescript/array-type": "off",
-    "typescript/no-floating-promises": "off",
-    "typescript/no-unsafe-type-assertion": "off",
-    "unicorn/catch-error-name": "off",
-    "unicorn/consistent-function-scoping": "off",
-    "unicorn/prefer-number-properties": "off",
-    "unicorn/prefer-string-slice": "off",
-    "quality/no-known-value-widening": "off",
-    "quality/no-unsafe-dictionary-type": "off",
+    // Internal React Compiler unsupported-syntax notice (`finally` blocks), not a code bug
+    "react/todo": "off",
+
+    // Allow DataTable column `cell: (row) => <...>` render props while still catching real nested components
+    "react/no-unstable-nested-components": ["error", { allowAsProps: true }],
+
+    // Next.js `"use server"` actions and page exports idiomatically use function declarations
+    "func-style": "off",
+
+    // Dynamic backend/S3 thumbnail & blob URLs use `<img>` with `onError` fallback
+    "nextjs/no-img-element": "off",
+
+    // Empty strings `""` are intentionally falsy for form inputs and API fallback strings
+    "typescript/strict-boolean-expressions": "off",
+    "typescript/prefer-nullish-coalescing": "off",
+
+    // Avoid conflict with `require-await` on Promise-returning pass-through helpers
+    "typescript/promise-function-async": "off",
+
+    // Allow `void` operator to explicitly mark intentionally unawaited promises (`no-floating-promises`)
+    "no-void": ["error", { allowAsStatement: true }],
+
+    // Allow complex form/page components without artificial splitting thresholds
+    complexity: "off",
   },
 });

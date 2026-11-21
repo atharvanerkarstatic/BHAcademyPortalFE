@@ -14,15 +14,16 @@ export const ALL_AUTH_COOKIES = [
 ] as const;
 
 const REFRESH_MAX_AGE = 60 * 60 * 24 * 7;
-const EXPIRY_BUFFER = 30; // seconds
+// seconds
+const EXPIRY_BUFFER = 30;
 
-export type TokenResponse = {
+export interface TokenResponse {
   accessToken: string;
   refreshToken: string;
   tokenType: string;
   expiresInSeconds: number;
   issuedAt: string;
-};
+}
 
 const base = {
   httpOnly: true,
@@ -81,5 +82,9 @@ export function buildAuthCookies(tokens: TokenResponse) {
 }
 
 export function userCookie(email: string) {
-  return { name: USER_COOKIE, value: email, options: { ...base, maxAge: REFRESH_MAX_AGE } };
+  return {
+    name: USER_COOKIE,
+    value: email,
+    options: { ...base, maxAge: REFRESH_MAX_AGE },
+  };
 }

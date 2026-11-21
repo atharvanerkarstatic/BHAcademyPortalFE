@@ -1,16 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ReportPageLayout } from '@/features/reports/components/report-page-layout';
-import type { ReportFilterState } from '@/features/reports/components/report-page-layout';
-import { exportTrainerAccessLogsAction } from "@/features/reports/action";
-import { DataTable } from '@/components/common/data-table';
-import type { Column } from '@/components/common/data-table';
-import { parseCsv } from '@/lib/csv-parser';
-import type { CsvRow } from '@/lib/csv-parser';
-import { useToast } from "@/components/ui/toast";
 import { Search } from "lucide-react";
+import { useMemo, useState } from "react";
+
+import { DataTable } from "@/components/common/data-table";
+import type { Column } from "@/components/common/data-table";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
+import { exportTrainerAccessLogsAction } from "@/features/reports/action";
+import { ReportPageLayout } from "@/features/reports/components/report-page-layout";
+import type { ReportFilterState } from "@/features/reports/components/report-page-layout";
+import { parseCsv } from "@/lib/csv-parser";
+import type { CsvRow } from "@/lib/csv-parser";
 
 export default function TrainerAccessLogsPage() {
   const { error: toastError, success: toastSuccess } = useToast();
@@ -46,7 +47,7 @@ export default function TrainerAccessLogsPage() {
     }
     const q = search.toLowerCase();
     return rows.filter((r) =>
-      Object.values(r).some((val) => String(val).toLowerCase().includes(q))
+      Object.values(r).some((val) => val.toLowerCase().includes(q))
     );
   }, [rows, search]);
 
@@ -78,7 +79,7 @@ export default function TrainerAccessLogsPage() {
       {
         header: "Trainer Name",
         cell: (r) => (
-          <span className="font-semibold text-xs text-slate-900">
+          <span className="text-xs font-semibold text-slate-900">
             {r["Trainer Name"] || "—"}
           </span>
         ),
@@ -86,7 +87,10 @@ export default function TrainerAccessLogsPage() {
       {
         header: "Login ID",
         cell: (r) => (
-          <span className="font-mono text-[11px] text-slate-600 block truncate max-w-[200px]" title={r["Login ID"]}>
+          <span
+            className="block max-w-[200px] truncate font-mono text-[11px] text-slate-600"
+            title={r["Login ID"]}
+          >
             {r["Login ID"] || "—"}
           </span>
         ),
@@ -97,8 +101,8 @@ export default function TrainerAccessLogsPage() {
           const val = r["Login Date Time"];
           const formatted = val ? new Date(val).toLocaleString() : "—";
           return (
-            <span className="text-xs text-slate-700 whitespace-nowrap">
-              {formatted !== "Invalid Date" ? formatted : val}
+            <span className="text-xs whitespace-nowrap text-slate-700">
+              {formatted === "Invalid Date" ? val : formatted}
             </span>
           );
         },
@@ -107,7 +111,7 @@ export default function TrainerAccessLogsPage() {
       {
         header: "Login IP",
         cell: (r) => (
-          <span className="font-mono text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200">
+          <span className="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-800">
             {r["Login IP"] || "—"}
           </span>
         ),
@@ -119,8 +123,8 @@ export default function TrainerAccessLogsPage() {
           const val = r["Logout Time"];
           const formatted = val ? new Date(val).toLocaleString() : "—";
           return (
-            <span className="text-xs text-slate-600 whitespace-nowrap">
-              {formatted !== "Invalid Date" ? formatted : val || "—"}
+            <span className="text-xs whitespace-nowrap text-slate-600">
+              {formatted === "Invalid Date" ? val || "—" : formatted}
             </span>
           );
         },
@@ -139,13 +143,13 @@ export default function TrainerAccessLogsPage() {
       onViewReport={async (filters) => {
         await fetchLogs(filters, true);
       }}
-      onGenerate={async (filters) => {
-        return exportTrainerAccessLogsAction({
+      onGenerate={(filters) =>
+        exportTrainerAccessLogsAction({
           trainerId: filters.trainer || "",
           startDate: filters.startDate || "",
           endDate: filters.endDate || "",
-        });
-      }}
+        })
+      }
     >
       <div className="space-y-4">
         {hasLoaded && (
@@ -153,11 +157,18 @@ export default function TrainerAccessLogsPage() {
             title="Access Log Records"
             columns={columns}
             data={pagedRows}
-            getRowId={(r, idx) => r._rowId || (r["Login ID"] ? `${r["Login ID"]}-${idx}` : `access-log-${idx}`)}
-            emptyMessage={rows.length === 0 ? "No records found" : `No records matching "${search}"`}
+            getRowId={(r, idx) =>
+              r._rowId ||
+              (r["Login ID"] ? `${r["Login ID"]}-${idx}` : `access-log-${idx}`)
+            }
+            emptyMessage={
+              rows.length === 0
+                ? "No records found"
+                : `No records matching "${search}"`
+            }
             headerRight={
               <div className="relative flex items-center">
-                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 <Input
                   placeholder="Search logs..."
                   value={search}
@@ -165,7 +176,7 @@ export default function TrainerAccessLogsPage() {
                     setSearch(e.target.value);
                     setPage(1);
                   }}
-                  className="h-8 w-44 pl-8 pr-3 text-xs sm:w-56"
+                  className="h-8 w-44 pr-3 pl-8 text-xs sm:w-56"
                 />
               </div>
             }
@@ -173,8 +184,13 @@ export default function TrainerAccessLogsPage() {
               page,
               pageSize,
               totalElements: filteredRows.length,
-              totalPages: Math.max(1, Math.ceil(filteredRows.length / pageSize)),
-              onPageChange: (p) => setPage(p),
+              totalPages: Math.max(
+                1,
+                Math.ceil(filteredRows.length / pageSize)
+              ),
+              onPageChange: (p) => {
+                setPage(p);
+              },
             }}
           />
         )}

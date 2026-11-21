@@ -1,35 +1,43 @@
 "use client";
 
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useState, useMemo } from "react";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import {
+  Plus,
+  RefreshCw,
+  Search,
+  UserRound,
+  Pencil,
+  Trash2,
+  Loader2,
+} from "lucide-react";
 import Link from "next/link";
-import { Plus, RefreshCw, Search, UserRound, Pencil, Trash2, Loader2 } from "lucide-react";
+import { useCallback, useState, useMemo } from "react";
 
-import { DataTable } from '@/components/common/data-table';
-import type { Column } from '@/components/common/data-table';
+import { ConfirmDeleteDialog } from "@/components/common/confirm-delete-dialog";
+import { DataTable } from "@/components/common/data-table";
+import type { Column } from "@/components/common/data-table";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/toast";
-import { useAuth } from "@/lib/auth-context";
-import { portalGet } from "@/lib/portal-client";
-import { queryKeys } from "@/lib/query-keys";
-import { cn } from "@/lib/utils";
 import {
   deleteAdminUserAction,
   updateAdminUserStatusAction,
 } from "@/features/admin-users/action";
-import type { AdminUserItem, AdminUserPageResponse } from "@/features/admin-users/types";
+import type {
+  AdminUserItem,
+  AdminUserPageResponse,
+} from "@/features/admin-users/types";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useAuth } from "@/lib/auth-context";
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
 
@@ -51,7 +59,7 @@ export default function AdminUsersPage() {
   const queryClient = useQueryClient();
 
   const [searchInput, setSearchInput] = useState("");
-  const [activeSearch, setActiveSearch] = useState("");
+  const activeSearch = useDebouncedValue(searchInput.trim(), 350);
   const [page, setPage] = useState(1);
   const pageSize = PAGE_SIZE;
 
@@ -62,18 +70,17 @@ export default function AdminUsersPage() {
   const canUpdate = can("users.update") || can("system.all");
   const canDelete = can("users.delete") || can("system.all");
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setPage(1);
-      setActiveSearch(searchInput.trim());
-    }, 350);
+  const listKey = queryKeys.adminUsers.list({
+    page,
+    size: pageSize,
+    search: activeSearch,
+  });
 
-    return () => clearTimeout(timer);
-  }, [searchInput]);
-
-  const listKey = queryKeys.adminUsers.list({ page, size: pageSize, search: activeSearch });
-
-  const { data: pageData = EMPTY_PAGE, isLoading, refetch } = useQuery({
+  const {
+    data: pageData = EMPTY_PAGE,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: listKey,
     queryFn: ({ signal }) =>
       portalGet<AdminUserPageResponse>(
@@ -87,8 +94,13 @@ export default function AdminUsersPage() {
   const isPending = isLoading;
 
   const toggleMutation = useMutation({
-    mutationFn: ({ id, nextStatus }: { id: number; nextStatus: "ACTIVE" | "SUSPENDED" }) =>
-      updateAdminUserStatusAction(id, nextStatus),
+    mutationFn: ({
+      id,
+      nextStatus,
+    }: {
+      id: number;
+      nextStatus: "ACTIVE" | "SUSPENDED";
+    }) => updateAdminUserStatusAction(id, nextStatus),
     onMutate: async ({ id, nextStatus }) => {
       setTogglingUserId(id);
       await queryClient.cancelQueries({ queryKey: listKey });
@@ -108,7 +120,8 @@ export default function AdminUsersPage() {
     onSuccess: (res, { nextStatus }, context) => {
       if (res.success) {
         success(
-          res.message || `User status updated to ${nextStatus === "ACTIVE" ? "Active" : "Inactive"}`
+          res.message ||
+            `User status updated to ${nextStatus === "ACTIVE" ? "Active" : "Inactive"}`
         );
       } else {
         if (context?.previous) {
@@ -139,35 +152,36 @@ export default function AdminUsersPage() {
     [canUpdate, toggleMutation]
   );
 
+  const refreshUsers = async (showSuccessToast: boolean) => {
+    const result = await refetch();
+    if (result.error) {
+      toastError(result.error.message || "Failed to load users");
+    } else if (showSuccessToast) {
+      success("Users refreshed successfully");
+    }
+  };
+
   const loadUsers = (
     targetPage = page,
     _searchTerm = activeSearch,
     showSuccessToast = false
   ) => {
     setPage(targetPage);
-    void refetch().then((result) => {
-      if (result.error) {
-        toastError(result.error.message || "Failed to load users");
-      } else if (showSuccessToast) {
-        success("Users refreshed successfully");
-      }
-    });
+    void refreshUsers(showSuccessToast);
   };
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
+  const handleSearchSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setPage(1);
-    setActiveSearch(searchInput.trim());
   };
 
   const handleSearchClear = () => {
     setSearchInput("");
     setPage(1);
-    setActiveSearch("");
   };
 
   const deleteMutation = useMutation({
@@ -176,7 +190,9 @@ export default function AdminUsersPage() {
       setUserToDelete(null);
       if (res.success) {
         success(res.message || "User archived successfully");
-        await queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers.all });
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.adminUsers.all,
+        });
       } else {
         toastError(res.error || "Failed to delete user");
       }
@@ -200,7 +216,11 @@ export default function AdminUsersPage() {
     const cols: Array<Column<AdminUserItem>> = [
       {
         header: "ID",
-        cell: (r) => <span className="font-mono text-xs font-semibold text-slate-700">{r.id}</span>,
+        cell: (r) => (
+          <span className="font-mono text-xs font-semibold text-slate-700">
+            {r.id}
+          </span>
+        ),
         className: "w-16 text-center",
       },
       {
@@ -215,7 +235,7 @@ export default function AdminUsersPage() {
                   alt={r.firstName}
                   className="h-full w-full object-cover"
                   onError={(e) => {
-                    (e.target as HTMLElement).style.display = "none";
+                    e.currentTarget.style.display = "none";
                   }}
                 />
               ) : (
@@ -231,7 +251,7 @@ export default function AdminUsersPage() {
         cell: (r) => {
           const fullName = [r.firstName, r.lastName].filter(Boolean).join(" ");
           return (
-            <div className="font-semibold text-slate-900 leading-snug">
+            <div className="leading-snug font-semibold text-slate-900">
               {fullName || "—"}
             </div>
           );
@@ -239,17 +259,21 @@ export default function AdminUsersPage() {
       },
       {
         header: "Email",
-        cell: (r) => <span className="text-xs text-slate-600">{r.email || "—"}</span>,
+        cell: (r) => (
+          <span className="text-xs text-slate-600">{r.email || "—"}</span>
+        ),
       },
       {
         header: "Roles",
         cell: (r) => {
-          const roleNames =
-            r.roles && r.roles.length > 0
-              ? r.roles.map((role) => role.name || role.code).join(", ")
-              : r.roleCodes && r.roleCodes.length > 0
-              ? r.roleCodes.join(", ")
-              : "—";
+          let roleNames = "—";
+          if (r.roles && r.roles.length > 0) {
+            roleNames = r.roles
+              .map((role) => role.name || role.code)
+              .join(", ");
+          } else if (r.roleCodes && r.roleCodes.length > 0) {
+            roleNames = r.roleCodes.join(", ");
+          }
           return (
             <span className="inline-block max-w-[200px] truncate text-xs font-medium text-slate-700">
               {roleNames}
@@ -283,7 +307,7 @@ export default function AdminUsersPage() {
             return (
               <span
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold shadow-xs border",
+                  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold shadow-xs",
                   isActive
                     ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                     : "border-rose-200 bg-rose-50 text-rose-700"
@@ -291,7 +315,7 @@ export default function AdminUsersPage() {
               >
                 <span
                   className={cn(
-                    "h-1.5 w-1.5 rounded-full shrink-0",
+                    "h-1.5 w-1.5 shrink-0 rounded-full",
                     isActive ? "bg-emerald-500" : "bg-rose-500"
                   )}
                 />
@@ -304,22 +328,24 @@ export default function AdminUsersPage() {
             <button
               type="button"
               disabled={isToggling}
-              onClick={() => handleToggleStatus(r)}
+              onClick={() => {
+                handleToggleStatus(r);
+              }}
               title={`Click to toggle status (${isActive ? "Suspend / Inactivate" : "Activate"})`}
               className={cn(
-                "group relative inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-all shadow-xs border",
+                "group relative inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold shadow-xs transition-all",
                 isActive
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300"
-                  : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:border-rose-300",
-                isToggling && "opacity-60 cursor-not-allowed"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100"
+                  : "border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100",
+                isToggling && "cursor-not-allowed opacity-60"
               )}
             >
               {isToggling ? (
-                <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
               ) : (
                 <span
                   className={cn(
-                    "h-1.5 w-1.5 rounded-full shrink-0 transition-transform group-hover:scale-125",
+                    "h-1.5 w-1.5 shrink-0 rounded-full transition-transform group-hover:scale-125",
                     isActive ? "bg-emerald-500" : "bg-rose-500"
                   )}
                 />
@@ -333,7 +359,9 @@ export default function AdminUsersPage() {
       {
         header: "Created Date",
         cell: (r) => {
-          const date = r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "—";
+          const date = r.createdAt
+            ? new Date(r.createdAt).toLocaleDateString()
+            : "—";
           return <span className="text-xs text-slate-500">{date}</span>;
         },
         className: "w-28 text-center",
@@ -364,7 +392,9 @@ export default function AdminUsersPage() {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => setUserToDelete(r)}
+                onClick={() => {
+                  setUserToDelete(r);
+                }}
                 className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
                 title="Delete User"
               >
@@ -378,7 +408,7 @@ export default function AdminUsersPage() {
     }
 
     return cols;
-  }, [canUpdate, canDelete, togglingUserId]);
+  }, [canUpdate, canDelete, togglingUserId, handleToggleStatus]);
 
   return (
     <>
@@ -397,17 +427,27 @@ export default function AdminUsersPage() {
         data={pageData.content}
         getRowId={(r) => r.id}
         loading={isPending}
-        emptyMessage={activeSearch ? `No users matching "${activeSearch}"` : "No admin users found"}
+        emptyMessage={
+          activeSearch
+            ? `No users matching "${activeSearch}"`
+            : "No admin users found"
+        }
         action={
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Search Input */}
-            <form onSubmit={handleSearchSubmit} className="relative flex items-center">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <form
+              onSubmit={handleSearchSubmit}
+              className="relative flex items-center"
+            >
+              <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <Input
                 placeholder="Search users..."
                 value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="h-8 w-44 pl-8 pr-14 text-xs sm:w-56"
+                onChange={(e) => {
+                  setSearchInput(e.target.value);
+                  setPage(1);
+                }}
+                className="h-8 w-44 pr-14 pl-8 text-xs sm:w-56"
               />
               {searchInput && (
                 <button
@@ -418,7 +458,12 @@ export default function AdminUsersPage() {
                   Clear
                 </button>
               )}
-              <Button type="submit" variant="ghost" size="sm" className="hidden">
+              <Button
+                type="submit"
+                variant="ghost"
+                size="sm"
+                className="hidden"
+              >
                 Search
               </Button>
             </form>
@@ -434,13 +479,19 @@ export default function AdminUsersPage() {
               disabled={isPending}
               className="gap-1.5 text-slate-600"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`}
+              />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
 
             {/* Add User button */}
             {canCreate && (
-              <Button asChild size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white">
+              <Button
+                asChild
+                size="sm"
+                className="gap-1.5 bg-blue-600 text-white hover:bg-blue-700"
+              >
                 <Link href="/admin-users/new">
                   <Plus className="h-4 w-4" />
                   Add User
@@ -459,32 +510,27 @@ export default function AdminUsersPage() {
       />
 
       {/* Delete / Archive Confirmation Dialog */}
-      <AlertDialog
+      <ConfirmDeleteDialog
         open={Boolean(userToDelete)}
-        onOpenChange={(open) => !open && setUserToDelete(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Archive User?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete/archive user (ID: {userToDelete?.id}) (
-              {userToDelete?.firstName} {userToDelete?.lastName})?
-              <br />
-              This action will disable the user account.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              disabled={isDeleting}
-              className="bg-rose-600 text-white hover:bg-rose-700"
-            >
-              {isDeleting ? "Archiving..." : "Yes, Archive User"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onOpenChange={(open) => {
+          if (!open) {
+            setUserToDelete(null);
+          }
+        }}
+        title="Archive User?"
+        description={
+          <>
+            Are you sure you want to delete/archive user (ID: {userToDelete?.id}
+            ) ({userToDelete?.firstName} {userToDelete?.lastName})?
+            <br />
+            This action will disable the user account.
+          </>
+        }
+        onConfirm={confirmDelete}
+        isDeleting={isDeleting}
+        confirmLabel="Yes, Archive User"
+        deletingLabel="Archiving..."
+      />
     </>
   );
 }

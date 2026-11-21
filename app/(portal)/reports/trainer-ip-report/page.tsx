@@ -1,16 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ReportPageLayout } from '@/features/reports/components/report-page-layout';
-import type { ReportFilterState } from '@/features/reports/components/report-page-layout';
-import { exportTrainerIpReportAction } from "@/features/reports/action";
-import { DataTable } from '@/components/common/data-table';
-import type { Column } from '@/components/common/data-table';
-import { parseCsv } from '@/lib/csv-parser';
-import type { CsvRow } from '@/lib/csv-parser';
-import { useToast } from "@/components/ui/toast";
 import { Search } from "lucide-react";
+import { useMemo, useState } from "react";
+
+import { DataTable } from "@/components/common/data-table";
+import type { Column } from "@/components/common/data-table";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
+import { exportTrainerIpReportAction } from "@/features/reports/action";
+import { ReportPageLayout } from "@/features/reports/components/report-page-layout";
+import type { ReportFilterState } from "@/features/reports/components/report-page-layout";
+import { parseCsv } from "@/lib/csv-parser";
+import type { CsvRow } from "@/lib/csv-parser";
 
 export default function TrainerIpReportPage() {
   const { error: toastError, success: toastSuccess } = useToast();
@@ -46,7 +47,7 @@ export default function TrainerIpReportPage() {
     }
     const q = search.toLowerCase();
     return rows.filter((r) =>
-      Object.values(r).some((val) => String(val).toLowerCase().includes(q))
+      Object.values(r).some((val) => val.toLowerCase().includes(q))
     );
   }, [rows, search]);
 
@@ -79,7 +80,7 @@ export default function TrainerIpReportPage() {
         header: "Participant Name",
         cell: (r) => (
           <div className="space-y-0.5">
-            <span className="font-semibold text-xs text-slate-900 block">
+            <span className="block text-xs font-semibold text-slate-900">
               {r["Participant Name"] || "—"}
             </span>
             <span className="font-mono text-[11px] text-slate-500">
@@ -92,11 +93,11 @@ export default function TrainerIpReportPage() {
         header: "Course",
         cell: (r) => (
           <div className="space-y-0.5">
-            <span className="font-medium text-xs text-slate-800 block">
+            <span className="block text-xs font-medium text-slate-800">
               {r["Course Name"] || "—"}
             </span>
             {r["Course ID"] && (
-              <span className="text-[10px] text-slate-400 font-mono">
+              <span className="font-mono text-[10px] text-slate-400">
                 ID: {r["Course ID"]}
               </span>
             )}
@@ -107,11 +108,11 @@ export default function TrainerIpReportPage() {
         header: "Trainer",
         cell: (r) => (
           <div className="space-y-0.5">
-            <span className="font-medium text-xs text-slate-800 block">
+            <span className="block text-xs font-medium text-slate-800">
               {r["Trainer Name"] || "—"}
             </span>
             {r["Trainer ID"] && (
-              <span className="text-[10px] text-slate-400 font-mono">
+              <span className="font-mono text-[10px] text-slate-400">
                 ID: {r["Trainer ID"]}
               </span>
             )}
@@ -121,7 +122,7 @@ export default function TrainerIpReportPage() {
       {
         header: "Score",
         cell: (r) => (
-          <span className="text-xs text-slate-700 font-mono">
+          <span className="font-mono text-xs text-slate-700">
             {r["Right Answers"] ?? 0} / {r["Total Questions"] ?? 0}
           </span>
         ),
@@ -131,13 +132,14 @@ export default function TrainerIpReportPage() {
         header: "Result",
         cell: (r) => {
           const res = (r["Assessment Result"] || "").toUpperCase();
-          const isPassed = res === "PASS" || res === "PASSED" || res === "ACTIVE";
+          const isPassed =
+            res === "PASS" || res === "PASSED" || res === "ACTIVE";
           return (
             <span
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold border ${
+              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
                 isPassed
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : "bg-rose-50 text-rose-700 border-rose-200"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-rose-200 bg-rose-50 text-rose-700"
               }`}
             >
               {res || "—"}
@@ -149,7 +151,7 @@ export default function TrainerIpReportPage() {
       {
         header: "IP Address",
         cell: (r) => (
-          <span className="font-mono text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200">
+          <span className="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-800">
             {r["Assessment IP"] || "—"}
           </span>
         ),
@@ -158,7 +160,7 @@ export default function TrainerIpReportPage() {
       {
         header: "Training Date",
         cell: (r) => (
-          <span className="text-xs text-slate-600 whitespace-nowrap font-mono">
+          <span className="font-mono text-xs whitespace-nowrap text-slate-600">
             {r["Training Date"] || "—"}
           </span>
         ),
@@ -177,13 +179,13 @@ export default function TrainerIpReportPage() {
       onViewReport={async (filters) => {
         await fetchReport(filters, true);
       }}
-      onGenerate={async (filters) => {
-        return exportTrainerIpReportAction({
+      onGenerate={(filters) =>
+        exportTrainerIpReportAction({
           trainerId: filters.trainer || "",
           startDate: filters.startDate || "",
           endDate: filters.endDate || "",
-        });
-      }}
+        })
+      }
     >
       <div className="space-y-4">
         {hasLoaded && (
@@ -191,11 +193,20 @@ export default function TrainerIpReportPage() {
             title="Trainer Assessment IP Records"
             columns={columns}
             data={pagedRows}
-            getRowId={(r, idx) => r._rowId || (r["Assessment Link ID"] ? `${r["Assessment Link ID"]}-${idx}` : `row-${idx}`)}
-            emptyMessage={rows.length === 0 ? "No records found" : `No records matching "${search}"`}
+            getRowId={(r, idx) =>
+              r._rowId ||
+              (r["Assessment Link ID"]
+                ? `${r["Assessment Link ID"]}-${idx}`
+                : `row-${idx}`)
+            }
+            emptyMessage={
+              rows.length === 0
+                ? "No records found"
+                : `No records matching "${search}"`
+            }
             headerRight={
               <div className="relative flex items-center">
-                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 <Input
                   placeholder="Search records..."
                   value={search}
@@ -203,7 +214,7 @@ export default function TrainerIpReportPage() {
                     setSearch(e.target.value);
                     setPage(1);
                   }}
-                  className="h-8 w-44 pl-8 pr-3 text-xs sm:w-56"
+                  className="h-8 w-44 pr-3 pl-8 text-xs sm:w-56"
                 />
               </div>
             }
@@ -211,8 +222,13 @@ export default function TrainerIpReportPage() {
               page,
               pageSize,
               totalElements: filteredRows.length,
-              totalPages: Math.max(1, Math.ceil(filteredRows.length / pageSize)),
-              onPageChange: (p) => setPage(p),
+              totalPages: Math.max(
+                1,
+                Math.ceil(filteredRows.length / pageSize)
+              ),
+              onPageChange: (p) => {
+                setPage(p);
+              },
             }}
           />
         )}

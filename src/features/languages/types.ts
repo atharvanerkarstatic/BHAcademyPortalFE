@@ -1,13 +1,13 @@
-export type LanguageItem = {
+export interface LanguageItem {
   languageId: string;
   language: string;
   languageCode: string | null;
   nativeName: string | null;
   isDefault: boolean;
   isActive: boolean;
-};
+}
 
-export type LanguagePageResponse = {
+export interface LanguagePageResponse {
   content: Array<LanguageItem>;
   page: number;
   size: number;
@@ -17,29 +17,29 @@ export type LanguagePageResponse = {
   last: boolean;
   hasNext: boolean;
   hasPrevious: boolean;
-};
+}
 
-export type ApiResponse<T> = {
+export interface ApiResponse<T> {
   success: boolean;
   status: number;
   message: string;
   data: T;
   path?: string;
   timestamp?: string;
-};
+}
 
-export type CreateLanguagePayload = {
+export interface CreateLanguagePayload {
   language: string;
   languageCode?: string | null;
   nativeName?: string | null;
   isDefault: boolean;
   isActive: boolean;
-};
+}
 
-export type UpdateLanguagePayload = {
+export interface UpdateLanguagePayload {
   language: string;
   languageCode?: string | null;
   nativeName?: string | null;
   isDefault: boolean;
   isActive: boolean;
-};
+}

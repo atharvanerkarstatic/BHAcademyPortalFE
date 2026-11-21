@@ -11,61 +11,92 @@ import {
 import { extractAuthUser } from "@/lib/auth-jwt";
 import { extractErrorMessage } from "@/lib/type-guards";
 
+const DEFAULT_JSON_TIMEOUT_MS = 15_000;
+const DEFAULT_TEXT_TIMEOUT_MS = 60_000;
+
+export type ApiFetchOptions = RequestInit & {
+  timeoutMs?: number;
+};
+
+export interface ActionRequestOptions {
+  signal?: AbortSignal;
+}
+
 export class ApiError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-    public data?: unknown
-  ) {
+  status: number;
+  data?: unknown;
+
+  constructor(status: number, message: string, data?: unknown) {
     super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.data = data;
   }
+}
+
+function buildRequestSignal(
+  callerSignal: AbortSignal | null | undefined,
+  timeoutMs: number
+): AbortSignal {
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  return callerSignal instanceof AbortSignal
+    ? AbortSignal.any([callerSignal, timeoutSignal])
+    : timeoutSignal;
 }
 
 async function authorizedFetch(
   path: string,
-  init: RequestInit = {},
-  defaultAccept = "application/json"
+  init: ApiFetchOptions = {},
+  defaultAccept = "application/json",
+  defaultTimeoutMs = DEFAULT_JSON_TIMEOUT_MS
 ): Promise<Response> {
+  const { timeoutMs, signal: callerSignal, ...fetchInit } = init;
+  const effectiveTimeoutMs = timeoutMs ?? defaultTimeoutMs;
+
   const cookieStore = await cookies();
-  let token = cookieStore.get(ACCESS_COOKIE)?.value;
+  const token = cookieStore.get(ACCESS_COOKIE)?.value;
   const refreshToken = cookieStore.get(REFRESH_COOKIE)?.value;
 
   const buildHeaders = (bearer?: string): Headers => {
-    const headers = new Headers(init.headers);
+    const headers = new Headers(fetchInit.headers);
     if (!headers.has("accept")) {
       headers.set("accept", defaultAccept);
     }
     if (bearer) {
       headers.set("Authorization", `Bearer ${bearer}`);
     }
-    if (!(init.body instanceof FormData) && !headers.has("Content-Type") && defaultAccept === "application/json") {
+    if (
+      !(fetchInit.body instanceof FormData) &&
+      !headers.has("Content-Type") &&
+      defaultAccept === "application/json"
+    ) {
       headers.set("Content-Type", "application/json");
     }
     return headers;
   };
 
   let res = await fetch(`${config.apiBaseUrl}${path}`, {
-    ...init,
+    ...fetchInit,
     headers: buildHeaders(token),
+    signal: buildRequestSignal(callerSignal, effectiveTimeoutMs),
     cache: "no-store",
   });
 
   // If unauthorized, redirect/revoked access (307), or forbidden and refreshToken is available, try to refresh token and retry
-  if ((res.status === 401 || res.status === 307 || res.status === 403) && refreshToken) {
+  if (
+    (res.status === 401 || res.status === 307 || res.status === 403) &&
+    refreshToken &&
+    !callerSignal?.aborted
+  ) {
+    let refreshedToken: string | undefined;
     try {
       const fresh = await refreshTokens(refreshToken);
       if (fresh?.accessToken && extractAuthUser(fresh.accessToken)) {
-        token = fresh.accessToken;
+        refreshedToken = fresh.accessToken;
         const cookieList = buildAuthCookies(fresh);
         for (const cookie of cookieList) {
           cookieStore.set(cookie.name, cookie.value, cookie.options);
         }
-
-        res = await fetch(`${config.apiBaseUrl}${path}`, {
-          ...init,
-          headers: buildHeaders(token),
-          cache: "no-store",
-        });
       } else {
         for (const name of ALL_AUTH_COOKIES) {
           cookieStore.delete(name);
@@ -76,6 +107,15 @@ async function authorizedFetch(
         cookieStore.delete(name);
       }
     }
+
+    if (refreshedToken) {
+      res = await fetch(`${config.apiBaseUrl}${path}`, {
+        ...fetchInit,
+        headers: buildHeaders(refreshedToken),
+        signal: buildRequestSignal(callerSignal, effectiveTimeoutMs),
+        cache: "no-store",
+      });
+    }
   }
 
   return res;
@@ -83,7 +123,7 @@ async function authorizedFetch(
 
 async function parseErrorResponse(res: Response): Promise<ApiError> {
   let errorDetails = `Request failed: ${res.status}`;
-  let errBody: unknown = null;
+  let errBody: unknown;
 
   try {
     const text = await res.text();
@@ -102,11 +142,19 @@ async function parseErrorResponse(res: Response): Promise<ApiError> {
     // Response body could not be read
   }
 
-  return new ApiError(res.status, errorDetails, errBody);
+  return new ApiError(res.status, errorDetails, errBody ?? null);
 }
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await authorizedFetch(path, init, "application/json");
+export async function apiFetch<T>(
+  path: string,
+  init: ApiFetchOptions = {}
+): Promise<T> {
+  const res = await authorizedFetch(
+    path,
+    init,
+    "application/json",
+    DEFAULT_JSON_TIMEOUT_MS
+  );
 
   if (!res.ok) {
     throw await parseErrorResponse(res);
@@ -123,10 +171,15 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 
 export async function apiFetchText(
   path: string,
-  init: RequestInit = {},
+  init: ApiFetchOptions = {},
   accept = "*/*"
 ): Promise<{ text: string; contentDisposition: string | null }> {
-  const res = await authorizedFetch(path, init, accept);
+  const res = await authorizedFetch(
+    path,
+    init,
+    accept,
+    DEFAULT_TEXT_TIMEOUT_MS
+  );
 
   if (!res.ok) {
     throw await parseErrorResponse(res);

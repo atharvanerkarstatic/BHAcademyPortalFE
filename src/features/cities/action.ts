@@ -1,94 +1,125 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { ENDPOINTS } from "@/config/endpoints";
-import { apiFetch, ApiError } from "@/lib/api";
-import { getCurrentUser } from "@/lib/auth-server";
-import { hasPermission } from "@/lib/auth-jwt";
+import { apiFetch } from "@/lib/api";
+import type { ActionRequestOptions } from "@/lib/api";
+import { requirePermission } from "@/lib/auth-server";
+import { tryCatch } from "@/lib/try-catch";
+
 import type { CityItem, SaveCityPayload } from "./types";
 
-export async function getCitiesAction(): Promise<{
+export async function getCitiesAction(options?: ActionRequestOptions): Promise<{
   success: boolean;
   data: Array<CityItem>;
   message?: string;
   error?: string;
 }> {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, ["pincode.read", "system.all"])) {
+  const auth = await requirePermission(
+    ["pincode.read", "system.all"],
+    "You do not have permission to view cities."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to view cities.",
+      error: auth.error,
       data: [],
     };
   }
 
-  try {
-    const res = await apiFetch<{
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
       data: Array<CityItem>;
-    }>(ENDPOINTS.cities.list);
+    }>(ENDPOINTS.cities.list, { signal: options?.signal }),
+    "Failed to load cities."
+  );
 
-    return {
-      success: true,
-      data: Array.isArray(res?.data) ? res.data : [],
-      message: res?.message,
-    };
-  } catch (error) {
-    console.error("Failed to fetch cities:", error);
-    const message = error instanceof ApiError ? error.message : "Failed to load cities.";
+  if (!res.ok) {
+    console.error("Failed to fetch cities:", res.error.cause);
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to load cities.",
       data: [],
     };
   }
+
+  return {
+    success: true,
+    data: Array.isArray(res.data?.data) ? res.data.data : [],
+    message: res.data?.message,
+  };
 }
 
-export async function getCityByIdAction(id: number | string): Promise<{
+export async function getCityByIdAction(
+  id: number | string,
+  options?: ActionRequestOptions
+): Promise<{
   success: boolean;
   data?: CityItem;
   message?: string;
   error?: string;
 }> {
-  try {
-    // Check single endpoint or fetch list
-    const listRes = await getCitiesAction();
-    if (listRes.success && listRes.data) {
-      const found = listRes.data.find((c) => String(c.id) === String(id));
-      if (found) {
-        return {
-          success: true,
-          data: found,
-          message: listRes.message,
-        };
-      }
-    }
+  const auth = await requirePermission(
+    ["pincode.read", "system.all"],
+    "You do not have permission to view city details."
+  );
+  if (!auth.ok) {
+    return {
+      success: false,
+      error: auth.error,
+    };
+  }
 
-    // Direct endpoint fallback if available
-    const res = await apiFetch<{
+  // Check single endpoint or fetch list
+  const listRes = await getCitiesAction(options);
+  if (listRes.success && listRes.data) {
+    const found = listRes.data.find((c) => String(c.id) === String(id));
+    if (found) {
+      return {
+        success: true,
+        data: found,
+        message: listRes.message,
+      };
+    }
+  }
+
+  if (options?.signal?.aborted) {
+    return {
+      success: false,
+      error: "Failed to load city details.",
+    };
+  }
+
+  // Direct endpoint fallback if available
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
       data: CityItem;
-    }>(ENDPOINTS.cities.byId(id));
+    }>(ENDPOINTS.cities.byId(id), { signal: options?.signal }),
+    "Failed to load city details."
+  );
 
-    return {
-      success: true,
-      data: res.data,
-      message: res.message,
-    };
-  } catch (error) {
-    console.error("Failed to fetch city by id:", error);
-    const message = error instanceof ApiError ? error.message : "Failed to load city details.";
+  if (!res.ok) {
+    console.error("Failed to fetch city by id:", res.error.cause);
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to load city details.",
     };
   }
+
+  return {
+    success: true,
+    data: res.data.data,
+    message: res.data.message,
+  };
 }
 
 export async function createCityAction(payload: SaveCityPayload): Promise<{
@@ -97,18 +128,19 @@ export async function createCityAction(payload: SaveCityPayload): Promise<{
   message?: string;
   error?: string;
 }> {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, ["pincode.create", "system.all"])) {
+  const auth = await requirePermission(
+    ["pincode.create", "system.all"],
+    "You do not have permission to create cities."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to create cities.",
+      error: auth.error,
     };
   }
 
-  try {
-    const res = await apiFetch<{
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
@@ -116,22 +148,25 @@ export async function createCityAction(payload: SaveCityPayload): Promise<{
     }>(ENDPOINTS.cities.list, {
       method: "POST",
       body: JSON.stringify(payload),
-    });
+    }),
+    "Failed to create city."
+  );
 
-    revalidatePath("/cities");
-    return {
-      success: true,
-      data: res.data,
-      message: res.message || "City created successfully",
-    };
-  } catch (error) {
-    console.error("Failed to create city:", error);
-    const message = error instanceof ApiError ? error.message : "Failed to create city.";
+  if (!res.ok) {
+    console.error("Failed to create city:", res.error.cause);
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to create city.",
     };
   }
+
+  return {
+    success: true,
+    data: res.data.data,
+    message: res.data.message || "City created successfully",
+  };
 }
 
 export async function updateCityAction(
@@ -143,18 +178,19 @@ export async function updateCityAction(
   message?: string;
   error?: string;
 }> {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, ["pincode.update", "system.all"])) {
+  const auth = await requirePermission(
+    ["pincode.update", "system.all"],
+    "You do not have permission to update cities."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to update cities.",
+      error: auth.error,
     };
   }
 
-  try {
-    const res = await apiFetch<{
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
@@ -162,22 +198,25 @@ export async function updateCityAction(
     }>(ENDPOINTS.cities.byId(id), {
       method: "PUT",
       body: JSON.stringify(payload),
-    });
+    }),
+    "Failed to update city."
+  );
 
-    revalidatePath("/cities");
-    return {
-      success: true,
-      data: res.data,
-      message: res.message || "City updated successfully",
-    };
-  } catch (error) {
-    console.error("Failed to update city:", error);
-    const message = error instanceof ApiError ? error.message : "Failed to update city.";
+  if (!res.ok) {
+    console.error("Failed to update city:", res.error.cause);
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to update city.",
     };
   }
+
+  return {
+    success: true,
+    data: res.data.data,
+    message: res.data.message || "City updated successfully",
+  };
 }
 
 export async function deleteCityAction(id: number | string): Promise<{
@@ -185,37 +224,40 @@ export async function deleteCityAction(id: number | string): Promise<{
   message?: string;
   error?: string;
 }> {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, ["pincode.delete", "system.all"])) {
+  const auth = await requirePermission(
+    ["pincode.delete", "system.all"],
+    "You do not have permission to delete cities."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to delete cities.",
+      error: auth.error,
     };
   }
 
-  try {
-    const res = await apiFetch<{
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
     }>(ENDPOINTS.cities.byId(id), {
       method: "DELETE",
-    });
+    }),
+    "Failed to delete city."
+  );
 
-    revalidatePath("/cities");
-    return {
-      success: true,
-      message: res.message || "PinCode record deleted successfully",
-    };
-  } catch (error) {
-    console.error("Failed to delete city:", error);
-    const message = error instanceof ApiError ? error.message : "Failed to delete city.";
+  if (!res.ok) {
+    console.error("Failed to delete city:", res.error.cause);
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to delete city.",
     };
   }
-}
 
+  return {
+    success: true,
+    message: res.data?.message || "PinCode record deleted successfully",
+  };
+}

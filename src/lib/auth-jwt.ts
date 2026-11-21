@@ -1,6 +1,6 @@
 import { isRecord } from "./type-guards";
 
-export type JwtPayload = {
+export interface JwtPayload {
   jti?: string;
   sub?: string;
   iss?: string;
@@ -11,15 +11,15 @@ export type JwtPayload = {
   iat?: number;
   exp?: number;
   sid?: string;
-};
+}
 
-export type AuthUser = {
+export interface AuthUser {
   id?: string;
   email: string;
   permissions: Array<string>;
   roles: Array<string>;
   sessionId?: string;
-};
+}
 
 /**
  * Base64Url decode without external dependencies.
@@ -32,7 +32,10 @@ function base64UrlDecode(str: string): string {
   }
   if (typeof atob === "function") {
     const binary = atob(base64);
-    const encoded = Array.from(binary, (c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join("");
+    const encoded = Array.from(
+      binary,
+      (c) => `%${`00${(c.codePointAt(0) ?? 0).toString(16)}`.slice(-2)}`
+    ).join("");
     return decodeURIComponent(encoded);
   }
   return Buffer.from(base64, "base64").toString("utf8");
@@ -61,7 +64,12 @@ export function parseJwtPayload(token: string): JwtPayload | null {
       return null;
     }
 
-    const exp = typeof parsed.exp === "number" && Number.isFinite(parsed.exp) ? parsed.exp : undefined;
+    const exp =
+      "exp" in parsed &&
+      typeof parsed.exp === "number" &&
+      Number.isFinite(parsed.exp)
+        ? parsed.exp
+        : undefined;
     if (exp !== undefined) {
       const nowInSeconds = Math.floor(Date.now() / 1000);
       if (exp <= nowInSeconds) {
@@ -70,16 +78,37 @@ export function parseJwtPayload(token: string): JwtPayload | null {
     }
 
     return {
-      jti: typeof parsed.jti === "string" ? parsed.jti : undefined,
-      sub: typeof parsed.sub === "string" ? parsed.sub : undefined,
-      iss: typeof parsed.iss === "string" ? parsed.iss : undefined,
-      aud: toStringArray(parsed.aud),
-      email: typeof parsed.email === "string" ? parsed.email : undefined,
-      ver: typeof parsed.ver === "number" ? parsed.ver : undefined,
-      auth: toStringArray(parsed.auth),
-      iat: typeof parsed.iat === "number" ? parsed.iat : undefined,
+      jti:
+        "jti" in parsed && typeof parsed.jti === "string"
+          ? parsed.jti
+          : undefined,
+      sub:
+        "sub" in parsed && typeof parsed.sub === "string"
+          ? parsed.sub
+          : undefined,
+      iss:
+        "iss" in parsed && typeof parsed.iss === "string"
+          ? parsed.iss
+          : undefined,
+      aud: "aud" in parsed ? toStringArray(parsed.aud) : undefined,
+      email:
+        "email" in parsed && typeof parsed.email === "string"
+          ? parsed.email
+          : undefined,
+      ver:
+        "ver" in parsed && typeof parsed.ver === "number"
+          ? parsed.ver
+          : undefined,
+      auth: "auth" in parsed ? toStringArray(parsed.auth) : undefined,
+      iat:
+        "iat" in parsed && typeof parsed.iat === "number"
+          ? parsed.iat
+          : undefined,
       exp,
-      sid: typeof parsed.sid === "string" ? parsed.sid : undefined,
+      sid:
+        "sid" in parsed && typeof parsed.sid === "string"
+          ? parsed.sid
+          : undefined,
     };
   } catch {
     return null;

@@ -4,28 +4,29 @@
  */
 
 // Mobile number: exactly 10 digits
-export const MOBILE_REGEX = /^[6-9]\d{9}$/;
+export const MOBILE_REGEX = /^[6-9]\d{9}$/u;
 
 // Standard email format
-export const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+export const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/u;
 
 // Allowed image MIME types and extensions
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/jpg"];
 export const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png"];
-export const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+// 5 MB
+export const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 
 /**
  * Strips non-digit characters and ensures maximum 10 digits.
  */
 export function sanitizeMobileNumber(value: string): string {
-  return value.replaceAll(/\D/g, "").slice(0, 10);
+  return value.replaceAll(/\D/gu, "").slice(0, 10);
 }
 
 /**
  * Validates 10-digit mobile number format.
  */
 export function isValidMobileNumber(value: string): boolean {
-  return /^\d{10}$/.test(value.trim());
+  return /^\d{10}$/u.test(value.trim());
 }
 
 /**
@@ -45,7 +46,10 @@ export function sanitizeTextInput(value: string, maxLength?: number): string {
   }
   let clean = "";
   for (const ch of value) {
-    const code = ch.charCodeAt(0);
+    const code = ch.codePointAt(0);
+    if (code === undefined) {
+      continue;
+    }
     const isControl =
       (code >= 0 && code <= 8) ||
       code === 11 ||
@@ -70,18 +74,35 @@ export function sanitizeNonNegativeNumber(
   fallback = 0,
   min = 0
 ): number {
-  if (value === "" || value === null || value === undefined) {return fallback;}
-  const num = typeof value === "number" ? value : Number.parseInt(String(value).trim(), 10);
-  if (isNaN(num)) {return fallback;}
+  if (value === "" || value === null || value === undefined) {
+    return fallback;
+  }
+  let num: number;
+  if (typeof value === "number") {
+    num = value;
+  } else {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return fallback;
+    }
+    num = Math.trunc(Number(trimmed));
+  }
+  if (!Number.isFinite(num)) {
+    return fallback;
+  }
   return Math.max(min, num);
 }
+
+export type ImageValidationResult =
+  | { valid: true }
+  | { valid: false; error: string };
 
 /**
  * Validates an image file before upload:
  * - Must be PNG, JPG, or JPEG
  * - Must not exceed 5 MB
  */
-export function validateImageFile(file: File): { valid: boolean; error?: string } {
+export function validateImageFile(file: File): ImageValidationResult {
   if (!file) {
     return { valid: false, error: "No file provided" };
   }
@@ -97,7 +118,9 @@ export function validateImageFile(file: File): { valid: boolean; error?: string 
 
   // Check file extension strictly - only .png, .jpg, .jpeg
   const fileName = file.name.toLowerCase();
-  const hasValidExt = ALLOWED_IMAGE_EXTENSIONS.some((ext) => fileName.endsWith(ext));
+  const hasValidExt = ALLOWED_IMAGE_EXTENSIONS.some((ext) =>
+    fileName.endsWith(ext)
+  );
 
   // Check MIME type if present (must strictly match image/jpeg or image/png, reject webp etc.)
   const mimeType = (file.type || "").toLowerCase().trim();
@@ -106,7 +129,8 @@ export function validateImageFile(file: File): { valid: boolean; error?: string 
   if (!hasValidExt || !hasValidType) {
     return {
       valid: false,
-      error: "Only .png, .jpg, and .jpeg image formats are allowed (WEBP and other formats are not supported).",
+      error:
+        "Only .png, .jpg, and .jpeg image formats are allowed (WEBP and other formats are not supported).",
     };
   }
 

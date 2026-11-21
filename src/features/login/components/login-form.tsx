@@ -1,15 +1,26 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { loginAction } from "@/features/auth/action";
+import { asString, isRecord } from "@/lib/type-guards";
+
+function getThrownErrorMessage(error: unknown): string | undefined {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (isRecord(error) && "message" in error) {
+    return asString(error.message);
+  }
+  return undefined;
+}
 
 export default function LoginForm({ ip }: { ip: ReactNode }) {
   const { error: toastError, success: toastSuccess } = useToast();
@@ -36,7 +47,7 @@ export default function LoginForm({ ip }: { ip: ReactNode }) {
     };
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const cleanEmail = email.trim();
@@ -67,21 +78,20 @@ export default function LoginForm({ ip }: { ip: ReactNode }) {
         toastSuccess(result.message ?? "Logged in successfully");
       }
     } catch (error: unknown) {
+      const digest =
+        isRecord(error) && "digest" in error
+          ? asString(error.digest)
+          : undefined;
+      const message = getThrownErrorMessage(error);
       if (
-        (error &&
-          typeof error === "object" &&
-          "digest" in error &&
-          typeof (error as Record<string, unknown>).digest === "string" &&
-          String((error as Record<string, unknown>).digest).includes("NEXT_REDIRECT")) ||
-        (error &&
-          typeof error === "object" &&
-          "message" in error &&
-          typeof (error as Record<string, unknown>).message === "string" &&
-          String((error as Record<string, unknown>).message).includes("NEXT_REDIRECT"))
+        digest?.includes("NEXT_REDIRECT") ||
+        message?.includes("NEXT_REDIRECT")
       ) {
         throw error;
       }
-      toastError("Something went wrong. Please check your network and try again.");
+      toastError(
+        "Something went wrong. Please check your network and try again."
+      );
       setLoading(false);
     }
   };
@@ -103,7 +113,12 @@ export default function LoginForm({ ip }: { ip: ReactNode }) {
           </h1>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5 p-6">
+        <form
+          onSubmit={(e) => {
+            void handleSubmit(e);
+          }}
+          className="space-y-5 p-6"
+        >
           <p className="text-center text-slate-600">
             Sign in to access your dashboard
           </p>
@@ -119,7 +134,9 @@ export default function LoginForm({ ip }: { ip: ReactNode }) {
               autoComplete="off"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+              }}
               className="h-11 rounded-l-none bg-slate-50"
             />
           </div>
@@ -135,13 +152,17 @@ export default function LoginForm({ ip }: { ip: ReactNode }) {
               autoComplete="new-password"
               required
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="h-11 rounded-none border-x-0 bg-slate-50 focus-visible:ring-0 focus-visible:border-input"
+              onChange={(e) => {
+                setPassword(e.target.value);
+              }}
+              className="focus-visible:border-input h-11 rounded-none border-x-0 bg-slate-50 focus-visible:ring-0"
             />
             <button
               type="button"
-              onClick={() => setShowPassword((prev) => !prev)}
-              className="flex w-12 items-center justify-center rounded-r-md border border-l-0 bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors focus:outline-hidden"
+              onClick={() => {
+                setShowPassword((prev) => !prev);
+              }}
+              className="flex w-12 items-center justify-center rounded-r-md border border-l-0 bg-slate-100 text-slate-500 transition-colors hover:text-slate-700 focus:outline-hidden"
               title={showPassword ? "Hide password" : "Show password"}
               tabIndex={-1}
             >

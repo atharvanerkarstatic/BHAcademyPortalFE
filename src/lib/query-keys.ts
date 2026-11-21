@@ -11,11 +11,17 @@ export const queryKeys = {
   },
   courses: {
     all: ["courses"] as const,
-    list: (params: { page: number; size: number; search: string; sort?: string }) =>
-      ["courses", "list", params] as const,
-    byCategory: (categoryId: string) => ["courses", "category", categoryId] as const,
+    list: (params: {
+      page: number;
+      size: number;
+      search: string;
+      sort?: string;
+    }) => ["courses", "list", params] as const,
+    byCategory: (categoryId: string) =>
+      ["courses", "category", categoryId] as const,
     detail: (id: string) => ["courses", "detail", id] as const,
-    videos: (courseId: string, lang: string) => ["courses", "videos", courseId, lang] as const,
+    videos: (courseId: string, lang: string) =>
+      ["courses", "videos", courseId, lang] as const,
     quizzes: (courseId: string, lang: string, quizType?: string) =>
       ["courses", "quizzes", courseId, lang, quizType ?? "ALL"] as const,
     translation: (courseId: string, lang: string) =>
@@ -23,8 +29,12 @@ export const queryKeys = {
   },
   categories: {
     all: ["categories"] as const,
-    list: (params: { page: number; size: number; sort?: string; status?: string | null }) =>
-      ["categories", "list", params] as const,
+    list: (params: {
+      page: number;
+      size: number;
+      sort?: string;
+      status?: string | null;
+    }) => ["categories", "list", params] as const,
     detail: (id: string) => ["categories", "detail", id] as const,
   },
   languages: {
@@ -35,8 +45,12 @@ export const queryKeys = {
   },
   trainers: {
     all: ["trainers"] as const,
-    list: (params: { page: number; size: number; search: string; sort?: string }) =>
-      ["trainers", "list", params] as const,
+    list: (params: {
+      page: number;
+      size: number;
+      search: string;
+      sort?: string;
+    }) => ["trainers", "list", params] as const,
     detail: (id: string) => ["trainers", "detail", id] as const,
   },
   accounts: {

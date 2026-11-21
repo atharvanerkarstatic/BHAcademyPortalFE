@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Languages, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 
+import {
+  MultilingualContentTable,
+  TRANSLATION_LANGUAGES,
+} from "@/components/common/multilingual-content-table";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,11 +19,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { createFaqAction } from "@/features/faqs/action";
 import type { CreateFaqPayload } from "@/features/faqs/types";
-import { sanitizeTextInput, sanitizeNonNegativeNumber } from "@/lib/validations";
-import { MultilingualContentTable, TRANSLATION_LANGUAGES } from "@/components/common/multilingual-content-table";
+import { queryKeys } from "@/lib/query-keys";
+import {
+  sanitizeTextInput,
+  sanitizeNonNegativeNumber,
+} from "@/lib/validations";
 
 export default function NewFaqPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { success, error: toastError } = useToast();
   const [isPending, startTransition] = useTransition();
 
@@ -92,7 +101,7 @@ export default function NewFaqPage() {
     router.back();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const cleanQuestion = sanitizeTextInput(question, 500);
@@ -109,13 +118,17 @@ export default function NewFaqPage() {
 
     const sanitizedQuestions: Record<string, string> = {};
     for (const [key, val] of Object.entries(questions)) {
-      if (!val) {continue;}
+      if (!val) {
+        continue;
+      }
       sanitizedQuestions[key] = sanitizeTextInput(val, 500);
     }
 
     const sanitizedAnswers: Record<string, string> = {};
     for (const [key, val] of Object.entries(answers)) {
-      if (!val) {continue;}
+      if (!val) {
+        continue;
+      }
       sanitizedAnswers[key] = sanitizeTextInput(val, 5000);
     }
 
@@ -131,11 +144,14 @@ export default function NewFaqPage() {
     startTransition(async () => {
       const res = await createFaqAction(payload);
       if (res.success) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.faqs.all });
         success("FAQ created successfully");
         resetForm();
         router.push("/faqs");
       } else {
-        toastError(res.error || "Failed to create FAQ. Please check all fields.");
+        toastError(
+          res.error || "Failed to create FAQ. Please check all fields."
+        );
       }
     });
   };
@@ -151,12 +167,17 @@ export default function NewFaqPage() {
         ]}
       />
 
-      <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <CardHeader className="border-b px-6 py-4 bg-white flex flex-row items-center justify-between">
+      <Card className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between border-b bg-white px-6 py-4">
           <CardTitle className="text-base font-bold text-slate-900">
             Add New FAQ
           </CardTitle>
-          <Button variant="ghost" size="sm" asChild className="gap-1.5 text-slate-600 hover:text-slate-900">
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="gap-1.5 text-slate-600 hover:text-slate-900"
+          >
             <Link href="/faqs">
               <ArrowLeft className="h-4 w-4" />
               Back to FAQs List
@@ -174,7 +195,7 @@ export default function NewFaqPage() {
             {/* Primary Details (Compact Centered Section) */}
             <div className="mx-auto max-w-2xl space-y-4">
               {/* Question */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
                 <Label
                   htmlFor="faq-question"
                   className="text-xs font-semibold text-slate-700 sm:text-right"
@@ -185,7 +206,9 @@ export default function NewFaqPage() {
                   <Input
                     id="faq-question"
                     value={question}
-                    onChange={(e) => setQuestion(e.target.value)}
+                    onChange={(e) => {
+                      setQuestion(e.target.value);
+                    }}
                     placeholder="e.g. How do I start the virtual training session?"
                     maxLength={500}
                     className="h-9 text-xs"
@@ -195,10 +218,10 @@ export default function NewFaqPage() {
               </div>
 
               {/* Answer */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-4">
+              <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-4">
                 <Label
                   htmlFor="faq-answer"
-                  className="text-xs font-semibold text-slate-700 sm:text-right pt-2"
+                  className="pt-2 text-xs font-semibold text-slate-700 sm:text-right"
                 >
                   Answer <span className="text-rose-500">*</span>
                 </Label>
@@ -207,7 +230,9 @@ export default function NewFaqPage() {
                     id="faq-answer"
                     rows={4}
                     value={answer}
-                    onChange={(e) => setAnswer(e.target.value)}
+                    onChange={(e) => {
+                      setAnswer(e.target.value);
+                    }}
                     placeholder="Provide a comprehensive answer..."
                     maxLength={5000}
                     className="text-xs"
@@ -217,7 +242,7 @@ export default function NewFaqPage() {
               </div>
 
               {/* Display Order */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
                 <Label
                   htmlFor="faq-order"
                   className="text-xs font-semibold text-slate-700 sm:text-right"
@@ -230,15 +255,19 @@ export default function NewFaqPage() {
                     type="number"
                     min="1"
                     value={displayOrder}
-                    onChange={(e) => setDisplayOrder(sanitizeNonNegativeNumber(e.target.value, 1, 1))}
-                    className="h-9 text-xs font-mono"
+                    onChange={(e) => {
+                      setDisplayOrder(
+                        sanitizeNonNegativeNumber(e.target.value, 1, 1)
+                      );
+                    }}
+                    className="h-9 font-mono text-xs"
                     required
                   />
                 </div>
               </div>
 
               {/* Status */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
                 <Label
                   htmlFor="faq-status"
                   className="text-xs font-semibold text-slate-700 sm:text-right"
@@ -249,8 +278,12 @@ export default function NewFaqPage() {
                   <select
                     id="faq-status"
                     value={status}
-                    onChange={(e) => setStatus(e.target.value as "ACTIVE" | "INACTIVE")}
-                    className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    onChange={(e) => {
+                      setStatus(
+                        e.target.value === "INACTIVE" ? "INACTIVE" : "ACTIVE"
+                      );
+                    }}
+                    className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                   >
                     <option value="ACTIVE">ACTIVE</option>
                     <option value="INACTIVE">INACTIVE</option>
@@ -260,10 +293,10 @@ export default function NewFaqPage() {
             </div>
 
             {/* Multilingual Section Divider (Wide Section) */}
-            <div className="pt-6 border-t border-slate-100 w-full">
-              <div className="flex items-center gap-2 mb-3">
+            <div className="w-full border-t border-slate-100 pt-6">
+              <div className="mb-3 flex items-center gap-2">
                 <Languages className="h-4 w-4 text-blue-600" />
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                <h3 className="text-xs font-bold tracking-wide text-slate-800 uppercase">
                   Multilingual Translations (Optional)
                 </h3>
               </div>
@@ -271,8 +304,12 @@ export default function NewFaqPage() {
                 languages={TRANSLATION_LANGUAGES}
                 names={questions}
                 details={answers}
-                onNameChange={(key, val) => setQuestions((prev) => ({ ...prev, [key]: val }))}
-                onDetailsChange={(key, val) => setAnswers((prev) => ({ ...prev, [key]: val }))}
+                onNameChange={(key, val) => {
+                  setQuestions((prev) => ({ ...prev, [key]: val }));
+                }}
+                onDetailsChange={(key, val) => {
+                  setAnswers((prev) => ({ ...prev, [key]: val }));
+                }}
                 nameKeyPrefix="question"
                 detailsKeyPrefix="answer"
                 namePlaceholder="Question"
@@ -286,13 +323,15 @@ export default function NewFaqPage() {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center justify-center gap-3 pt-6 border-t border-slate-100">
+            <div className="flex items-center justify-center gap-3 border-t border-slate-100 pt-6">
               <Button
                 type="submit"
                 disabled={isPending}
-                className="bg-blue-600 hover:bg-blue-700 text-white min-w-24 h-8 text-xs font-semibold uppercase"
+                className="h-8 min-w-24 bg-blue-600 text-xs font-semibold text-white uppercase hover:bg-blue-700"
               >
-                {isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                {isPending && (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                )}
                 SAVE
               </Button>
               <Button
@@ -300,7 +339,7 @@ export default function NewFaqPage() {
                 variant="outline"
                 onClick={handleBack}
                 disabled={isPending}
-                className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
+                className="h-8 min-w-24 border-slate-300 text-xs font-medium uppercase"
               >
                 BACK
               </Button>

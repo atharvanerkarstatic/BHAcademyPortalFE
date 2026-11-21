@@ -5,12 +5,12 @@ function parseCsvLine(line: string): Array<string> {
   let current = "";
   let inQuotes = false;
 
-  for (let i = 0; i < line.length; i++) {
+  for (let i = 0; i < line.length; i += 1) {
     const char = line[i];
     if (char === '"') {
       if (inQuotes && line[i + 1] === '"') {
         current += '"';
-        i++;
+        i += 1;
       } else {
         inQuotes = !inQuotes;
       }
@@ -33,7 +33,9 @@ export function parseCsv(csvText: string): Array<CsvRow> {
     return [];
   }
 
-  const lines = csvText.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  const lines = csvText
+    .split(/\r?\n/u)
+    .filter((line) => line.trim().length > 0);
   if (lines.length === 0) {
     return [];
   }
@@ -41,10 +43,13 @@ export function parseCsv(csvText: string): Array<CsvRow> {
   const headers = parseCsvLine(lines[0]);
   const rows: Array<CsvRow> = [];
 
-  for (let i = 1; i < lines.length; i++) {
+  for (let i = 1; i < lines.length; i += 1) {
     const values = parseCsvLine(lines[i]);
     const rowObj: Record<string, string> = Object.fromEntries(
-      headers.map((header, idx) => [header, values[idx] === undefined ? "" : values[idx]])
+      headers.map((header, idx) => [
+        header,
+        values[idx] === undefined ? "" : values[idx],
+      ])
     );
     rowObj._rowId = `csv-row-${i}`;
     rows.push(rowObj);

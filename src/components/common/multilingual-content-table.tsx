@@ -26,9 +26,12 @@ export interface MultilingualContentTableProps {
   onNameChange: (key: string, value: string) => void;
   onLevelChange?: (key: string, value: string) => void;
   onDetailsChange: (key: string, value: string) => void;
-  nameKeyPrefix: string; // e.g. "courseName", "question"
-  levelKeyPrefix?: string; // e.g. "courseLevel"
-  detailsKeyPrefix: string; // e.g. "courseDetails", "answer"
+  // e.g. "courseName", "question"
+  nameKeyPrefix: string;
+  // e.g. "courseLevel"
+  levelKeyPrefix?: string;
+  // e.g. "courseDetails", "answer"
+  detailsKeyPrefix: string;
   namePlaceholder?: string;
   levelPlaceholder?: string;
   detailsPlaceholder?: string;
@@ -41,10 +44,12 @@ export interface MultilingualContentTableProps {
   levelColumnTitle?: string;
 }
 
+const EMPTY_LEVELS: Record<string, string> = {};
+
 export function MultilingualContentTable({
   languages = TRANSLATION_LANGUAGES,
   names,
-  levels = {},
+  levels = EMPTY_LEVELS,
   details,
   onNameChange,
   onLevelChange,
@@ -64,16 +69,18 @@ export function MultilingualContentTable({
   levelColumnTitle = "Level",
 }: MultilingualContentTableProps) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 shadow-sm bg-white">
-      <table className="w-full text-left text-xs border-collapse">
-        <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-semibold">
+    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+      <table className="w-full border-collapse text-left text-xs">
+        <thead className="border-b border-slate-200 bg-slate-50 font-semibold text-slate-700">
           <tr>
-            <th className="py-3 px-4 w-[220px] min-w-[200px]">Language</th>
-            <th className="py-3 px-4 min-w-[280px]">{nameColumnTitle}</th>
+            <th className="w-[220px] min-w-[200px] px-4 py-3">Language</th>
+            <th className="min-w-[280px] px-4 py-3">{nameColumnTitle}</th>
             {!hideLevel && (
-              <th className="py-3 px-4 w-[200px] min-w-[180px]">{levelColumnTitle}</th>
+              <th className="w-[200px] min-w-[180px] px-4 py-3">
+                {levelColumnTitle}
+              </th>
             )}
-            <th className="py-3 px-4 min-w-[360px]">{detailsColumnTitle}</th>
+            <th className="min-w-[360px] px-4 py-3">{detailsColumnTitle}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 bg-white">
@@ -83,48 +90,61 @@ export function MultilingualContentTable({
             const detailsKey = `${detailsKeyPrefix}${lang.code}`;
 
             return (
-              <tr key={lang.code} className="hover:bg-slate-50/60 transition-colors">
-                <td className="py-3 px-4 align-top">
-                  <div className="pt-2 flex flex-col gap-1">
-                    <span className="font-semibold text-slate-800 text-xs leading-tight">
+              <tr
+                key={lang.code}
+                className="transition-colors hover:bg-slate-50/60"
+              >
+                <th
+                  scope="row"
+                  aria-label={lang.name}
+                  className="px-4 py-3 align-top font-normal"
+                >
+                  <div className="flex flex-col gap-1 pt-2">
+                    <span className="text-xs leading-tight font-semibold text-slate-800">
                       {lang.name}
                     </span>
-                    <span className="text-[10px] text-slate-500 font-mono uppercase bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 w-fit">
+                    <span className="w-fit rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500 uppercase">
                       {lang.code}
                     </span>
                   </div>
-                </td>
-                <td className="py-3 px-4 align-top">
+                </th>
+                <td className="px-4 py-3 align-top">
                   <Input
                     id={nameKey}
                     placeholder={`${namePlaceholder} in ${lang.name}`}
                     value={names[nameKey] || ""}
-                    onChange={(e) => onNameChange(nameKey, e.target.value)}
+                    onChange={(e) => {
+                      onNameChange(nameKey, e.target.value);
+                    }}
                     maxLength={nameMaxLength}
-                    className="h-9 text-xs bg-white"
+                    className="h-9 bg-white text-xs"
                   />
                 </td>
                 {!hideLevel && (
-                  <td className="py-3 px-4 align-top">
+                  <td className="px-4 py-3 align-top">
                     <Input
                       id={levelKey}
                       placeholder={`${levelPlaceholder} in ${lang.name}`}
                       value={levels[levelKey] || ""}
-                      onChange={(e) => onLevelChange?.(levelKey, e.target.value)}
+                      onChange={(e) =>
+                        onLevelChange?.(levelKey, e.target.value)
+                      }
                       maxLength={levelMaxLength}
-                      className="h-9 text-xs bg-white"
+                      className="h-9 bg-white text-xs"
                     />
                   </td>
                 )}
-                <td className="py-3 px-4 align-top">
+                <td className="px-4 py-3 align-top">
                   <Textarea
                     id={detailsKey}
                     rows={2}
                     placeholder={`${detailsPlaceholder} in ${lang.name}`}
                     value={details[detailsKey] || ""}
-                    onChange={(e) => onDetailsChange(detailsKey, e.target.value)}
+                    onChange={(e) => {
+                      onDetailsChange(detailsKey, e.target.value);
+                    }}
                     maxLength={detailsMaxLength}
-                    className="text-xs bg-white min-h-[48px] resize-y py-2"
+                    className="min-h-[48px] resize-y bg-white py-2 text-xs"
                   />
                 </td>
               </tr>
@@ -135,4 +155,3 @@ export function MultilingualContentTable({
     </div>
   );
 }
-

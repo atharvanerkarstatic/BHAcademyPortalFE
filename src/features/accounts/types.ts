@@ -1,15 +1,15 @@
-export type AssessmentResultItem = {
+export interface AssessmentResultItem {
   courseName: string;
   language: string;
   score: string;
   percentage: string;
-  status: "PASS" | "FAIL" | string;
+  status: string;
   certificateUrl?: string;
   date: string;
   mode: string;
-};
+}
 
-export type AccountItem = {
+export interface AccountItem {
   id: string;
   bhBp?: string;
   name: string;
@@ -23,7 +23,7 @@ export type AccountItem = {
   region?: string | null;
   pincode?: string | null;
   pinCode?: string | null;
-  status?: "Active" | "Inactive" | "ACTIVE" | "INACTIVE" | string;
+  status?: string;
   active?: boolean | string;
   otp?: string;
   signupDate?: string;
@@ -33,18 +33,17 @@ export type AccountItem = {
   profileImage?: string | null;
   profilePicture?: string | null;
   assessmentResults?: Array<AssessmentResultItem>;
-};
+}
 
-export type CreateAccountPayload = {
+export interface CreateAccountPayload {
   name: string;
   mobileNumber: string;
   emailId?: string;
   image?: string;
   pincode?: string;
-  [key: string]: unknown;
-};
+}
 
-export type UpdateAccountPayload = {
+export interface UpdateAccountPayload {
   name: string;
   mobileNumber?: string | null;
   bhBp: string;
@@ -52,10 +51,9 @@ export type UpdateAccountPayload = {
   image?: string | null;
   active?: boolean;
   pincode?: string | null;
-  [key: string]: unknown;
-};
+}
 
-export type AccountPageResponse = {
+export interface AccountPageResponse {
   content: Array<AccountItem>;
   page: number;
   size: number;
@@ -65,28 +63,28 @@ export type AccountPageResponse = {
   last: boolean;
   hasNext: boolean;
   hasPrevious: boolean;
-};
+}
 
-export type ApiResponse<T> = {
+export interface ApiResponse<T> {
   success: boolean;
   status: number;
   message: string;
   data: T;
   path?: string;
   timestamp?: string;
-};
+}
 
-export type BulkImportError = {
+export interface BulkImportError {
   rowNumber: number;
   identifier?: string;
   field?: string;
   rejectedValue?: string;
   errorMessage: string;
-};
+}
 
-export type BulkImportResponse = {
+export interface BulkImportResponse {
   totalRows: number;
   successCount: number;
   failureCount: number;
   errors?: Array<BulkImportError>;
-};
+}

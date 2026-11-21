@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, UserRound } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -11,10 +12,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import { useAuth } from "@/lib/auth-context";
-import { validateImageFile } from "@/lib/validations";
 import { uploadMediaAction } from "@/features/accounts/action";
 import { createTrainerAction } from "@/features/trainers/action";
+import { useAuth } from "@/lib/auth-context";
+import { queryKeys } from "@/lib/query-keys";
+import { validateImageFile } from "@/lib/validations";
 
 function splitName(fullName: string) {
   const trimmed = fullName.trim();
@@ -30,6 +32,7 @@ function splitName(fullName: string) {
 
 export default function NewTrainerPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
 
@@ -46,19 +49,23 @@ export default function NewTrainerPage() {
 
   const canCreate = can("users.create") || can("system.all");
 
-  useEffect(() => {
-    return () => {
+  useEffect(
+    () => () => {
       if (imagePreview) {
         URL.revokeObjectURL(imagePreview);
       }
-    };
-  }, [imagePreview]);
+    },
+    [imagePreview]
+  );
 
   const handleImageChange = (file: File | null) => {
     if (file) {
       const check = validateImageFile(file);
       if (!check.valid) {
-        toastError(check.error || "Only .png, .jpg, and .jpeg image formats are allowed (Max 5 MB).");
+        toastError(
+          check.error ||
+            "Only .png, .jpg, and .jpeg image formats are allowed (Max 5 MB)."
+        );
         setImageFile(null);
         if (imagePreview) {
           URL.revokeObjectURL(imagePreview);
@@ -92,7 +99,7 @@ export default function NewTrainerPage() {
     router.back();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!canCreate) {
@@ -115,7 +122,7 @@ export default function NewTrainerPage() {
       return;
     }
 
-    const cleanPincode = pincode.replaceAll(/\D/g, "").slice(0, 6);
+    const cleanPincode = pincode.replaceAll(/\D/gu, "").slice(0, 6);
     if (!cleanPincode) {
       toastError("Pincode is required.");
       return;
@@ -126,7 +133,7 @@ export default function NewTrainerPage() {
       return;
     }
 
-    const cleanMobile = mobileNumber.replaceAll(/\D/g, "");
+    const cleanMobile = mobileNumber.replaceAll(/\D/gu, "");
     if (cleanMobile && cleanMobile.length !== 10) {
       toastError("Mobile number must be exactly 10 digits.");
       return;
@@ -165,6 +172,11 @@ export default function NewTrainerPage() {
       });
 
       if (res.success) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.trainers.all }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.reportFilters }),
+        ]);
         success(res.message || "Trainer created successfully");
         handleReset();
         router.push("/trainers");
@@ -185,10 +197,17 @@ export default function NewTrainerPage() {
         ]}
       />
 
-      <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <CardHeader className="border-b px-6 py-4 bg-white flex flex-row items-center justify-between">
-          <CardTitle className="text-base font-bold text-slate-900">Add New Trainer</CardTitle>
-          <Button variant="ghost" size="sm" asChild className="gap-1.5 text-slate-600">
+      <Card className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between border-b bg-white px-6 py-4">
+          <CardTitle className="text-base font-bold text-slate-900">
+            Add New Trainer
+          </CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="gap-1.5 text-slate-600"
+          >
             <Link href="/trainers">
               <ArrowLeft className="h-4 w-4" />
               Back to Trainers List
@@ -197,30 +216,44 @@ export default function NewTrainerPage() {
         </CardHeader>
 
         <CardContent className="p-6">
-          <form key={formKey} onSubmit={handleSubmit} autoComplete="off" className="mx-auto max-w-2xl space-y-4">
+          <form
+            key={formKey}
+            onSubmit={handleSubmit}
+            autoComplete="off"
+            className="mx-auto max-w-2xl space-y-4"
+          >
             {/* Full Name */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label htmlFor="trainer-name" className="text-xs font-semibold text-slate-700 sm:text-right">
+            <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
+              <Label
+                htmlFor="trainer-name"
+                className="text-xs font-semibold text-slate-700 sm:text-right"
+              >
                 Full Name <span className="text-rose-500">*</span>
               </Label>
               <div className="sm:col-span-3">
                 <Input
                   id="trainer-name"
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  onChange={(e) => {
+                    setFullName(e.target.value);
+                  }}
                   placeholder="e.g. Test Trainer"
                   className="h-9 text-xs"
                   required
                 />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  First word is saved as First Name, remaining words as Last Name.
+                <p className="mt-1 text-[11px] text-slate-400">
+                  First word is saved as First Name, remaining words as Last
+                  Name.
                 </p>
               </div>
             </div>
 
             {/* Email */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label htmlFor="trainer-email" className="text-xs font-semibold text-slate-700 sm:text-right">
+            <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
+              <Label
+                htmlFor="trainer-email"
+                className="text-xs font-semibold text-slate-700 sm:text-right"
+              >
                 Email Address <span className="text-rose-500">*</span>
               </Label>
               <div className="sm:col-span-3">
@@ -228,7 +261,9 @@ export default function NewTrainerPage() {
                   id="trainer-email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                  }}
                   placeholder="e.g. trainer@example.com"
                   className="h-9 text-xs"
                   required
@@ -237,8 +272,11 @@ export default function NewTrainerPage() {
             </div>
 
             {/* Password */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label htmlFor="trainer-password" className="text-xs font-semibold text-slate-700 sm:text-right">
+            <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
+              <Label
+                htmlFor="trainer-password"
+                className="text-xs font-semibold text-slate-700 sm:text-right"
+              >
                 Password <span className="text-rose-500">*</span>
               </Label>
               <div className="sm:col-span-3">
@@ -246,7 +284,9 @@ export default function NewTrainerPage() {
                   id="trainer-password"
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                  }}
                   placeholder="Enter initial password"
                   className="h-9 text-xs"
                   required
@@ -255,50 +295,71 @@ export default function NewTrainerPage() {
             </div>
 
             {/* Pincode */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label htmlFor="trainer-pincode" className="text-xs font-semibold text-slate-700 sm:text-right">
+            <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
+              <Label
+                htmlFor="trainer-pincode"
+                className="text-xs font-semibold text-slate-700 sm:text-right"
+              >
                 Pincode <span className="text-rose-500">*</span>
               </Label>
               <div className="sm:col-span-3">
                 <Input
                   id="trainer-pincode"
                   value={pincode}
-                  onChange={(e) => setPincode(e.target.value.replaceAll(/\D/g, "").slice(0, 6))}
+                  onChange={(e) => {
+                    setPincode(
+                      e.target.value.replaceAll(/\D/gu, "").slice(0, 6)
+                    );
+                  }}
                   placeholder="e.g. 245101"
                   maxLength={6}
-                  className="h-9 text-xs font-mono"
+                  className="h-9 font-mono text-xs"
                   required
                 />
               </div>
             </div>
 
             {/* Mobile Number */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label htmlFor="trainer-mobile" className="text-xs font-semibold text-slate-700 sm:text-right">
+            <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
+              <Label
+                htmlFor="trainer-mobile"
+                className="text-xs font-semibold text-slate-700 sm:text-right"
+              >
                 Mobile Number
               </Label>
               <div className="sm:col-span-3">
                 <Input
                   id="trainer-mobile"
                   value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value.replaceAll(/\D/g, "").slice(0, 10))}
+                  onChange={(e) => {
+                    setMobileNumber(
+                      e.target.value.replaceAll(/\D/gu, "").slice(0, 10)
+                    );
+                  }}
                   placeholder="e.g. 9876543210"
                   maxLength={10}
-                  className="h-9 text-xs font-mono"
+                  className="h-9 font-mono text-xs"
                 />
               </div>
             </div>
 
             {/* Profile Picture */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-4 pt-1">
-              <Label htmlFor="trainer-image" className="text-xs font-semibold text-slate-700 sm:text-right sm:pt-2">
+            <div className="grid grid-cols-1 items-start gap-4 pt-1 sm:grid-cols-4">
+              <Label
+                htmlFor="trainer-image"
+                className="text-xs font-semibold text-slate-700 sm:pt-2 sm:text-right"
+              >
                 Profile Picture
               </Label>
-              <div className="sm:col-span-3 space-y-2">
+              <div className="space-y-2 sm:col-span-3">
                 <div className="flex items-center gap-4">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50">
                     {imagePreview ? (
-                      <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="h-full w-full object-cover"
+                      />
                     ) : (
                       <UserRound className="h-6 w-6 text-slate-400" />
                     )}
@@ -308,30 +369,36 @@ export default function NewTrainerPage() {
                       id="trainer-image"
                       type="file"
                       accept=".jpg,.jpeg,.png"
-                      onChange={(e) => handleImageChange(e.target.files?.[0] || null)}
-                      className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+                      onChange={(e) => {
+                        handleImageChange(e.target.files?.[0] || null);
+                      }}
+                      className="h-9 text-xs file:rounded file:border-0 file:bg-slate-100 file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
                     />
-                    <p className="text-[11px] text-slate-500">Allowed formats: PNG, JPG, JPEG (Max 5 MB)</p>
+                    <p className="text-[11px] text-slate-500">
+                      Allowed formats: PNG, JPG, JPEG (Max 5 MB)
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center justify-center gap-3 pt-6 border-t mt-6">
+            <div className="mt-6 flex items-center justify-center gap-3 border-t pt-6">
               <Button
                 type="submit"
                 disabled={isPending}
-                className="bg-blue-600 hover:bg-blue-700 text-white min-w-28 h-8 text-xs font-semibold uppercase"
+                className="h-8 min-w-28 bg-blue-600 text-xs font-semibold text-white uppercase hover:bg-blue-700"
               >
-                {isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                {isPending && (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                )}
                 SAVE TRAINER
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleBack}
-                className="min-w-28 h-8 text-xs font-medium uppercase border-slate-300"
+                className="h-8 min-w-28 border-slate-300 text-xs font-medium uppercase"
               >
                 BACK
               </Button>

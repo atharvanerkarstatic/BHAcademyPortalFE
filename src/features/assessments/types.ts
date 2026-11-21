@@ -83,5 +83,3 @@ export interface AssessmentResultPageResponse {
   numberOfElements?: number;
   empty?: boolean;
 }
-
-

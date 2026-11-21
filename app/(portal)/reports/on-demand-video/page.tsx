@@ -1,7 +1,7 @@
 "use client";
 
-import { ReportPageLayout } from "@/features/reports/components/report-page-layout";
 import { exportOnDemandVideoAction } from "@/features/reports/action";
+import { ReportPageLayout } from "@/features/reports/components/report-page-layout";
 
 export default function OnDemandVideosPendingAssessmentsPage() {
   return (
@@ -9,15 +9,14 @@ export default function OnDemandVideosPendingAssessmentsPage() {
       title="On-Demand Videos Pending Assessments"
       defaultEmail="satyam.pattnaik@stetig.in"
       fields={["language", "course", "dateRange"]}
-      onGenerate={async (filters) => {
-        return exportOnDemandVideoAction({
+      onGenerate={(filters) =>
+        exportOnDemandVideoAction({
           courseId: filters.courseId,
           languageId: filters.languageId,
           startDate: filters.startDate,
           endDate: filters.endDate,
-        });
-      }}
+        })
+      }
     />
   );
 }
-

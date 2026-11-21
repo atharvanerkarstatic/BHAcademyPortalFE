@@ -1,26 +1,26 @@
-export type CourseLanguageItem = {
+export interface CourseLanguageItem {
   languageId: string;
   language: string;
   languageCode: string | null;
   videoCount: number;
   questionCount?: number;
-};
+}
 
-export type CourseItem = {
+export interface CourseItem {
   id: number;
   categoryId: string | number;
   categoryName: string;
   courseCode?: string;
   courseName: string;
   courseDetails?: string;
-  courseLevel?: "Basic" | "Intermediate" | "Advanced" | string | null;
+  courseLevel?: string | null;
   duration?: string;
   imageUrl?: string;
   mode?: string;
   noOfCertifications?: string;
   noOfVideos?: number;
   points?: number;
-  status: "ACTIVE" | "INACTIVE" | string;
+  status: string;
   languages?: Array<CourseLanguageItem>;
   // Multilingual courseName
   courseNameAs?: string;
@@ -55,9 +55,9 @@ export type CourseItem = {
   courseLevelOr?: string | null;
   courseLevelTa?: string | null;
   courseLevelTe?: string | null;
-};
+}
 
-export type CoursePageResponse = {
+export interface CoursePageResponse {
   content: Array<CourseItem>;
   page: number;
   size: number;
@@ -67,18 +67,18 @@ export type CoursePageResponse = {
   last: boolean;
   hasNext: boolean;
   hasPrevious: boolean;
-};
+}
 
-export type ApiResponse<T> = {
+export interface ApiResponse<T> {
   success: boolean;
   status: number;
   message: string;
   data: T;
   path?: string;
   timestamp?: string;
-};
+}
 
-export type CreateCoursePayload = {
+export interface CreateCoursePayload {
   categoryId: string | number;
   courseName: string;
   points?: number;
@@ -119,6 +119,6 @@ export type CreateCoursePayload = {
   courseLevelOr?: string;
   courseLevelTa?: string;
   courseLevelTe?: string;
-};
+}
 
 export type UpdateCoursePayload = CreateCoursePayload;

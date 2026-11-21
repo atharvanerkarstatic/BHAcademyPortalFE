@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from 'react';
-import type { ReactNode } from 'react';
+import { useEffect } from "react";
+import type { ReactNode } from "react";
 
 import { DESKTOP_QUERY, useSidebarStore } from "@/stores/sidebar-store";
 
@@ -16,10 +16,12 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
       }
     };
     mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
+    return () => {
+      mq.removeEventListener("change", onChange);
+    };
   }, [closeMobile]);
 
-  return <>{children}</>;
+  return children;
 }
 
 export function useSidebar() {

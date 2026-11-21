@@ -1,23 +1,26 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/toast";
 import { createLanguageAction } from "@/features/languages/action";
 import type { CreateLanguagePayload } from "@/features/languages/types";
+import { queryKeys } from "@/lib/query-keys";
 import { sanitizeTextInput } from "@/lib/validations";
 
 export default function NewLanguagePage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { success, error: toastError } = useToast();
   const [isPending, startTransition] = useTransition();
 
@@ -40,7 +43,7 @@ export default function NewLanguagePage() {
     router.back();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const cleanName = sanitizeTextInput(language, 100);
@@ -59,6 +62,12 @@ export default function NewLanguagePage() {
     startTransition(async () => {
       const res = await createLanguageAction(payload);
       if (res.success) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.languages.all }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.allLanguages }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.reportFilters }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all }),
+        ]);
         success("Language created successfully");
         router.push("/languages");
       } else {
@@ -78,10 +87,17 @@ export default function NewLanguagePage() {
         ]}
       />
 
-      <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <CardHeader className="border-b px-6 py-4 bg-white flex flex-row items-center justify-between">
-          <CardTitle className="text-base font-bold text-slate-900">Add New Language</CardTitle>
-          <Button variant="ghost" size="sm" asChild className="gap-1.5 text-slate-600 hover:text-slate-900">
+      <Card className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between border-b bg-white px-6 py-4">
+          <CardTitle className="text-base font-bold text-slate-900">
+            Add New Language
+          </CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="gap-1.5 text-slate-600 hover:text-slate-900"
+          >
             <Link href="/languages">
               <ArrowLeft className="h-4 w-4" />
               Back to Languages List
@@ -90,17 +106,27 @@ export default function NewLanguagePage() {
         </CardHeader>
 
         <CardContent className="p-6">
-          <form key={formKey} onSubmit={handleSubmit} autoComplete="off" className="mx-auto max-w-2xl space-y-4">
+          <form
+            key={formKey}
+            onSubmit={handleSubmit}
+            autoComplete="off"
+            className="mx-auto max-w-2xl space-y-4"
+          >
             {/* Language Name */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label htmlFor="lang-name" className="text-xs font-semibold text-slate-700 sm:text-right">
+            <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
+              <Label
+                htmlFor="lang-name"
+                className="text-xs font-semibold text-slate-700 sm:text-right"
+              >
                 Language Name <span className="text-rose-500">*</span>
               </Label>
               <div className="sm:col-span-3">
                 <Input
                   id="lang-name"
                   value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
+                  onChange={(e) => {
+                    setLanguage(e.target.value);
+                  }}
                   placeholder="e.g. English, Hindi, Bengali"
                   maxLength={100}
                   className="h-9 text-xs"
@@ -110,35 +136,47 @@ export default function NewLanguagePage() {
             </div>
 
             {/* Language Code */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label htmlFor="lang-code" className="text-xs font-semibold text-slate-700 sm:text-right">
+            <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
+              <Label
+                htmlFor="lang-code"
+                className="text-xs font-semibold text-slate-700 sm:text-right"
+              >
                 Language Code
               </Label>
               <div className="sm:col-span-3">
                 <Input
                   id="lang-code"
                   value={languageCode}
-                  onChange={(e) => setLanguageCode(e.target.value.toLowerCase())}
+                  onChange={(e) => {
+                    setLanguageCode(e.target.value.toLowerCase());
+                  }}
                   placeholder="e.g. en, hi, bn"
                   maxLength={10}
-                  className="h-9 text-xs font-mono"
+                  className="h-9 font-mono text-xs"
                 />
               </div>
             </div>
 
             {/* Checkbox Options */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-4 pt-1">
+            <div className="grid grid-cols-1 items-start gap-4 pt-1 sm:grid-cols-4">
               <div className="sm:text-right">
-                <span className="text-xs font-semibold text-slate-700">Options</span>
+                <span className="text-xs font-semibold text-slate-700">
+                  Options
+                </span>
               </div>
-              <div className="sm:col-span-3 space-y-3">
+              <div className="space-y-3 sm:col-span-3">
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="isDefault"
                     checked={isDefault}
-                    onCheckedChange={(checked) => setIsDefault(Boolean(checked))}
+                    onCheckedChange={(checked) => {
+                      setIsDefault(Boolean(checked));
+                    }}
                   />
-                  <Label htmlFor="isDefault" className="text-xs font-medium text-slate-700 cursor-pointer">
+                  <Label
+                    htmlFor="isDefault"
+                    className="cursor-pointer text-xs font-medium text-slate-700"
+                  >
                     Set as Default Language
                   </Label>
                 </div>
@@ -147,9 +185,14 @@ export default function NewLanguagePage() {
                   <Checkbox
                     id="isActive"
                     checked={isActive}
-                    onCheckedChange={(checked) => setIsActive(Boolean(checked))}
+                    onCheckedChange={(checked) => {
+                      setIsActive(Boolean(checked));
+                    }}
                   />
-                  <Label htmlFor="isActive" className="text-xs font-medium text-slate-700 cursor-pointer">
+                  <Label
+                    htmlFor="isActive"
+                    className="cursor-pointer text-xs font-medium text-slate-700"
+                  >
                     Active
                   </Label>
                 </div>
@@ -157,20 +200,22 @@ export default function NewLanguagePage() {
             </div>
 
             {/* Action Buttons matching Add Account */}
-            <div className="flex items-center justify-center gap-3 pt-6 border-t border-slate-100">
+            <div className="flex items-center justify-center gap-3 border-t border-slate-100 pt-6">
               <Button
                 type="submit"
                 disabled={isPending}
-                className="bg-blue-600 hover:bg-blue-700 text-white min-w-24 h-8 text-xs font-semibold uppercase"
+                className="h-8 min-w-24 bg-blue-600 text-xs font-semibold text-white uppercase hover:bg-blue-700"
               >
-                {isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                {isPending && (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                )}
                 SAVE
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleBack}
-                className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
+                className="h-8 min-w-24 border-slate-300 text-xs font-medium uppercase"
               >
                 BACK
               </Button>

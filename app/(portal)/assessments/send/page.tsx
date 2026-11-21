@@ -1,8 +1,6 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState, useTransition } from "react";
-import Link from "next/link";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -16,19 +14,19 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import Link from "next/link";
+import { useState, useTransition } from "react";
+
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import type { ReportFilterOptions } from "@/features/reports/action";
 import { sendAssessmentLinkAction } from "@/features/assessments/action";
 import type { AssessmentRecordItem } from "@/features/assessments/types";
+import type { ReportFilterOptions } from "@/features/reports/action";
 import { portalGet } from "@/lib/portal-client";
 import { queryKeys } from "@/lib/query-keys";
-import {
-  isValidMobileNumber,
-  sanitizeMobileNumber,
-} from "@/lib/validations";
+import { isValidMobileNumber, sanitizeMobileNumber } from "@/lib/validations";
 
 export default function SendAssessmentLinkPage() {
   const { error: toastError, success: toastSuccess } = useToast();
@@ -36,7 +34,8 @@ export default function SendAssessmentLinkPage() {
   // Shared reference dropdown cache
   const { data: filterOptions, isLoading: loadingOptions } = useQuery({
     queryKey: queryKeys.reportFilters,
-    queryFn: ({ signal }) => portalGet<ReportFilterOptions>("report-filters", undefined, signal),
+    queryFn: ({ signal }) =>
+      portalGet<ReportFilterOptions>("report-filters", undefined, signal),
     staleTime: 5 * 60_000,
   });
 
@@ -60,7 +59,9 @@ export default function SendAssessmentLinkPage() {
   const [filterCollapsed, setFilterCollapsed] = useState(false);
 
   // Results state
-  const [createdRecords, setCreatedRecords] = useState<Array<AssessmentRecordItem>>([]);
+  const [createdRecords, setCreatedRecords] = useState<
+    Array<AssessmentRecordItem>
+  >([]);
   const [statusBanner, setStatusBanner] = useState<{
     show: boolean;
     message: string;
@@ -107,7 +108,7 @@ export default function SendAssessmentLinkPage() {
     setStatusBanner({ show: false, message: "", type: "success" });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!trainerId) {
@@ -139,9 +140,13 @@ export default function SendAssessmentLinkPage() {
     }
 
     // Validate that each is exactly 10 digits
-    const invalidNumbers = validNumbers.filter((num) => !isValidMobileNumber(num));
+    const invalidNumbers = validNumbers.filter(
+      (num) => !isValidMobileNumber(num)
+    );
     if (invalidNumbers.length > 0) {
-      toastError(`Please enter a valid 10-digit mobile number for: ${invalidNumbers.join(", ")}`);
+      toastError(
+        `Please enter a valid 10-digit mobile number for: ${invalidNumbers.join(", ")}`
+      );
       return;
     }
 
@@ -165,10 +170,13 @@ export default function SendAssessmentLinkPage() {
           setCreatedRecords(res.data);
         }
       } else {
-        toastError(res.error || res.message || "Failed to send assessment links");
+        toastError(
+          res.error || res.message || "Failed to send assessment links"
+        );
         setStatusBanner({
           show: true,
-          message: res.error || res.message || "Failed to send assessment links.",
+          message:
+            res.error || res.message || "Failed to send assessment links.",
           type: "error",
         });
       }
@@ -209,9 +217,13 @@ export default function SendAssessmentLinkPage() {
             </Button>
             <button
               type="button"
-              onClick={() => setFilterCollapsed(!filterCollapsed)}
+              onClick={() => {
+                setFilterCollapsed(!filterCollapsed);
+              }}
               className="flex h-7 w-7 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-              aria-label={filterCollapsed ? "Expand section" : "Collapse section"}
+              aria-label={
+                filterCollapsed ? "Expand section" : "Collapse section"
+              }
             >
               {filterCollapsed ? (
                 <ChevronDown className="h-4 w-4" />
@@ -227,14 +239,16 @@ export default function SendAssessmentLinkPage() {
           <div
             className={`mt-4 flex items-start justify-between rounded-md p-3 text-sm transition-all ${
               statusBanner.type === "success"
-                ? "bg-[#eef8ee] text-[#246735] border border-[#c6e7c9]"
-                : "bg-rose-50 text-rose-800 border border-rose-200"
+                ? "border border-[#c6e7c9] bg-[#eef8ee] text-[#246735]"
+                : "border border-rose-200 bg-rose-50 text-rose-800"
             }`}
           >
             <span className="leading-relaxed">{statusBanner.message}</span>
             <button
               type="button"
-              onClick={() => setStatusBanner((prev) => ({ ...prev, show: false }))}
+              onClick={() => {
+                setStatusBanner((prev) => ({ ...prev, show: false }));
+              }}
               className="ml-4 inline-flex shrink-0 text-slate-400 hover:text-slate-600 focus:outline-none"
               aria-label="Close notification"
             >
@@ -244,19 +258,28 @@ export default function SendAssessmentLinkPage() {
         )}
 
         {!filterCollapsed && (
-          <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-4 py-4">
+          <form
+            onSubmit={handleSubmit}
+            className="mx-auto max-w-2xl space-y-4 py-4"
+          >
             {/* Trainer Selection */}
             <div className="flex flex-col sm:flex-row sm:items-center">
-              <label className="w-32 shrink-0 pb-1 text-sm font-medium text-slate-700 sm:pb-0 sm:pr-4 sm:text-right">
+              <label
+                htmlFor="send-trainer"
+                className="w-32 shrink-0 pb-1 text-sm font-medium text-slate-700 sm:pr-4 sm:pb-0 sm:text-right"
+              >
                 Trainer <span className="text-rose-500">*</span>
               </label>
               <div className="flex-1">
                 <select
+                  id="send-trainer"
                   value={trainerId}
-                  onChange={(e) => setTrainerId(e.target.value)}
+                  onChange={(e) => {
+                    setTrainerId(e.target.value);
+                  }}
                   disabled={loadingOptions || isPending}
                   required
-                  className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
+                  className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none disabled:opacity-60"
                 >
                   <option value="">Select Trainer</option>
                   {trainers.map((t) => (
@@ -270,16 +293,22 @@ export default function SendAssessmentLinkPage() {
 
             {/* Course Selection */}
             <div className="flex flex-col sm:flex-row sm:items-center">
-              <label className="w-32 shrink-0 pb-1 text-sm font-medium text-slate-700 sm:pb-0 sm:pr-4 sm:text-right">
+              <label
+                htmlFor="send-course"
+                className="w-32 shrink-0 pb-1 text-sm font-medium text-slate-700 sm:pr-4 sm:pb-0 sm:text-right"
+              >
                 Course <span className="text-rose-500">*</span>
               </label>
               <div className="flex-1">
                 <select
+                  id="send-course"
                   value={courseId}
-                  onChange={(e) => setCourseId(e.target.value)}
+                  onChange={(e) => {
+                    setCourseId(e.target.value);
+                  }}
                   disabled={loadingOptions || isPending}
                   required
-                  className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
+                  className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none disabled:opacity-60"
                 >
                   <option value="">Select Course</option>
                   {courses.map((c) => (
@@ -293,16 +322,22 @@ export default function SendAssessmentLinkPage() {
 
             {/* Language Selection */}
             <div className="flex flex-col sm:flex-row sm:items-center">
-              <label className="w-32 shrink-0 pb-1 text-sm font-medium text-slate-700 sm:pb-0 sm:pr-4 sm:text-right">
+              <label
+                htmlFor="send-language"
+                className="w-32 shrink-0 pb-1 text-sm font-medium text-slate-700 sm:pr-4 sm:pb-0 sm:text-right"
+              >
                 Language <span className="text-rose-500">*</span>
               </label>
               <div className="flex-1">
                 <select
+                  id="send-language"
                   value={languageId}
-                  onChange={(e) => setLanguageId(e.target.value)}
+                  onChange={(e) => {
+                    setLanguageId(e.target.value);
+                  }}
                   disabled={loadingOptions || isPending}
                   required
-                  className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
+                  className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none disabled:opacity-60"
                 >
                   <option value="">Select Language</option>
                   {languages.map((l) => (
@@ -316,14 +351,20 @@ export default function SendAssessmentLinkPage() {
 
             {/* Training Date */}
             <div className="flex flex-col sm:flex-row sm:items-center">
-              <label className="w-32 shrink-0 pb-1 text-sm font-medium text-slate-700 sm:pb-0 sm:pr-4 sm:text-right">
+              <label
+                htmlFor="send-training-date"
+                className="w-32 shrink-0 pb-1 text-sm font-medium text-slate-700 sm:pr-4 sm:pb-0 sm:text-right"
+              >
                 Training Date <span className="text-rose-500">*</span>
               </label>
               <div className="flex-1">
                 <Input
+                  id="send-training-date"
                   type="date"
                   value={trainingDate}
-                  onChange={(e) => setTrainingDate(e.target.value)}
+                  onChange={(e) => {
+                    setTrainingDate(e.target.value);
+                  }}
                   disabled={isPending}
                   required
                   className="h-9 w-full rounded border border-slate-300 bg-white text-sm"
@@ -332,25 +373,35 @@ export default function SendAssessmentLinkPage() {
             </div>
 
             {/* Mobile Numbers List */}
-            <div className="flex flex-col sm:flex-row sm:items-start pt-1">
-              <label className="w-32 shrink-0 pb-1 pt-2 text-sm font-medium text-slate-700 sm:pb-0 sm:pr-4 sm:text-right">
+            <div className="flex flex-col pt-1 sm:flex-row sm:items-start">
+              <label
+                htmlFor="send-mobile-0"
+                className="w-32 shrink-0 pt-2 pb-1 text-sm font-medium text-slate-700 sm:pr-4 sm:pb-0 sm:text-right"
+              >
                 Participant Mobiles <span className="text-rose-500">*</span>
               </label>
               <div className="flex-1 space-y-2">
                 <div className="flex items-center gap-1.5 rounded-md border border-blue-100 bg-blue-50/70 px-2.5 py-1.5 text-xs text-blue-700">
                   <Info className="h-3.5 w-3.5 shrink-0 text-blue-600" />
-                  <span>The assessment links will be sent to the mobile numbers entered below.</span>
+                  <span>
+                    The assessment links will be sent to the mobile numbers
+                    entered below.
+                  </span>
                 </div>
 
                 {mobileNumbers.map((num, idx) => (
                   <div key={idx} className="flex items-center gap-2">
                     <div className="relative flex-1">
                       <Input
+                        id={`send-mobile-${idx}`}
                         type="tel"
                         maxLength={10}
                         value={num}
-                        onChange={(e) => handleMobileChange(idx, e.target.value)}
+                        onChange={(e) => {
+                          handleMobileChange(idx, e.target.value);
+                        }}
                         placeholder={`10-digit mobile number ${idx + 1}`}
+                        aria-label={`Participant mobile number ${idx + 1}`}
                         disabled={isPending}
                         className="h-9 w-full font-mono text-sm"
                       />
@@ -360,7 +411,9 @@ export default function SendAssessmentLinkPage() {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleRemoveMobileField(idx)}
+                        onClick={() => {
+                          handleRemoveMobileField(idx);
+                        }}
                         disabled={isPending}
                         className="h-9 w-9 text-slate-400 hover:text-rose-600"
                         title="Remove number"
@@ -378,7 +431,7 @@ export default function SendAssessmentLinkPage() {
                     size="sm"
                     onClick={handleAddMobileField}
                     disabled={isPending || mobileNumbers.length >= 20}
-                    className="gap-1.5 text-xs text-blue-600 border-dashed border-blue-300 hover:bg-blue-50"
+                    className="gap-1.5 border-dashed border-blue-300 text-xs text-blue-600 hover:bg-blue-50"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     <span>Add Another Mobile Number</span>
@@ -391,11 +444,11 @@ export default function SendAssessmentLinkPage() {
             </div>
 
             {/* Form Actions */}
-            <div className="flex items-center justify-center gap-3 pt-6 border-t border-slate-100">
+            <div className="flex items-center justify-center gap-3 border-t border-slate-100 pt-6">
               <Button
                 type="submit"
                 disabled={isPending}
-                className="min-w-32 bg-blue-600 text-white hover:bg-blue-700 text-xs font-semibold uppercase h-9"
+                className="h-9 min-w-32 bg-blue-600 text-xs font-semibold text-white uppercase hover:bg-blue-700"
               >
                 {isPending ? (
                   <>
@@ -414,7 +467,7 @@ export default function SendAssessmentLinkPage() {
                 variant="outline"
                 onClick={handleReset}
                 disabled={isPending}
-                className="min-w-24 border-slate-300 text-xs font-medium uppercase h-9"
+                className="h-9 min-w-24 border-slate-300 text-xs font-medium uppercase"
               >
                 Reset
               </Button>
@@ -425,7 +478,7 @@ export default function SendAssessmentLinkPage() {
 
       {/* Assessment Records Created Table (if records returned) */}
       {createdRecords.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs sm:p-6 space-y-4">
+        <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-xs sm:p-6">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-emerald-600" />
             <h3 className="text-base font-bold text-slate-900">
@@ -435,32 +488,35 @@ export default function SendAssessmentLinkPage() {
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-700 font-semibold border-b">
+              <thead className="border-b bg-slate-50 font-semibold text-slate-700">
                 <tr>
-                  <th className="py-2.5 px-3">Record ID</th>
-                  <th className="py-2.5 px-3">Participant Mobile</th>
-                  <th className="py-2.5 px-3">Course Name</th>
-                  <th className="py-2.5 px-3">Training Date</th>
-                  <th className="py-2.5 px-3 text-center">Status</th>
+                  <th className="px-3 py-2.5">Record ID</th>
+                  <th className="px-3 py-2.5">Participant Mobile</th>
+                  <th className="px-3 py-2.5">Course Name</th>
+                  <th className="px-3 py-2.5">Training Date</th>
+                  <th className="px-3 py-2.5 text-center">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {createdRecords.map((r) => (
-                  <tr key={r.assessmentRecordId} className="hover:bg-slate-50/60">
-                    <td className="py-2.5 px-3 font-mono font-medium text-slate-800">
+                  <tr
+                    key={r.assessmentRecordId}
+                    className="hover:bg-slate-50/60"
+                  >
+                    <td className="px-3 py-2.5 font-mono font-medium text-slate-800">
                       (ID: {r.assessmentRecordId})
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-slate-700">
+                    <td className="px-3 py-2.5 font-mono text-slate-700">
                       {r.mobileNumber}
                     </td>
-                    <td className="py-2.5 px-3 font-medium text-slate-900">
+                    <td className="px-3 py-2.5 font-medium text-slate-900">
                       {r.courseName || "—"}
                     </td>
-                    <td className="py-2.5 px-3 text-slate-600">
+                    <td className="px-3 py-2.5 text-slate-600">
                       {r.trainingDate || "—"}
                     </td>
-                    <td className="py-2.5 px-3 text-center">
-                      <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200">
+                    <td className="px-3 py-2.5 text-center">
+                      <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
                         {r.status || "ACTIVE"}
                       </span>
                     </td>
@@ -474,4 +530,3 @@ export default function SendAssessmentLinkPage() {
     </div>
   );
 }
-

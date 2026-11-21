@@ -1,13 +1,11 @@
 "use client";
 
+import { ChevronDown, UserRound } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { cn } from "@/lib/utils";
-import { useAuth } from "@/lib/auth-context";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,9 +13,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/lib/auth-context";
+import { cn } from "@/lib/utils";
 import { useSidebarStore } from "@/stores/sidebar-store";
-import { navSections } from './nav-items';
-import type { NavSection } from './nav-items';
+
+import { navSections } from "./nav-items";
+import type { NavSection } from "./nav-items";
 import { useSidebar } from "./sidebar-context";
 
 function CollapsibleNavSection({
@@ -42,7 +43,9 @@ function CollapsibleNavSection({
   );
 
   const sectionKey = section.title || "default";
-  const isOpen = useSidebarStore((state) => state.openSections[sectionKey] ?? true);
+  const isOpen = useSidebarStore(
+    (state) => state.openSections[sectionKey] ?? true
+  );
   const toggleSection = useSidebarStore((state) => state.toggleSection);
 
   if (visibleItems.length === 0) {
@@ -58,8 +61,10 @@ function CollapsibleNavSection({
         <button
           type="button"
           suppressHydrationWarning
-          onClick={() => toggleSection(sectionKey)}
-          className="flex w-full items-center justify-between rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-200 transition-colors"
+          onClick={() => {
+            toggleSection(sectionKey);
+          }}
+          className="flex w-full items-center justify-between rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-200"
         >
           <span className="flex items-center gap-2.5">
             {Icon && <Icon className="h-4 w-4 text-slate-700" />}
@@ -76,7 +81,8 @@ function CollapsibleNavSection({
         {isOpen && (
           <ul className="mt-1 space-y-0.5 pl-2">
             {visibleItems.map(({ label, href, icon: ItemIcon }) => {
-              const active = pathname === href || pathname.startsWith(`${href}/`);
+              const active =
+                pathname === href || pathname.startsWith(`${href}/`);
               return (
                 <li key={href}>
                   <Link
@@ -85,7 +91,7 @@ function CollapsibleNavSection({
                     className={cn(
                       "flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                       active
-                        ? "bg-blue-50 text-blue-700 font-semibold"
+                        ? "bg-blue-50 font-semibold text-blue-700"
                         : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                     )}
                   >
@@ -107,29 +113,39 @@ function CollapsibleNavSection({
               title={section.title}
               suppressHydrationWarning
               className={cn(
-                "flex h-10 w-10 mx-auto items-center justify-center rounded-md outline-none transition-colors",
+                "mx-auto flex h-10 w-10 items-center justify-center rounded-md transition-colors outline-none",
                 isAnyChildActive
-                  ? "bg-blue-50 text-blue-700 font-semibold"
+                  ? "bg-blue-50 font-semibold text-blue-700"
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               )}
             >
-              {Icon ? <Icon className="h-5 w-5 shrink-0" /> : <ChevronDown className="h-4 w-4" />}
+              {Icon ? (
+                <Icon className="h-5 w-5 shrink-0" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="right" align="start" sideOffset={12} className="w-56 p-1.5 shadow-lg">
-              <div className="px-2.5 py-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider">
+            <DropdownMenuContent
+              side="right"
+              align="start"
+              sideOffset={12}
+              className="w-56 p-1.5 shadow-lg"
+            >
+              <div className="px-2.5 py-1.5 text-xs font-bold tracking-wider text-slate-500 uppercase">
                 {section.title}
               </div>
               <DropdownMenuSeparator />
               {visibleItems.map(({ label, href, icon: ItemIcon }) => {
-                const active = pathname === href || pathname.startsWith(`${href}/`);
+                const active =
+                  pathname === href || pathname.startsWith(`${href}/`);
                 return (
                   <DropdownMenuItem key={href} asChild>
                     <Link
                       href={href}
                       className={cn(
-                        "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium cursor-pointer transition-colors",
+                        "flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
                         active
-                          ? "bg-blue-50 text-blue-700 font-semibold"
+                          ? "bg-blue-50 font-semibold text-blue-700"
                           : "text-slate-700 hover:bg-slate-100"
                       )}
                     >
@@ -152,8 +168,15 @@ export function Sidebar({ user }: { user: ReactNode }) {
   const { mobileOpen, desktopCollapsed, closeMobile } = useSidebar();
   const { can, profile } = useAuth();
 
-  const fullName = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ");
+  const fullName = [profile?.firstName, profile?.lastName]
+    .filter(Boolean)
+    .join(" ");
   const displayName = fullName || profile?.email || user;
+  const displayNameText =
+    fullName ||
+    profile?.email ||
+    (typeof user === "string" || typeof user === "number" ? String(user) : "");
+  const avatarAlt = displayNameText || "Profile";
   const avatarUrl = profile?.profilePic;
 
   return (
@@ -181,7 +204,9 @@ export function Sidebar({ user }: { user: ReactNode }) {
         <div
           className={cn(
             "flex h-16 shrink-0 items-center border-b transition-all duration-300",
-            desktopCollapsed ? "lg:justify-center lg:px-2 px-4 gap-3" : "px-4 gap-3"
+            desktopCollapsed
+              ? "gap-3 px-4 lg:justify-center lg:px-2"
+              : "gap-3 px-4"
           )}
         >
           <Image
@@ -208,26 +233,28 @@ export function Sidebar({ user }: { user: ReactNode }) {
           title="Edit Profile"
           className={cn(
             "group flex shrink-0 items-center border-b transition-all duration-300 hover:bg-slate-50",
-            desktopCollapsed ? "lg:justify-center lg:py-3 lg:px-2 px-4 py-4 gap-3" : "px-4 py-4 gap-3"
+            desktopCollapsed
+              ? "gap-3 px-4 py-4 lg:justify-center lg:px-2 lg:py-3"
+              : "gap-3 px-4 py-4"
           )}
         >
           <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-slate-500 ring-2 ring-transparent transition-all group-hover:ring-blue-400">
             {avatarUrl ? (
               <Image
                 src={avatarUrl}
-                alt={String(displayName || "Profile")}
+                alt={avatarAlt}
                 fill
                 sizes="40px"
                 unoptimized
                 className="h-full w-full object-cover"
               />
             ) : (
-              <UserRound className="h-5 w-5 group-hover:text-blue-600 transition-colors" />
+              <UserRound className="h-5 w-5 transition-colors group-hover:text-blue-600" />
             )}
           </span>
           <span
             className={cn(
-              "truncate text-sm font-medium text-slate-700 group-hover:text-blue-600 transition-colors",
+              "truncate text-sm font-medium text-slate-700 transition-colors group-hover:text-blue-600",
               desktopCollapsed ? "lg:hidden" : "block"
             )}
           >
@@ -236,7 +263,12 @@ export function Sidebar({ user }: { user: ReactNode }) {
         </Link>
 
         {/* Links (scrolls if the screen is short) */}
-        <nav className={cn("flex-1 overflow-y-auto py-3", desktopCollapsed ? "lg:px-1.5 px-3" : "px-3")}>
+        <nav
+          className={cn(
+            "flex-1 overflow-y-auto py-3",
+            desktopCollapsed ? "px-3 lg:px-1.5" : "px-3"
+          )}
+        >
           {navSections.map((section, i) => {
             if (section.collapsible) {
               return (
@@ -256,14 +288,19 @@ export function Sidebar({ user }: { user: ReactNode }) {
               item.permission ? can(item.permission) : true
             );
 
-            if (visibleItems.length === 0) {return null;}
+            if (visibleItems.length === 0) {
+              return null;
+            }
 
             return (
-              <div key={section.title || `section-${i}`} className={cn(i > 0 && "mt-2 border-t pt-2")}>
+              <div
+                key={section.title || `section-${i}`}
+                className={cn(i > 0 && "mt-2 border-t pt-2")}
+              >
                 {section.title && (
                   <p
                     className={cn(
-                      "px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-400",
+                      "px-3 pb-1 text-xs font-semibold tracking-wider text-slate-400 uppercase",
                       desktopCollapsed ? "lg:hidden" : "block"
                     )}
                   >
@@ -272,7 +309,8 @@ export function Sidebar({ user }: { user: ReactNode }) {
                 )}
                 <ul className="space-y-1">
                   {visibleItems.map(({ label, href, icon: Icon }) => {
-                    const active = pathname === href || pathname.startsWith(`${href}/`);
+                    const active =
+                      pathname === href || pathname.startsWith(`${href}/`);
                     return (
                       <li key={href}>
                         <Link
@@ -282,10 +320,10 @@ export function Sidebar({ user }: { user: ReactNode }) {
                           className={cn(
                             "flex items-center rounded-md text-sm font-medium transition-colors",
                             desktopCollapsed
-                              ? "lg:h-10 lg:w-10 lg:justify-center lg:px-0 lg:mx-auto px-3 py-2 gap-3"
+                              ? "gap-3 px-3 py-2 lg:mx-auto lg:h-10 lg:w-10 lg:justify-center lg:px-0"
                               : "gap-3 px-3 py-2",
                             active
-                              ? "bg-blue-50 text-blue-700 font-semibold"
+                              ? "bg-blue-50 font-semibold text-blue-700"
                               : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                           )}
                         >

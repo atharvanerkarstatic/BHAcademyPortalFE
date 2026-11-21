@@ -1,20 +1,16 @@
-export type JsonObject = { [key: string]: unknown };
-
-export function isRecord(value: unknown): value is JsonObject {
+export function isRecord(value: unknown): value is object {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function getStringProp(obj: JsonObject, key: string): string | undefined {
-  const val = obj[key];
-  return typeof val === "string" ? val : undefined;
+export function asString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
 }
 
-export function getNonEmptyStringProp(obj: JsonObject, key: string): string | undefined {
-  const val = obj[key];
-  if (typeof val !== "string") {
+export function asNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
     return undefined;
   }
-  const trimmed = val.trim();
+  const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
@@ -22,16 +18,30 @@ export function extractErrorMessage(body: unknown): string | undefined {
   if (!isRecord(body)) {
     return undefined;
   }
-  return (
-    getNonEmptyStringProp(body, "message") ??
-    getNonEmptyStringProp(body, "error") ??
-    getNonEmptyStringProp(body, "details")
-  );
+  if ("message" in body) {
+    const message = asNonEmptyString(body.message);
+    if (message) {
+      return message;
+    }
+  }
+  if ("error" in body) {
+    const error = asNonEmptyString(body.error);
+    if (error) {
+      return error;
+    }
+  }
+  if ("details" in body) {
+    const details = asNonEmptyString(body.details);
+    if (details) {
+      return details;
+    }
+  }
+  return undefined;
 }
 
-export function createEmptyPage<T>(size: number) {
+export function createEmptyPage<T>(size: number, content: Array<T> = []) {
   return {
-    content: [] as Array<T>,
+    content,
     page: 1,
     size,
     totalElements: 0,

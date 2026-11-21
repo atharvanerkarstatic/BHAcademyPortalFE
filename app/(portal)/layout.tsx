@@ -1,6 +1,6 @@
-import { Suspense } from 'react';
-import type { ReactNode } from 'react';
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
+import type { ReactNode } from "react";
 
 import { PortalShell } from "@/components/layout/portal-shell";
 import { UserName } from "@/components/layout/user-name";
@@ -12,7 +12,11 @@ import { getFirstAccessibleRoute } from "@/lib/route-permissions";
 // Dynamic session-dependent portal layout
 export const dynamic = "force-dynamic";
 
-export default async function PortalLayout({ children }: { children: ReactNode }) {
+export default async function PortalLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const user = await getCurrentUser();
 
   if (!user) {

@@ -1,10 +1,10 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import { useAuth } from "@/lib/auth-context";
-import { portalGet } from "@/lib/portal-client";
-import { queryKeys } from "@/lib/query-keys";
 import { uploadMediaAction } from "@/features/accounts/action";
 import { createAdminUserAction } from "@/features/admin-users/action";
 import type { RoleItem } from "@/features/admin-users/types";
+import { useAuth } from "@/lib/auth-context";
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
 import { validateImageFile } from "@/lib/validations";
 
 function splitName(fullName: string) {
@@ -34,6 +34,7 @@ function splitName(fullName: string) {
 
 export default function NewAdminUserPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
 
@@ -47,7 +48,8 @@ export default function NewAdminUserPage() {
 
   const { data: roles = [], isLoading: loadingRoles } = useQuery({
     queryKey: queryKeys.rolesPicklist,
-    queryFn: ({ signal }) => portalGet<RoleItem[]>("roles", { picklist: "1" }, signal),
+    queryFn: ({ signal }) =>
+      portalGet<Array<RoleItem>>("roles", { picklist: "1" }, signal),
     staleTime: 5 * 60_000,
   });
 
@@ -72,7 +74,7 @@ export default function NewAdminUserPage() {
     router.back();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!canCreate) {
@@ -101,7 +103,7 @@ export default function NewAdminUserPage() {
       return;
     }
 
-    const cleanPincode = pincode.replaceAll(/\D/g, "").slice(0, 6);
+    const cleanPincode = pincode.replaceAll(/\D/gu, "").slice(0, 6);
     if (!cleanPincode) {
       toastError("Pincode is required.");
       return;
@@ -117,7 +119,7 @@ export default function NewAdminUserPage() {
       return;
     }
 
-    const cleanMobile = mobileNumber.replaceAll(/\D/g, "");
+    const cleanMobile = mobileNumber.replaceAll(/\D/gu, "");
     if (cleanMobile && cleanMobile.length !== 10) {
       toastError("Mobile number must be exactly 10 digits.");
       return;
@@ -157,6 +159,10 @@ export default function NewAdminUserPage() {
       });
 
       if (res.success) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers.all }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all }),
+        ]);
         success(res.message || "User created successfully");
         handleReset();
         router.push("/admin-users");
@@ -195,12 +201,17 @@ export default function NewAdminUserPage() {
         ]}
       />
 
-      <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <CardHeader className="border-b px-6 py-4 bg-white flex flex-row items-center justify-between">
+      <Card className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between border-b bg-white px-6 py-4">
           <CardTitle className="text-base font-bold text-slate-900">
             Add New Admin User
           </CardTitle>
-          <Button variant="ghost" size="sm" asChild className="gap-1.5 text-slate-600 hover:text-slate-900">
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="gap-1.5 text-slate-600 hover:text-slate-900"
+          >
             <Link href="/admin-users">
               <ArrowLeft className="h-4 w-4" />
               Back to Admin Users List
@@ -216,7 +227,7 @@ export default function NewAdminUserPage() {
             className="mx-auto max-w-2xl space-y-4"
           >
             {/* Full Name */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+            <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
               <Label
                 htmlFor="user-fullname"
                 className="text-xs font-semibold text-slate-700 sm:text-right"
@@ -227,7 +238,9 @@ export default function NewAdminUserPage() {
                 <Input
                   id="user-fullname"
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  onChange={(e) => {
+                    setFullName(e.target.value);
+                  }}
                   placeholder="e.g. John Doe"
                   className="h-9 text-xs"
                   required
@@ -239,7 +252,7 @@ export default function NewAdminUserPage() {
             </div>
 
             {/* Email Address */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+            <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
               <Label
                 htmlFor="user-email"
                 className="text-xs font-semibold text-slate-700 sm:text-right"
@@ -251,7 +264,9 @@ export default function NewAdminUserPage() {
                   id="user-email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                  }}
                   placeholder="e.g. john.doe@asianpaints.com"
                   className="h-9 text-xs"
                   required
@@ -260,7 +275,7 @@ export default function NewAdminUserPage() {
             </div>
 
             {/* Password */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+            <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
               <Label
                 htmlFor="user-password"
                 className="text-xs font-semibold text-slate-700 sm:text-right"
@@ -272,7 +287,9 @@ export default function NewAdminUserPage() {
                   id="user-password"
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                  }}
                   placeholder="Minimum 8 characters"
                   className="h-9 text-xs"
                   required
@@ -281,7 +298,7 @@ export default function NewAdminUserPage() {
             </div>
 
             {/* Pincode */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+            <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
               <Label
                 htmlFor="user-pincode"
                 className="text-xs font-semibold text-slate-700 sm:text-right"
@@ -292,19 +309,21 @@ export default function NewAdminUserPage() {
                 <Input
                   id="user-pincode"
                   value={pincode}
-                  onChange={(e) =>
-                    setPincode(e.target.value.replaceAll(/\D/g, "").slice(0, 6))
-                  }
+                  onChange={(e) => {
+                    setPincode(
+                      e.target.value.replaceAll(/\D/gu, "").slice(0, 6)
+                    );
+                  }}
                   placeholder="6-digit pincode"
                   maxLength={6}
-                  className="h-9 text-xs font-mono"
+                  className="h-9 font-mono text-xs"
                   required
                 />
               </div>
             </div>
 
             {/* Role Picklist */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+            <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
               <Label
                 htmlFor="user-role"
                 className="text-xs font-semibold text-slate-700 sm:text-right"
@@ -315,13 +334,17 @@ export default function NewAdminUserPage() {
                 <select
                   id="user-role"
                   value={selectedRoleId}
-                  onChange={(e) => setSelectedRoleId(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedRoleId(e.target.value);
+                  }}
                   disabled={loadingRoles}
                   suppressHydrationWarning
-                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
+                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none disabled:opacity-60"
                   required
                 >
-                  {roles.length === 0 && <option value="1">Loading roles...</option>}
+                  {roles.length === 0 && (
+                    <option value="1">Loading roles...</option>
+                  )}
                   {roles.map((r) => (
                     <option key={r.id} value={String(r.id)}>
                       {r.name} ({r.code})
@@ -332,7 +355,7 @@ export default function NewAdminUserPage() {
             </div>
 
             {/* Mobile Number */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+            <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
               <Label
                 htmlFor="user-mobile"
                 className="text-xs font-semibold text-slate-700 sm:text-right"
@@ -343,18 +366,20 @@ export default function NewAdminUserPage() {
                 <Input
                   id="user-mobile"
                   value={mobileNumber}
-                  onChange={(e) =>
-                    setMobileNumber(e.target.value.replaceAll(/\D/g, "").slice(0, 10))
-                  }
+                  onChange={(e) => {
+                    setMobileNumber(
+                      e.target.value.replaceAll(/\D/gu, "").slice(0, 10)
+                    );
+                  }}
                   placeholder="10-digit mobile number"
                   maxLength={10}
-                  className="h-9 text-xs font-mono"
+                  className="h-9 font-mono text-xs"
                 />
               </div>
             </div>
 
             {/* Profile Picture */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+            <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
               <Label
                 htmlFor="user-image"
                 className="text-xs font-semibold text-slate-700 sm:text-right"
@@ -371,7 +396,10 @@ export default function NewAdminUserPage() {
                     if (file) {
                       const check = validateImageFile(file);
                       if (!check.valid) {
-                        toastError(check.error || "Only .png, .jpg, and .jpeg image formats are allowed.");
+                        toastError(
+                          check.error ||
+                            "Only .png, .jpg, and .jpeg image formats are allowed."
+                        );
                         e.target.value = "";
                         setImageFile(null);
                         return;
@@ -379,7 +407,7 @@ export default function NewAdminUserPage() {
                     }
                     setImageFile(file);
                   }}
-                  className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+                  className="h-9 text-xs file:rounded file:border-0 file:bg-slate-100 file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
                 />
                 <p className="mt-1 text-[11px] text-slate-400">
                   Allowed formats: PNG, JPG, JPEG (Max 5 MB)
@@ -392,16 +420,18 @@ export default function NewAdminUserPage() {
               <Button
                 type="submit"
                 disabled={isPending}
-                className="bg-blue-600 hover:bg-blue-700 text-white min-w-24 h-8 text-xs font-semibold uppercase"
+                className="h-8 min-w-24 bg-blue-600 text-xs font-semibold text-white uppercase hover:bg-blue-700"
               >
-                {isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                {isPending && (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                )}
                 SAVE
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleBack}
-                className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
+                className="h-8 min-w-24 border-slate-300 text-xs font-medium uppercase"
               >
                 BACK
               </Button>

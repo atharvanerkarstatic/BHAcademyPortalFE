@@ -1,29 +1,35 @@
 "use client";
 
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Image as ImageIcon, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import {
+  Image as ImageIcon,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { DataTable } from '@/components/common/data-table';
-import type { Column } from '@/components/common/data-table';
+import { ConfirmDeleteDialog } from "@/components/common/confirm-delete-dialog";
+import { DataTable } from "@/components/common/data-table";
+import type { Column } from "@/components/common/data-table";
 import { PageHeader } from "@/components/common/page-header";
 import { StatusText } from "@/components/common/status-text";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { deleteCategoryAction } from "@/features/categories/action";
-import type { CategoryItem, CategoryPageResponse } from "@/features/categories/types";
+import type {
+  CategoryItem,
+  CategoryPageResponse,
+} from "@/features/categories/types";
 import { useAuth } from "@/lib/auth-context";
 import { portalGet } from "@/lib/portal-client";
 import { queryKeys } from "@/lib/query-keys";
@@ -49,14 +55,26 @@ export default function CategoriesPage() {
 
   const [searchInput, setSearchInput] = useState("");
   const [page, setPage] = useState(1);
-  const [categoryToDelete, setCategoryToDelete] = useState<CategoryItem | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<CategoryItem | null>(
+    null
+  );
 
   const canCreate = can("categories.create");
   const canUpdate = can("categories.update");
   const canDelete = can("categories.delete");
 
-  const { data: pageData = EMPTY_PAGE, isLoading, isFetching, refetch } = useQuery({
-    queryKey: queryKeys.categories.list({ page, size: PAGE_SIZE, sort: "asc", status: null }),
+  const {
+    data: pageData = EMPTY_PAGE,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.categories.list({
+      page,
+      size: PAGE_SIZE,
+      sort: "asc",
+      status: null,
+    }),
     queryFn: ({ signal }) =>
       portalGet<CategoryPageResponse>(
         "categories",
@@ -72,7 +90,9 @@ export default function CategoriesPage() {
       setCategoryToDelete(null);
       if (res.success) {
         success(res.message || "Category deleted successfully");
-        await queryClient.invalidateQueries({ queryKey: queryKeys.categories.all });
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.categories.all,
+        });
       } else {
         toastError(res.error || "Failed to delete category");
       }
@@ -104,7 +124,9 @@ export default function CategoriesPage() {
         (item.categoryId !== undefined &&
           item.categoryId !== null &&
           String(item.categoryId).toLowerCase().includes(query)) ||
-        Boolean(item.categoryHi && item.categoryHi.toLowerCase().includes(query))
+        Boolean(
+          item.categoryHi && item.categoryHi.toLowerCase().includes(query)
+        )
     );
   }, [pageData.content, searchInput]);
 
@@ -112,7 +134,11 @@ export default function CategoriesPage() {
     const cols: Array<Column<CategoryItem>> = [
       {
         header: "ID",
-        cell: (row) => <span className="font-mono text-xs font-semibold">{row.categoryId}</span>,
+        cell: (row) => (
+          <span className="font-mono text-xs font-semibold">
+            {row.categoryId}
+          </span>
+        ),
         className: "w-24",
       },
       {
@@ -145,7 +171,9 @@ export default function CategoriesPage() {
         cell: (row) => (
           <div>
             <p className="font-medium text-slate-900">{row.category}</p>
-            {row.categoryHi ? <span className="text-xs text-slate-400">{row.categoryHi}</span> : null}
+            {row.categoryHi ? (
+              <span className="text-xs text-slate-400">{row.categoryHi}</span>
+            ) : null}
           </div>
         ),
       },
@@ -160,8 +188,8 @@ export default function CategoriesPage() {
           <span
             className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
               row.featured
-                ? "bg-amber-50 text-amber-700 border border-amber-200"
-                : "bg-slate-50 text-slate-500 border border-slate-200"
+                ? "border border-amber-200 bg-amber-50 text-amber-700"
+                : "border border-slate-200 bg-slate-50 text-slate-500"
             }`}
           >
             {row.featured ? "Yes" : "No"}
@@ -198,9 +226,12 @@ export default function CategoriesPage() {
                 asChild
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
               >
-                <Link href={`/categories/${row.categoryId}/edit`} title="Edit Category">
+                <Link
+                  href={`/categories/${row.categoryId}/edit`}
+                  title="Edit Category"
+                >
                   <Pencil className="h-4 w-4" />
                 </Link>
               </Button>
@@ -209,8 +240,10 @@ export default function CategoriesPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                onClick={() => setCategoryToDelete(row)}
+                className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                onClick={() => {
+                  setCategoryToDelete(row);
+                }}
                 title="Delete Category"
               >
                 <Trash2 className="h-4 w-4" />
@@ -229,7 +262,10 @@ export default function CategoriesPage() {
     <>
       <PageHeader
         title="Manage Categories"
-        breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Categories List" }]}
+        breadcrumbs={[
+          { label: "Dashboard", href: "/dashboard" },
+          { label: "Categories List" },
+        ]}
       />
 
       <DataTable
@@ -242,17 +278,21 @@ export default function CategoriesPage() {
         headerRight={
           <div className="flex items-center gap-3">
             <div className="relative flex items-center">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <Input
                 placeholder="Search categories..."
                 value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                className="h-8 w-44 pl-8 pr-14 text-xs sm:w-56"
+                onChange={(event) => {
+                  setSearchInput(event.target.value);
+                }}
+                className="h-8 w-44 pr-14 pl-8 text-xs sm:w-56"
               />
               {searchInput ? (
                 <button
                   type="button"
-                  onClick={() => setSearchInput("")}
+                  onClick={() => {
+                    setSearchInput("");
+                  }}
                   className="absolute right-3 text-[11px] text-slate-400 hover:text-slate-600"
                 >
                   Clear
@@ -263,16 +303,24 @@ export default function CategoriesPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={handleRefresh}
+              onClick={() => {
+                void handleRefresh();
+              }}
               disabled={isFetching}
               className="gap-1.5 text-slate-600"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`}
+              />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
 
             {canCreate ? (
-              <Button asChild size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white">
+              <Button
+                asChild
+                size="sm"
+                className="gap-1.5 bg-blue-600 text-white hover:bg-blue-700"
+              >
                 <Link href="/categories/new">
                   <Plus className="h-4 w-4" />
                   Add Category
@@ -290,42 +338,32 @@ export default function CategoriesPage() {
         }}
       />
 
-      <AlertDialog
+      <ConfirmDeleteDialog
         open={Boolean(categoryToDelete)}
         onOpenChange={(open) => {
           if (!open) {
             setCategoryToDelete(null);
           }
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Category?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete category{" "}
-              <strong className="text-slate-900">{categoryToDelete?.category}</strong> (ID:{" "}
-              {categoryToDelete?.categoryId})?
-              <br />
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={deleteMutation.isPending}
-              onClick={(event) => {
-                event.preventDefault();
-                if (categoryToDelete) {
-                  deleteMutation.mutate(String(categoryToDelete.categoryId));
-                }
-              }}
-              className="bg-red-600 text-white hover:bg-red-700"
-            >
-              {deleteMutation.isPending ? "Deleting…" : "Yes, Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Delete Category?"
+        description={
+          <>
+            Are you sure you want to delete category{" "}
+            <strong className="text-slate-900">
+              {categoryToDelete?.category}
+            </strong>{" "}
+            (ID: {categoryToDelete?.categoryId})?
+            <br />
+            This action cannot be undone.
+          </>
+        }
+        onConfirm={() => {
+          if (categoryToDelete) {
+            deleteMutation.mutate(String(categoryToDelete.categoryId));
+          }
+        }}
+        isDeleting={deleteMutation.isPending}
+      />
     </>
   );
 }

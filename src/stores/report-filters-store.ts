@@ -1,7 +1,18 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-type ReportFiltersDraftState = {
+export type ReportFilterFieldKey =
+  | "languageId"
+  | "courseId"
+  | "modeOfTraining"
+  | "division"
+  | "region"
+  | "trainer"
+  | "startDate"
+  | "endDate"
+  | "emails";
+
+interface ReportFiltersDraftState {
   languageId: string;
   courseId: string;
   modeOfTraining: string;
@@ -12,24 +23,10 @@ type ReportFiltersDraftState = {
   endDate: string;
   emails: string;
   filterCollapsed: boolean;
-  setField: <
-    K extends
-      | "languageId"
-      | "courseId"
-      | "modeOfTraining"
-      | "division"
-      | "region"
-      | "trainer"
-      | "startDate"
-      | "endDate"
-      | "emails",
-  >(
-    key: K,
-    value: string
-  ) => void;
+  setField: (key: ReportFilterFieldKey, value: string) => void;
   toggleFilterCollapsed: () => void;
   resetFilters: (defaultEmail?: string) => void;
-};
+}
 
 export const useReportFiltersStore = create<ReportFiltersDraftState>()(
   persist(
@@ -44,10 +41,13 @@ export const useReportFiltersStore = create<ReportFiltersDraftState>()(
       endDate: "",
       emails: "",
       filterCollapsed: false,
-      setField: (key, value) => set({ [key]: value }),
-      toggleFilterCollapsed: () =>
-        set((state) => ({ filterCollapsed: !state.filterCollapsed })),
-      resetFilters: (defaultEmail = "") =>
+      setField: (key, value) => {
+        set({ [key]: value });
+      },
+      toggleFilterCollapsed: () => {
+        set((state) => ({ filterCollapsed: !state.filterCollapsed }));
+      },
+      resetFilters: (defaultEmail = "") => {
         set({
           languageId: "",
           courseId: "",
@@ -58,7 +58,8 @@ export const useReportFiltersStore = create<ReportFiltersDraftState>()(
           startDate: "",
           endDate: "",
           emails: defaultEmail,
-        }),
+        });
+      },
     }),
     {
       name: "bh-portal-report-filters",

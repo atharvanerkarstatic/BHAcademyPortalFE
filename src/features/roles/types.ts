@@ -81,4 +81,3 @@ export interface RolePermissionsResponse {
   path?: string;
   timestamp?: string;
 }
-

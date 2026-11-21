@@ -6,14 +6,18 @@ export type CourseViewMode =
   | "videos_view"
   | "questionnaire_view";
 
-export type CourseDetailsTab = "languages" | "translations" | "videos" | "questions";
+export type CourseDetailsTab =
+  | "languages"
+  | "translations"
+  | "videos"
+  | "questions";
 export type QuestionnaireSubTab = "standard" | "interactive";
 
 type ToggleUpdater =
   | Record<number, boolean>
   | ((prev: Record<number, boolean>) => Record<number, boolean>);
 
-type CourseWorkspaceState = {
+interface CourseWorkspaceState {
   viewMode: CourseViewMode;
   activeDetailsTab: CourseDetailsTab;
   questionnaireSubTab: QuestionnaireSubTab;
@@ -31,7 +35,7 @@ type CourseWorkspaceState = {
   setPortalToggles: (updater: ToggleUpdater) => void;
   setTrainingToggles: (updater: ToggleUpdater) => void;
   resetWorkspace: () => void;
-};
+}
 
 const INITIAL_WORKSPACE = {
   viewMode: "details" as CourseViewMode,
@@ -46,19 +50,39 @@ const INITIAL_WORKSPACE = {
 
 export const useCourseWorkspaceStore = create<CourseWorkspaceState>((set) => ({
   ...INITIAL_WORKSPACE,
-  setViewMode: (viewMode) => set({ viewMode }),
-  setActiveDetailsTab: (activeDetailsTab) => set({ activeDetailsTab }),
-  setQuestionnaireSubTab: (questionnaireSubTab) => set({ questionnaireSubTab }),
-  setSelectedLangId: (selectedLangId) => set({ selectedLangId }),
-  setSelectedLangName: (selectedLangName) => set({ selectedLangName }),
-  setSelectedLangCode: (selectedLangCode) => set({ selectedLangCode }),
-  setPortalToggles: (updater) =>
+  setViewMode: (viewMode) => {
+    set({ viewMode });
+  },
+  setActiveDetailsTab: (activeDetailsTab) => {
+    set({ activeDetailsTab });
+  },
+  setQuestionnaireSubTab: (questionnaireSubTab) => {
+    set({ questionnaireSubTab });
+  },
+  setSelectedLangId: (selectedLangId) => {
+    set({ selectedLangId });
+  },
+  setSelectedLangName: (selectedLangName) => {
+    set({ selectedLangName });
+  },
+  setSelectedLangCode: (selectedLangCode) => {
+    set({ selectedLangCode });
+  },
+  setPortalToggles: (updater) => {
     set((state) => ({
-      portalToggles: typeof updater === "function" ? updater(state.portalToggles) : updater,
-    })),
-  setTrainingToggles: (updater) =>
+      portalToggles:
+        typeof updater === "function" ? updater(state.portalToggles) : updater,
+    }));
+  },
+  setTrainingToggles: (updater) => {
     set((state) => ({
-      trainingToggles: typeof updater === "function" ? updater(state.trainingToggles) : updater,
-    })),
-  resetWorkspace: () => set({ ...INITIAL_WORKSPACE }),
+      trainingToggles:
+        typeof updater === "function"
+          ? updater(state.trainingToggles)
+          : updater,
+    }));
+  },
+  resetWorkspace: () => {
+    set({ ...INITIAL_WORKSPACE });
+  },
 }));

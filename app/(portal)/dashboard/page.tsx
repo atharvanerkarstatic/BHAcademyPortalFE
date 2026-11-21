@@ -33,7 +33,8 @@ export default function DashboardPage() {
 
   const { data: divisions = [], isLoading: loadingDivisions } = useQuery({
     queryKey: queryKeys.divisions,
-    queryFn: ({ signal }) => portalGet<Array<string>>("divisions", undefined, signal),
+    queryFn: ({ signal }) =>
+      portalGet<Array<string>>("divisions", undefined, signal),
     staleTime: 10 * 60_000,
   });
 
@@ -67,7 +68,9 @@ export default function DashboardPage() {
   };
 
   const assessmentTakenTrainer =
-    typeof data.assessmentTakenTrainer === "number" ? data.assessmentTakenTrainer : 0;
+    typeof data.assessmentTakenTrainer === "number"
+      ? data.assessmentTakenTrainer
+      : 0;
   const assessmentTakenSelf =
     typeof data.assessmentTakenSelf === "number" ? data.assessmentTakenSelf : 0;
   const computedTotalAssessments =
@@ -75,16 +78,29 @@ export default function DashboardPage() {
       ? data.assessmentTakenTotal
       : assessmentTakenTrainer + assessmentTakenSelf;
 
-  const activeTrainers =
-    typeof data.activeTrainers === "number"
-      ? data.activeTrainers
-      : typeof data.trainers === "number"
-        ? data.trainers
-        : 0;
+  const { activeTrainers: rawActiveTrainers, trainers: rawTrainers } = data;
+  let activeTrainers = 0;
+  if (typeof rawActiveTrainers === "number") {
+    activeTrainers = rawActiveTrainers;
+  } else if (typeof rawTrainers === "number") {
+    activeTrainers = rawTrainers;
+  }
 
   const stats = [
-    { label: "USERS/PARTICIPANTS", href: "/accounts", icon: Users, color: CYAN, value: data.users },
-    { label: "ACTIVE TRAINERS", href: "/trainers", icon: GraduationCap, color: BLUE, value: activeTrainers },
+    {
+      label: "USERS/PARTICIPANTS",
+      href: "/accounts",
+      icon: Users,
+      color: CYAN,
+      value: data.users,
+    },
+    {
+      label: "ACTIVE TRAINERS",
+      href: "/trainers",
+      icon: GraduationCap,
+      color: BLUE,
+      value: activeTrainers,
+    },
     {
       label: "ASSESSMENT",
       href: "/assessments/results",
@@ -92,24 +108,46 @@ export default function DashboardPage() {
       color: GREEN,
       value: computedTotalAssessments,
     },
-    { label: "CITIES", href: "/cities", icon: MapPin, color: YELLOW, value: data.cities },
-    { label: "COURSES", href: "/courses", icon: PlayCircle, color: GREEN, value: data.courses },
-    { label: "ACTIVE LANGUAGES", href: "/languages", icon: MessagesSquare, color: RED, value: data.activeLanguages },
+    {
+      label: "CITIES",
+      href: "/cities",
+      icon: MapPin,
+      color: YELLOW,
+      value: data.cities,
+    },
+    {
+      label: "COURSES",
+      href: "/courses",
+      icon: PlayCircle,
+      color: GREEN,
+      value: data.courses,
+    },
+    {
+      label: "ACTIVE LANGUAGES",
+      href: "/languages",
+      icon: MessagesSquare,
+      color: RED,
+      value: data.activeLanguages,
+    },
   ];
 
   return (
     <>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader title="Dashboard" />
         <div>
           <Button
             variant="outline"
             size="sm"
-            onClick={handleRefresh}
+            onClick={() => {
+              void handleRefresh();
+            }}
             disabled={isFetching}
-            className="gap-1.5 text-slate-600 bg-white uppercase text-xs font-semibold tracking-wider"
+            className="gap-1.5 bg-white text-xs font-semibold tracking-wider text-slate-600 uppercase"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`}
+            />
             REFRESH DATA
           </Button>
         </div>
@@ -119,13 +157,15 @@ export default function DashboardPage() {
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <button
           type="button"
-          onClick={() => setSelectedDivision("")}
+          onClick={() => {
+            setSelectedDivision("");
+          }}
           disabled={isFetching}
           className={cn(
-            "min-w-28 rounded-md border-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 shadow-xs cursor-pointer select-none",
+            "min-w-28 cursor-pointer rounded-md border-2 px-5 py-2.5 text-xs font-bold tracking-wider uppercase shadow-xs transition-all duration-200 select-none",
             selectedDivision === ""
-              ? "bg-[#007bff] text-white border-[#007bff] shadow-md ring-2 ring-blue-300 ring-offset-1"
-              : "bg-white text-blue-600 border-blue-400 hover:bg-blue-50 hover:border-blue-500"
+              ? "border-[#007bff] bg-[#007bff] text-white shadow-md ring-2 ring-blue-300 ring-offset-1"
+              : "border-blue-400 bg-white text-blue-600 hover:border-blue-500 hover:bg-blue-50"
           )}
         >
           ALL
@@ -137,13 +177,15 @@ export default function DashboardPage() {
             <button
               key={div}
               type="button"
-              onClick={() => setSelectedDivision(div)}
+              onClick={() => {
+                setSelectedDivision(div);
+              }}
               disabled={isFetching}
               className={cn(
-                "min-w-28 rounded-md border-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 shadow-xs cursor-pointer select-none",
+                "min-w-28 cursor-pointer rounded-md border-2 px-5 py-2.5 text-xs font-bold tracking-wider uppercase shadow-xs transition-all duration-200 select-none",
                 isSelected
-                  ? "bg-[#007bff] text-white border-[#007bff] shadow-md ring-2 ring-blue-300 ring-offset-1"
-                  : "bg-white text-blue-600 border-blue-400 hover:bg-blue-50 hover:border-blue-500"
+                  ? "border-[#007bff] bg-[#007bff] text-white shadow-md ring-2 ring-blue-300 ring-offset-1"
+                  : "border-blue-400 bg-white text-blue-600 hover:border-blue-500 hover:bg-blue-50"
               )}
             >
               {div.toUpperCase()}
@@ -152,7 +194,7 @@ export default function DashboardPage() {
         })}
 
         {loadingDivisions ? (
-          <span className="text-xs uppercase font-medium text-slate-400 italic">
+          <span className="text-xs font-medium text-slate-400 uppercase italic">
             LOADING DIVISIONS…
           </span>
         ) : null}

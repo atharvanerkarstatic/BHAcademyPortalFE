@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Languages, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { ArrowLeft, Languages, Loader2, X } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 
+import { ImageUploadField } from "@/components/common/image-upload-field";
+import {
+  MultilingualContentTable,
+  TRANSLATION_LANGUAGES,
+} from "@/components/common/multilingual-content-table";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,182 +18,96 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { updateCourseAction } from "@/features/courses/action";
 import { CategorySelect } from "@/features/courses/components/category-select";
-import { getCourseByIdAction, updateCourseAction } from "@/features/courses/action";
-import { uploadMediaAction } from "@/features/accounts/action";
 import type { UpdateCoursePayload, CourseItem } from "@/features/courses/types";
-import { sanitizeTextInput, sanitizeNonNegativeNumber, validateImageFile } from "@/lib/validations";
-import { MultilingualContentTable, TRANSLATION_LANGUAGES } from "@/components/common/multilingual-content-table";
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
+import {
+  sanitizeTextInput,
+  sanitizeNonNegativeNumber,
+} from "@/lib/validations";
 
-export default function EditCoursePage() {
-  const params = useParams();
+function EditCourseForm({ id, course }: { id: string; course: CourseItem }) {
   const router = useRouter();
-  const id = params.id as string;
-
+  const queryClient = useQueryClient();
   const { success, error: toastError } = useToast();
   const [isPending, startTransition] = useTransition();
-  const [fetching, setFetching] = useState(true);
 
   // Primary Course Fields
-  const [categoryId, setCategoryId] = useState<string>("");
-  const [courseName, setCourseName] = useState<string>("");
-  const [courseLevel, setCourseLevel] = useState<string>("Beginner");
-  const [duration, setDuration] = useState<string>("");
-  const [mode, setMode] = useState<string>("virtual");
-  const [points, setPoints] = useState<number | "">(0);
-  const [noOfVideos, setNoOfVideos] = useState<number | "">(0);
-  const [noOfCertifications, setNoOfCertifications] = useState<string>("1");
-  const [imageUrl, setImageUrl] = useState<string>("");
+  const [categoryId, setCategoryId] = useState<string>(() =>
+    String(course.categoryId ?? "")
+  );
+  const [courseName, setCourseName] = useState<string>(
+    () => course.courseName || ""
+  );
+  const [courseLevel, setCourseLevel] = useState<string>(
+    () => course.courseLevel || "Beginner"
+  );
+  const [duration, setDuration] = useState<string>(() => course.duration || "");
+  const [mode, setMode] = useState<string>(() => course.mode || "virtual");
+  const [points, setPoints] = useState<number | "">(() =>
+    typeof course.points === "number" ? course.points : 0
+  );
+  const [noOfVideos, setNoOfVideos] = useState<number | "">(() =>
+    typeof course.noOfVideos === "number" ? course.noOfVideos : 0
+  );
+  const [noOfCertifications, setNoOfCertifications] = useState<string>(
+    () => course.noOfCertifications || "1"
+  );
+  const [imageUrl, setImageUrl] = useState<string>(() => course.imageUrl || "");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [courseDetails, setCourseDetails] = useState<string>("");
+  const [courseDetails, setCourseDetails] = useState<string>(
+    () => course.courseDetails || ""
+  );
 
   // Multilingual courseName
-  const [names, setNames] = useState<Record<string, string>>({
-    courseNameAs: "",
-    courseNameBn: "",
-    courseNameGu: "",
-    courseNameHi: "",
-    courseNameKn: "",
-    courseNameMl: "",
-    courseNameMr: "",
-    courseNameOr: "",
-    courseNameTa: "",
-    courseNameTe: "",
-  });
+  const [names, setNames] = useState<Record<string, string>>(() => ({
+    courseNameAs: course.courseNameAs || "",
+    courseNameBn: course.courseNameBn || "",
+    courseNameGu: course.courseNameGu || "",
+    courseNameHi: course.courseNameHi || "",
+    courseNameKn: course.courseNameKn || "",
+    courseNameMl: course.courseNameMl || "",
+    courseNameMr: course.courseNameMr || "",
+    courseNameOr: course.courseNameOr || "",
+    courseNameTa: course.courseNameTa || "",
+    courseNameTe: course.courseNameTe || "",
+  }));
 
   // Multilingual courseDetails
-  const [details, setDetails] = useState<Record<string, string>>({
-    courseDetailsAs: "",
-    courseDetailsBn: "",
-    courseDetailsGu: "",
-    courseDetailsHi: "",
-    courseDetailsKn: "",
-    courseDetailsMl: "",
-    courseDetailsMr: "",
-    courseDetailsOr: "",
-    courseDetailsTa: "",
-    courseDetailsTe: "",
-  });
+  const [details, setDetails] = useState<Record<string, string>>(() => ({
+    courseDetailsAs: course.courseDetailsAs || "",
+    courseDetailsBn: course.courseDetailsBn || "",
+    courseDetailsGu: course.courseDetailsGu || "",
+    courseDetailsHi: course.courseDetailsHi || "",
+    courseDetailsKn: course.courseDetailsKn || "",
+    courseDetailsMl: course.courseDetailsMl || "",
+    courseDetailsMr: course.courseDetailsMr || "",
+    courseDetailsOr: course.courseDetailsOr || "",
+    courseDetailsTa: course.courseDetailsTa || "",
+    courseDetailsTe: course.courseDetailsTe || "",
+  }));
 
   // Multilingual courseLevel
-  const [levels, setLevels] = useState<Record<string, string>>({
-    courseLevelAs: "",
-    courseLevelBn: "",
-    courseLevelGu: "",
-    courseLevelHi: "",
-    courseLevelKn: "",
-    courseLevelMl: "",
-    courseLevelMr: "",
-    courseLevelOr: "",
-    courseLevelTa: "",
-    courseLevelTe: "",
-  });
-
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      setFetching(true);
-      const res = await getCourseByIdAction(id);
-      if (!mounted) {return;}
-
-      if (res.success && res.data) {
-        const item: CourseItem = res.data;
-        setCategoryId(String(item.categoryId ?? ""));
-        setCourseName(item.courseName || "");
-        setCourseLevel(item.courseLevel || "Beginner");
-        setDuration(item.duration || "");
-        setMode(item.mode || "virtual");
-        setPoints(typeof item.points === "number" ? item.points : 0);
-        setNoOfVideos(typeof item.noOfVideos === "number" ? item.noOfVideos : 0);
-        setNoOfCertifications(item.noOfCertifications || "1");
-        setImageUrl(item.imageUrl || "");
-        setCourseDetails(item.courseDetails || "");
-
-        setNames({
-          courseNameAs: item.courseNameAs || "",
-          courseNameBn: item.courseNameBn || "",
-          courseNameGu: item.courseNameGu || "",
-          courseNameHi: item.courseNameHi || "",
-          courseNameKn: item.courseNameKn || "",
-          courseNameMl: item.courseNameMl || "",
-          courseNameMr: item.courseNameMr || "",
-          courseNameOr: item.courseNameOr || "",
-          courseNameTa: item.courseNameTa || "",
-          courseNameTe: item.courseNameTe || "",
-        });
-
-        setDetails({
-          courseDetailsAs: item.courseDetailsAs || "",
-          courseDetailsBn: item.courseDetailsBn || "",
-          courseDetailsGu: item.courseDetailsGu || "",
-          courseDetailsHi: item.courseDetailsHi || "",
-          courseDetailsKn: item.courseDetailsKn || "",
-          courseDetailsMl: item.courseDetailsMl || "",
-          courseDetailsMr: item.courseDetailsMr || "",
-          courseDetailsOr: item.courseDetailsOr || "",
-          courseDetailsTa: item.courseDetailsTa || "",
-          courseDetailsTe: item.courseDetailsTe || "",
-        });
-
-        setLevels({
-          courseLevelAs: item.courseLevelAs || "",
-          courseLevelBn: item.courseLevelBn || "",
-          courseLevelGu: item.courseLevelGu || "",
-          courseLevelHi: item.courseLevelHi || "",
-          courseLevelKn: item.courseLevelKn || "",
-          courseLevelMl: item.courseLevelMl || "",
-          courseLevelMr: item.courseLevelMr || "",
-          courseLevelOr: item.courseLevelOr || "",
-          courseLevelTa: item.courseLevelTa || "",
-          courseLevelTe: item.courseLevelTe || "",
-        });
-      } else {
-        toastError(res.error || "Failed to load course details.");
-      }
-      setFetching(false);
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, [id]);
+  const [levels, setLevels] = useState<Record<string, string>>(() => ({
+    courseLevelAs: course.courseLevelAs || "",
+    courseLevelBn: course.courseLevelBn || "",
+    courseLevelGu: course.courseLevelGu || "",
+    courseLevelHi: course.courseLevelHi || "",
+    courseLevelKn: course.courseLevelKn || "",
+    courseLevelMl: course.courseLevelMl || "",
+    courseLevelMr: course.courseLevelMr || "",
+    courseLevelOr: course.courseLevelOr || "",
+    courseLevelTa: course.courseLevelTa || "",
+    courseLevelTe: course.courseLevelTe || "",
+  }));
 
   const handleBack = () => {
     router.back();
   };
 
-  const handleImageUpload = async (file: File | null) => {
-    if (!file) {return;}
-
-    const check = validateImageFile(file);
-    if (!check.valid) {
-      toastError(check.error || "Only .png, .jpg, and .jpeg image formats are allowed (Max 5 MB).");
-      return;
-    }
-
-    setIsUploadingImage(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("path", `course_image_${Date.now()}`);
-
-      const res = await uploadMediaAction(formData);
-      if (res.success && res.data) {
-        setImageUrl(res.data);
-        success("Image uploaded successfully and converted to URL.");
-      } else {
-        toastError(res.error || "Failed to upload image. Please try again.");
-      }
-    } catch (error) {
-      console.error("Course image upload failed:", error);
-      toastError("Failed to upload image file. Please try again.");
-    } finally {
-      setIsUploadingImage(false);
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (isUploadingImage) {
@@ -195,7 +115,7 @@ export default function EditCoursePage() {
       return;
     }
 
-    const cleanCategoryId = String(categoryId || "").trim();
+    const cleanCategoryId = categoryId.trim();
     if (!cleanCategoryId) {
       toastError("Please select a Category from the picklist.");
       return;
@@ -209,25 +129,34 @@ export default function EditCoursePage() {
 
     const cleanCourseLevel = sanitizeTextInput(courseLevel, 100) || "Beginner";
     const cleanDuration = sanitizeTextInput(duration, 100);
-    const cleanCertifications = noOfCertifications === "" ? "0" : String(sanitizeNonNegativeNumber(noOfCertifications, 0, 0));
+    const cleanCertifications =
+      noOfCertifications === ""
+        ? "0"
+        : String(sanitizeNonNegativeNumber(noOfCertifications, 0, 0));
     const cleanImageUrl = sanitizeTextInput(imageUrl, 500);
     const cleanCourseDetails = sanitizeTextInput(courseDetails, 5000);
 
     const sanitizedNames: Record<string, string> = {};
     for (const [key, val] of Object.entries(names)) {
-      if (!val) {continue;}
+      if (!val) {
+        continue;
+      }
       sanitizedNames[key] = sanitizeTextInput(val, 255);
     }
 
     const sanitizedLevels: Record<string, string> = {};
     for (const [key, val] of Object.entries(levels)) {
-      if (!val) {continue;}
+      if (!val) {
+        continue;
+      }
       sanitizedLevels[key] = sanitizeTextInput(val, 100);
     }
 
     const sanitizedDetails: Record<string, string> = {};
     for (const [key, val] of Object.entries(details)) {
-      if (!val) {continue;}
+      if (!val) {
+        continue;
+      }
       sanitizedDetails[key] = sanitizeTextInput(val, 5000);
     }
 
@@ -240,7 +169,7 @@ export default function EditCoursePage() {
       courseLevel: cleanCourseLevel,
       duration: cleanDuration || undefined,
       imageUrl: cleanImageUrl || undefined,
-      mode: String(mode ?? "virtual").trim() || "virtual",
+      mode: mode.trim() || "virtual",
       courseDetails: cleanCourseDetails || undefined,
       ...sanitizedNames,
       ...sanitizedDetails,
@@ -250,21 +179,20 @@ export default function EditCoursePage() {
     startTransition(async () => {
       const res = await updateCourseAction(id, payload);
       if (res.success) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.courses.all }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.reportFilters }),
+        ]);
         success(res.message || "Course updated successfully");
         router.push("/courses");
       } else {
-        toastError(res.error || "Failed to update course. Please check all fields.");
+        toastError(
+          res.error || "Failed to update course. Please check all fields."
+        );
       }
     });
   };
-
-  if (fetching) {
-    return (
-      <div className="flex min-h-[350px] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-      </div>
-    );
-  }
 
   return (
     <div className="w-full space-y-4 pb-12">
@@ -277,12 +205,17 @@ export default function EditCoursePage() {
         ]}
       />
 
-      <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <CardHeader className="border-b px-6 py-4 bg-white flex flex-row items-center justify-between">
+      <Card className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between border-b bg-white px-6 py-4">
           <CardTitle className="text-base font-bold text-slate-900">
             Edit Course
           </CardTitle>
-          <Button variant="ghost" size="sm" asChild className="gap-1.5 text-slate-600 hover:text-slate-900">
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="gap-1.5 text-slate-600 hover:text-slate-900"
+          >
             <Link href="/courses">
               <ArrowLeft className="h-4 w-4" />
               Back to Courses List
@@ -299,300 +232,300 @@ export default function EditCoursePage() {
             {/* Primary Details (Compact Centered Section) */}
             <div className="mx-auto max-w-2xl space-y-4">
               {/* Category */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label
-                htmlFor="edit-course-category"
-                className="text-xs font-semibold text-slate-700 sm:text-right"
-              >
-                Category <span className="text-rose-500">*</span>
-              </Label>
-              <div className="sm:col-span-3">
-                <CategorySelect
-                  value={categoryId}
-                  onChange={(catId) => setCategoryId(catId)}
-                />
-              </div>
-            </div>
-
-            {/* Course Name */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label
-                htmlFor="edit-course-name"
-                className="text-xs font-semibold text-slate-700 sm:text-right"
-              >
-                Course Name <span className="text-rose-500">*</span>
-              </Label>
-              <div className="sm:col-span-3">
-                <Input
-                  id="edit-course-name"
-                  value={courseName}
-                  onChange={(e) => setCourseName(e.target.value)}
-                  placeholder="e.g. Introduction to Digital Education"
-                  maxLength={255}
-                  className="h-9 text-xs"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Course Level */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label
-                htmlFor="edit-course-level"
-                className="text-xs font-semibold text-slate-700 sm:text-right"
-              >
-                Course Level
-              </Label>
-              <div className="sm:col-span-3">
-                <select
-                  id="edit-course-level"
-                  value={courseLevel}
-                  onChange={(e) => setCourseLevel(e.target.value)}
-                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
+                <Label
+                  htmlFor="edit-course-category"
+                  className="text-xs font-semibold text-slate-700 sm:text-right"
                 >
-                  <option value="Beginner">Beginner</option>
-                  <option value="Intermediate">Intermediate</option>
-                  <option value="Advanced">Advanced</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Duration */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-4">
-              <Label
-                htmlFor="edit-course-duration"
-                className="text-xs font-semibold text-slate-700 sm:text-right pt-2"
-              >
-                Duration <span className="text-rose-500">*</span>
-              </Label>
-              <div className="sm:col-span-3 space-y-1">
-                <Input
-                  id="edit-course-duration"
-                  value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
-                  type="text"
-                  placeholder="e.g. 32.03 mins or 1:20:39 hours"
-                  maxLength={100}
-                  className="h-9 text-xs"
-                  required
-                />
-                <p className="text-[11px] text-slate-500">
-                  Allowed decimal values or time formats. E.g. <span className="font-medium text-slate-700">32.03 mins</span> or <span className="font-medium text-slate-700">1:20:39 hours</span>
-                </p>
-              </div>
-            </div>
-
-            {/* Mode of Course */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label
-                htmlFor="edit-course-mode"
-                className="text-xs font-semibold text-slate-700 sm:text-right"
-              >
-                Mode
-              </Label>
-              <div className="sm:col-span-3">
-                <select
-                  id="edit-course-mode"
-                  value={mode}
-                  onChange={(e) => setMode(e.target.value)}
-                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="virtual">Virtual</option>
-                  <option value="physical">Physical</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Points */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label
-                htmlFor="edit-course-points"
-                className="text-xs font-semibold text-slate-700 sm:text-right"
-              >
-                Points
-              </Label>
-              <div className="sm:col-span-3">
-                <Input
-                  id="edit-course-points"
-                  type="number"
-                  min="0"
-                  value={points}
-                  onChange={(e) => setPoints(e.target.value === "" ? "" : sanitizeNonNegativeNumber(e.target.value, 0, 0))}
-                  placeholder="0"
-                  className="h-9 text-xs font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Number of Videos */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label
-                htmlFor="edit-course-videos"
-                className="text-xs font-semibold text-slate-700 sm:text-right"
-              >
-                No. of Videos
-              </Label>
-              <div className="sm:col-span-3">
-                <Input
-                  id="edit-course-videos"
-                  type="number"
-                  min="0"
-                  value={noOfVideos}
-                  onChange={(e) => setNoOfVideos(e.target.value === "" ? "" : sanitizeNonNegativeNumber(e.target.value, 0, 0))}
-                  placeholder="0"
-                  className="h-9 text-xs font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Number of Certifications */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label
-                htmlFor="edit-course-certifications"
-                className="text-xs font-semibold text-slate-700 sm:text-right"
-              >
-                Certifications
-              </Label>
-              <div className="sm:col-span-3">
-                <Input
-                  id="edit-course-certifications"
-                  value={noOfCertifications}
-                  type="number"
-                  min="0"
-                  onChange={(e) => setNoOfCertifications(e.target.value === "" ? "" : String(sanitizeNonNegativeNumber(e.target.value, 0, 0)))}
-                  placeholder="e.g. 1"
-                  maxLength={50}
-                  className="h-9 text-xs font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Course Image */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-4">
-              <Label
-                htmlFor="edit-course-image-file"
-                className="text-xs font-semibold text-slate-700 sm:text-right pt-2"
-              >
-                Course Image
-              </Label>
-              <div className="sm:col-span-3 space-y-2">
-                <div className="flex items-center gap-3">
-                  <Input
-                    id="edit-course-image-file"
-                    type="file"
-                    accept=".jpg,.jpeg,.png"
-                    disabled={isUploadingImage || isPending}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] || null;
-                      if (file) {handleImageUpload(file);}
+                  Category <span className="text-rose-500">*</span>
+                </Label>
+                <div className="sm:col-span-3">
+                  <CategorySelect
+                    value={categoryId}
+                    onChange={(catId) => {
+                      setCategoryId(catId);
                     }}
-                    className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
                   />
-                  {isUploadingImage && (
-                    <div className="flex items-center gap-1.5 text-xs text-blue-600 font-medium shrink-0">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Uploading...</span>
-                    </div>
-                  )}
                 </div>
-                <p className="text-[11px] text-slate-400">
-                  Allowed formats: PNG, JPG, JPEG (Max 5 MB)
-                </p>
+              </div>
 
-                {/* Uploaded Image Preview & Remove */}
-                {imageUrl && (
-                  <div className="flex items-center gap-3 p-2 rounded-lg border border-slate-200 bg-slate-50/70 w-fit">
-                    <div className="h-14 w-20 shrink-0 overflow-hidden rounded border border-slate-200 bg-white">
-                      <img
-                        src={imageUrl}
-                        alt="Course Preview"
-                        className="h-full w-full object-cover"
-                        onError={(e) => {
-                          (e.currentTarget).style.display = "none";
-                        }}
-                      />
-                    </div>
-                    <div className="text-[11px] text-slate-600 flex items-center gap-2">
-                      <div>
-                        <span className="font-semibold text-emerald-600 block">
-                          Image uploaded successfully
-                        </span>
-                        <span className="text-[10px] text-slate-400">Ready to save</span>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setImageUrl("")}
-                        className="h-7 px-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
-                        title="Remove image"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
+              {/* Course Name */}
+              <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
+                <Label
+                  htmlFor="edit-course-name"
+                  className="text-xs font-semibold text-slate-700 sm:text-right"
+                >
+                  Course Name <span className="text-rose-500">*</span>
+                </Label>
+                <div className="sm:col-span-3">
+                  <Input
+                    id="edit-course-name"
+                    value={courseName}
+                    onChange={(e) => {
+                      setCourseName(e.target.value);
+                    }}
+                    placeholder="e.g. Introduction to Digital Education"
+                    maxLength={255}
+                    className="h-9 text-xs"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Course Level */}
+              <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
+                <Label
+                  htmlFor="edit-course-level"
+                  className="text-xs font-semibold text-slate-700 sm:text-right"
+                >
+                  Course Level
+                </Label>
+                <div className="sm:col-span-3">
+                  <select
+                    id="edit-course-level"
+                    value={courseLevel}
+                    onChange={(e) => {
+                      setCourseLevel(e.target.value);
+                    }}
+                    className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                  >
+                    <option value="Beginner">Beginner</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Duration */}
+              <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-4">
+                <Label
+                  htmlFor="edit-course-duration"
+                  className="pt-2 text-xs font-semibold text-slate-700 sm:text-right"
+                >
+                  Duration <span className="text-rose-500">*</span>
+                </Label>
+                <div className="space-y-1 sm:col-span-3">
+                  <Input
+                    id="edit-course-duration"
+                    value={duration}
+                    onChange={(e) => {
+                      setDuration(e.target.value);
+                    }}
+                    type="text"
+                    placeholder="e.g. 32.03 mins or 1:20:39 hours"
+                    maxLength={100}
+                    className="h-9 text-xs"
+                    required
+                  />
+                  <p className="text-[11px] text-slate-500">
+                    Allowed decimal values or time formats. E.g.{" "}
+                    <span className="font-medium text-slate-700">
+                      32.03 mins
+                    </span>{" "}
+                    or{" "}
+                    <span className="font-medium text-slate-700">
+                      1:20:39 hours
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Mode of Course */}
+              <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
+                <Label
+                  htmlFor="edit-course-mode"
+                  className="text-xs font-semibold text-slate-700 sm:text-right"
+                >
+                  Mode
+                </Label>
+                <div className="sm:col-span-3">
+                  <select
+                    id="edit-course-mode"
+                    value={mode}
+                    onChange={(e) => {
+                      setMode(e.target.value);
+                    }}
+                    className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                  >
+                    <option value="virtual">Virtual</option>
+                    <option value="physical">Physical</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Points */}
+              <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
+                <Label
+                  htmlFor="edit-course-points"
+                  className="text-xs font-semibold text-slate-700 sm:text-right"
+                >
+                  Points
+                </Label>
+                <div className="sm:col-span-3">
+                  <Input
+                    id="edit-course-points"
+                    type="number"
+                    min="0"
+                    value={points}
+                    onChange={(e) => {
+                      setPoints(
+                        e.target.value === ""
+                          ? ""
+                          : sanitizeNonNegativeNumber(e.target.value, 0, 0)
+                      );
+                    }}
+                    placeholder="0"
+                    className="h-9 font-mono text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Number of Videos */}
+              <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
+                <Label
+                  htmlFor="edit-course-videos"
+                  className="text-xs font-semibold text-slate-700 sm:text-right"
+                >
+                  No. of Videos
+                </Label>
+                <div className="sm:col-span-3">
+                  <Input
+                    id="edit-course-videos"
+                    type="number"
+                    min="0"
+                    value={noOfVideos}
+                    onChange={(e) => {
+                      setNoOfVideos(
+                        e.target.value === ""
+                          ? ""
+                          : sanitizeNonNegativeNumber(e.target.value, 0, 0)
+                      );
+                    }}
+                    placeholder="0"
+                    className="h-9 font-mono text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Number of Certifications */}
+              <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-4">
+                <Label
+                  htmlFor="edit-course-certifications"
+                  className="text-xs font-semibold text-slate-700 sm:text-right"
+                >
+                  Certifications
+                </Label>
+                <div className="sm:col-span-3">
+                  <Input
+                    id="edit-course-certifications"
+                    value={noOfCertifications}
+                    type="number"
+                    min="0"
+                    onChange={(e) => {
+                      setNoOfCertifications(
+                        e.target.value === ""
+                          ? ""
+                          : String(
+                              sanitizeNonNegativeNumber(e.target.value, 0, 0)
+                            )
+                      );
+                    }}
+                    placeholder="e.g. 1"
+                    maxLength={50}
+                    className="h-9 font-mono text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Course Image */}
+              <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-4">
+                <Label
+                  htmlFor="edit-course-image-file"
+                  className="pt-2 text-xs font-semibold text-slate-700 sm:text-right"
+                >
+                  Course Image
+                </Label>
+                <div className="sm:col-span-3">
+                  <ImageUploadField
+                    id="edit-course-image-file"
+                    value={imageUrl}
+                    onChange={setImageUrl}
+                    pathPrefix="course_image"
+                    disabled={isPending}
+                    onUploadingChange={setIsUploadingImage}
+                    previewAlt="Course Preview"
+                  />
+                </div>
+              </div>
+
+              {/* Course Details */}
+              <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-4">
+                <Label
+                  htmlFor="edit-course-details"
+                  className="pt-2 text-xs font-semibold text-slate-700 sm:text-right"
+                >
+                  Course Details
+                </Label>
+                <div className="sm:col-span-3">
+                  <Textarea
+                    id="edit-course-details"
+                    rows={3}
+                    value={courseDetails}
+                    onChange={(e) => {
+                      setCourseDetails(e.target.value);
+                    }}
+                    placeholder="Overview of the course syllabus and topics covered..."
+                    maxLength={5000}
+                    className="text-xs"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Course Details */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-4">
-              <Label
-                htmlFor="edit-course-details"
-                className="text-xs font-semibold text-slate-700 sm:text-right pt-2"
-              >
-                Course Details
-              </Label>
-              <div className="sm:col-span-3">
-                <Textarea
-                  id="edit-course-details"
-                  rows={3}
-                  value={courseDetails}
-                  onChange={(e) => setCourseDetails(e.target.value)}
-                  placeholder="Overview of the course syllabus and topics covered..."
-                  maxLength={5000}
-                  className="text-xs"
-                />
+            {/* Multilingual Section Divider (Wide Section) */}
+            <div className="w-full border-t border-slate-100 pt-6">
+              <div className="mb-3 flex items-center gap-2">
+                <Languages className="h-4 w-4 text-blue-600" />
+                <h3 className="text-xs font-bold tracking-wide text-slate-800 uppercase">
+                  Multilingual Course Content (Optional)
+                </h3>
               </div>
+              <MultilingualContentTable
+                languages={TRANSLATION_LANGUAGES}
+                names={names}
+                levels={levels}
+                details={details}
+                onNameChange={(key, val) => {
+                  setNames((prev) => ({ ...prev, [key]: val }));
+                }}
+                onLevelChange={(key, val) => {
+                  setLevels((prev) => ({ ...prev, [key]: val }));
+                }}
+                onDetailsChange={(key, val) => {
+                  setDetails((prev) => ({ ...prev, [key]: val }));
+                }}
+                nameKeyPrefix="courseName"
+                levelKeyPrefix="courseLevel"
+                detailsKeyPrefix="courseDetails"
+                namePlaceholder="Course Name"
+                levelPlaceholder="Level"
+                detailsPlaceholder="Details"
+                nameMaxLength={255}
+                levelMaxLength={100}
+                detailsMaxLength={5000}
+              />
             </div>
-          </div>
-
-          {/* Multilingual Section Divider (Wide Section) */}
-          <div className="pt-6 border-t border-slate-100 w-full">
-            <div className="flex items-center gap-2 mb-3">
-              <Languages className="h-4 w-4 text-blue-600" />
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                Multilingual Course Content (Optional)
-              </h3>
-            </div>
-            <MultilingualContentTable
-              languages={TRANSLATION_LANGUAGES}
-              names={names}
-              levels={levels}
-              details={details}
-              onNameChange={(key, val) => setNames((prev) => ({ ...prev, [key]: val }))}
-              onLevelChange={(key, val) => setLevels((prev) => ({ ...prev, [key]: val }))}
-              onDetailsChange={(key, val) => setDetails((prev) => ({ ...prev, [key]: val }))}
-              nameKeyPrefix="courseName"
-              levelKeyPrefix="courseLevel"
-              detailsKeyPrefix="courseDetails"
-              namePlaceholder="Course Name"
-              levelPlaceholder="Level"
-              detailsPlaceholder="Details"
-              nameMaxLength={255}
-              levelMaxLength={100}
-              detailsMaxLength={5000}
-            />
-          </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center justify-center gap-3 pt-6 border-t border-slate-100">
+            <div className="flex items-center justify-center gap-3 border-t border-slate-100 pt-6">
               <Button
                 type="submit"
                 disabled={isPending}
-                className="bg-blue-600 hover:bg-blue-700 text-white min-w-24 h-8 text-xs font-semibold uppercase"
+                className="h-8 min-w-24 bg-blue-600 text-xs font-semibold text-white uppercase hover:bg-blue-700"
               >
-                {isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                {isPending && (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                )}
                 SAVE
               </Button>
               <Button
@@ -600,7 +533,7 @@ export default function EditCoursePage() {
                 variant="outline"
                 onClick={handleBack}
                 disabled={isPending}
-                className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
+                className="h-8 min-w-24 border-slate-300 text-xs font-medium uppercase"
               >
                 BACK
               </Button>
@@ -609,5 +542,65 @@ export default function EditCoursePage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function EditCoursePage() {
+  const params = useParams();
+  const id = String(params.id ?? "");
+
+  const {
+    data: course,
+    isLoading,
+    isFetching,
+    isPaused,
+    isFetchedAfterMount,
+    error,
+  } = useQuery({
+    queryKey: queryKeys.courses.detail(id),
+    queryFn: ({ signal }) =>
+      portalGet<CourseItem>(
+        `courses/${encodeURIComponent(id)}`,
+        undefined,
+        signal
+      ),
+    enabled: Boolean(id),
+    refetchOnMount: "always",
+    refetchOnReconnect: false,
+  });
+
+  if (isLoading || ((isFetching || isPaused) && !isFetchedAfterMount)) {
+    return (
+      <div className="flex min-h-[350px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (!course) {
+    return (
+      <div className="space-y-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          asChild
+          className="gap-1.5 text-slate-600 hover:text-slate-900"
+        >
+          <Link href="/courses">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Courses List
+          </Link>
+        </Button>
+        <Card className="p-8 text-center text-sm text-slate-500">
+          {error instanceof Error
+            ? error.message
+            : "Failed to load course details."}
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <EditCourseForm key={String(course.id ?? id)} id={id} course={course} />
   );
 }

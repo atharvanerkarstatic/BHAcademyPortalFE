@@ -1,9 +1,9 @@
-export type CategoryItem = {
+export interface CategoryItem {
   categoryId: string | number;
   category: string;
   imageUrl?: string;
   displayOrder: number;
-  status: "ACTIVE" | "INACTIVE" | string;
+  status: string;
   featured: boolean;
   categoryAs?: string;
   categoryBn?: string;
@@ -16,9 +16,9 @@ export type CategoryItem = {
   categoryTa?: string;
   categoryTe?: string;
   courseCount?: number;
-};
+}
 
-export type CategoryPageResponse = {
+export interface CategoryPageResponse {
   content: Array<CategoryItem>;
   page: number;
   size: number;
@@ -28,18 +28,18 @@ export type CategoryPageResponse = {
   last: boolean;
   hasNext: boolean;
   hasPrevious: boolean;
-};
+}
 
-export type ApiResponse<T> = {
+export interface ApiResponse<T> {
   success: boolean;
   status: number;
   message: string;
   data: T;
   path?: string;
   timestamp?: string;
-};
+}
 
-export type CreateCategoryPayload = {
+export interface CreateCategoryPayload {
   category: string;
   imageUrl?: string;
   displayOrder: number;
@@ -55,6 +55,6 @@ export type CreateCategoryPayload = {
   categoryOr?: string;
   categoryTa?: string;
   categoryTe?: string;
-};
+}
 
 export type UpdateCategoryPayload = CreateCategoryPayload;

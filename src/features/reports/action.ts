@@ -1,65 +1,92 @@
 "use server";
 
 import { ENDPOINTS } from "@/config/endpoints";
-import { apiFetchText, ApiError } from "@/lib/api";
-import { getCurrentUser } from "@/lib/auth-server";
-import { hasPermission } from "@/lib/auth-jwt";
-import { getAllLanguagesAction } from "@/features/languages/action";
 import { getCoursesAction } from "@/features/courses/action";
+import { getAllLanguagesAction } from "@/features/languages/action";
 import { getTrainersAction } from "@/features/trainers/action";
+import { apiFetchText } from "@/lib/api";
+import type { ActionRequestOptions } from "@/lib/api";
+import { getCurrentUser, requirePermission } from "@/lib/auth-server";
+import { tryCatch } from "@/lib/try-catch";
 
-export type ExportReportResult = {
+export interface ExportReportResult {
   success: boolean;
   data?: string;
   filename?: string;
   error?: string;
   message?: string;
-};
-
-async function fetchCsvReport(pathWithQuery: string, defaultFilename: string): Promise<ExportReportResult> {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (
-    !hasPermission(userPerms, [
-      "audit.read",
-      "reports.read",
-      "courses.read",
-      "system.all",
-    ])
-  ) {
-    return {
-      success: false,
-      error: "You do not have permission to generate reports.",
-    };
-  }
-
-  try {
-    const { text, contentDisposition } = await apiFetchText(pathWithQuery);
-
-    let filename = defaultFilename;
-    if (contentDisposition) {
-      const match = contentDisposition.match(/filename\*?=['"]?(?:UTF-\d['"]*)?([^;\r\n"']*)['"]?/i);
-      if (match?.[1]) {
-        filename = decodeURIComponent(match[1]);
-      }
-    }
-
-    return {
-      success: true,
-      data: text,
-      filename,
-      message: "Report generated successfully",
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof ApiError || error instanceof Error ? error.message : "Failed to generate report.",
-    };
-  }
 }
 
-export type ParticipantsReportParams = {
+function parseFilenameFromContentDisposition(
+  contentDisposition: string
+): string | null {
+  for (const rawPart of contentDisposition.split(";")) {
+    const part = rawPart.trim();
+    if (!/^filename\*?=/iu.test(part)) {
+      continue;
+    }
+
+    const rawValue = part.replace(/^filename\*?=/iu, "").trim();
+    const extracted = rawValue
+      .replace(/^['"]+/u, "")
+      .replace(/^UTF-\d['"]*/iu, "")
+      .replace(/['"\r\n]+$/u, "");
+
+    if (extracted) {
+      try {
+        return decodeURIComponent(extracted);
+      } catch {
+        return extracted;
+      }
+    }
+  }
+
+  return null;
+}
+
+async function fetchCsvReport(
+  pathWithQuery: string,
+  defaultFilename: string
+): Promise<ExportReportResult> {
+  const auth = await requirePermission(
+    ["audit.read", "reports.read", "courses.read", "system.all"],
+    "You do not have permission to generate reports."
+  );
+  if (!auth.ok) {
+    return {
+      success: false,
+      error: auth.error,
+    };
+  }
+
+  const res = await tryCatch(
+    apiFetchText(pathWithQuery),
+    "Failed to generate report."
+  );
+
+  if (!res.ok) {
+    return {
+      success: false,
+      error: res.error.message,
+    };
+  }
+
+  const { text, contentDisposition } = res.data;
+
+  const filename =
+    (contentDisposition &&
+      parseFilenameFromContentDisposition(contentDisposition)) ||
+    defaultFilename;
+
+  return {
+    success: true,
+    data: text,
+    filename,
+    message: "Report generated successfully",
+  };
+}
+
+export interface ParticipantsReportParams {
   modeOfTraining?: string;
   division?: string;
   region?: string;
@@ -68,9 +95,11 @@ export type ParticipantsReportParams = {
   courseId?: string;
   startDate?: string;
   endDate?: string;
-};
+}
 
-export async function exportParticipantsResultAction(params: ParticipantsReportParams): Promise<ExportReportResult> {
+export async function exportParticipantsResultAction(
+  params: ParticipantsReportParams
+): Promise<ExportReportResult> {
   const query = new URLSearchParams({
     modeOfTraining: params.modeOfTraining ?? "",
     division: params.division ?? "",
@@ -82,20 +111,22 @@ export async function exportParticipantsResultAction(params: ParticipantsReportP
     endDate: params.endDate ?? "",
   });
 
-  return fetchCsvReport(
+  return await fetchCsvReport(
     `${ENDPOINTS.reports.participantsExport}?${query.toString()}`,
     "participants-result.csv"
   );
 }
 
-export type OnDemandVideoReportParams = {
+export interface OnDemandVideoReportParams {
   courseId?: string;
   startDate?: string;
   endDate?: string;
   languageId?: string;
-};
+}
 
-export async function exportOnDemandVideoAction(params: OnDemandVideoReportParams): Promise<ExportReportResult> {
+export async function exportOnDemandVideoAction(
+  params: OnDemandVideoReportParams
+): Promise<ExportReportResult> {
   const query = new URLSearchParams({
     courseId: params.courseId ?? "",
     startDate: params.startDate ?? "",
@@ -103,21 +134,23 @@ export async function exportOnDemandVideoAction(params: OnDemandVideoReportParam
     languageId: params.languageId ?? "",
   });
 
-  return fetchCsvReport(
+  return await fetchCsvReport(
     `${ENDPOINTS.reports.onDemandVideoExport}?${query.toString()}`,
     "on-demand-video-pending-assessment.csv"
   );
 }
 
-export type VirtualTrainingDivisionReportParams = {
+export interface VirtualTrainingDivisionReportParams {
   division?: string;
   languageId?: string;
   courseId?: string;
   startDate?: string;
   endDate?: string;
-};
+}
 
-export async function exportVirtualTrainingDivisionAction(params: VirtualTrainingDivisionReportParams): Promise<ExportReportResult> {
+export async function exportVirtualTrainingDivisionAction(
+  params: VirtualTrainingDivisionReportParams
+): Promise<ExportReportResult> {
   const query = new URLSearchParams({
     division: params.division ?? "",
     languageId: params.languageId ?? "",
@@ -126,21 +159,23 @@ export async function exportVirtualTrainingDivisionAction(params: VirtualTrainin
     endDate: params.endDate ?? "",
   });
 
-  return fetchCsvReport(
+  return await fetchCsvReport(
     `${ENDPOINTS.reports.virtualTrainingDivisionExport}?${query.toString()}`,
     "virtual-training-division.csv"
   );
 }
 
-export type VirtualTrainingRegionReportParams = {
+export interface VirtualTrainingRegionReportParams {
   region?: string;
   languageId?: string;
   courseId?: string;
   startDate?: string;
   endDate?: string;
-};
+}
 
-export async function exportVirtualTrainingRegionAction(params: VirtualTrainingRegionReportParams): Promise<ExportReportResult> {
+export async function exportVirtualTrainingRegionAction(
+  params: VirtualTrainingRegionReportParams
+): Promise<ExportReportResult> {
   const query = new URLSearchParams({
     region: params.region ?? "",
     languageId: params.languageId ?? "",
@@ -149,13 +184,13 @@ export async function exportVirtualTrainingRegionAction(params: VirtualTrainingR
     endDate: params.endDate ?? "",
   });
 
-  return fetchCsvReport(
+  return await fetchCsvReport(
     `${ENDPOINTS.reports.virtualTrainingRegionExport}?${query.toString()}`,
     "virtual-training-region.csv"
   );
 }
 
-export type CourseWiseAssessmentReportParams = {
+export interface CourseWiseAssessmentReportParams {
   modeOfTraining?: string;
   division?: string;
   region?: string;
@@ -165,9 +200,11 @@ export type CourseWiseAssessmentReportParams = {
   courseId?: string;
   startDate?: string;
   endDate?: string;
-};
+}
 
-export async function exportCourseWiseAssessmentAction(params: CourseWiseAssessmentReportParams): Promise<ExportReportResult> {
+export async function exportCourseWiseAssessmentAction(
+  params: CourseWiseAssessmentReportParams
+): Promise<ExportReportResult> {
   const trainerVal = params.trainer || params.trainerId || "";
   const query = new URLSearchParams({
     modeOfTraining: params.modeOfTraining ?? "",
@@ -181,73 +218,79 @@ export async function exportCourseWiseAssessmentAction(params: CourseWiseAssessm
     endDate: params.endDate ?? "",
   });
 
-  return fetchCsvReport(
+  return await fetchCsvReport(
     `${ENDPOINTS.reports.moduleWiseSummaryExport}?${query.toString()}`,
     "module-wise-assessment.csv"
   );
 }
 
-export type TrainerAccessLogsParams = {
+export interface TrainerAccessLogsParams {
   startDate?: string;
   endDate?: string;
   trainerId?: string;
-};
+}
 
-export async function exportTrainerAccessLogsAction(params: TrainerAccessLogsParams): Promise<ExportReportResult> {
+export async function exportTrainerAccessLogsAction(
+  params: TrainerAccessLogsParams
+): Promise<ExportReportResult> {
   const query = new URLSearchParams({
     startDate: params.startDate ?? "",
     endDate: params.endDate ?? "",
     trainerId: params.trainerId ?? "",
   });
 
-  return fetchCsvReport(
+  return await fetchCsvReport(
     `${ENDPOINTS.reports.trainerAccessLogsExport}?${query.toString()}`,
     "trainer-access-logs.csv"
   );
 }
 
-export type TrainerIpReportParams = {
+export interface TrainerIpReportParams {
   startDate?: string;
   endDate?: string;
   trainerId?: string;
-};
+}
 
-export async function exportTrainerIpReportAction(params: TrainerIpReportParams): Promise<ExportReportResult> {
+export async function exportTrainerIpReportAction(
+  params: TrainerIpReportParams
+): Promise<ExportReportResult> {
   const query = new URLSearchParams({
     startDate: params.startDate ?? "",
     endDate: params.endDate ?? "",
     trainerId: params.trainerId ?? "",
   });
 
-  return fetchCsvReport(
+  return await fetchCsvReport(
     `${ENDPOINTS.reports.trainerIpReportExport}?${query.toString()}`,
     "trainer-ip-report.csv"
   );
 }
 
-export type ReportFilterOptions = {
+export interface ReportFilterOptions {
   userEmail: string;
   languages: Array<{ id: string; name: string }>;
   courses: Array<{ id: string; name: string }>;
   trainers: Array<{ id: string; name: string }>;
-};
+}
 
-export async function getReportFilterOptionsAction(): Promise<ReportFilterOptions> {
+export async function getReportFilterOptionsAction(
+  options?: ActionRequestOptions
+): Promise<ReportFilterOptions> {
   const user = await getCurrentUser();
   const [langRes, coursesRes, trainersRes] = await Promise.all([
-    getAllLanguagesAction(),
-    getCoursesAction({ size: 200 }),
-    getTrainersAction({ size: 200 }),
+    getAllLanguagesAction(options),
+    getCoursesAction({ size: 200 }, options),
+    getTrainersAction({ size: 200 }, options),
   ]);
 
   return {
-    userEmail: user?.email || "satyam.pattnaik@stetig.in",
+    userEmail: user?.email ?? "",
     languages:
       langRes.success && Array.isArray(langRes.data)
         ? langRes.data.map((lang, idx) => {
             const id = lang.languageId ?? String(idx + 1);
             return {
-              id: String(id),
+              id,
               name: lang.language || lang.languageCode || `Language ${id}`,
             };
           })

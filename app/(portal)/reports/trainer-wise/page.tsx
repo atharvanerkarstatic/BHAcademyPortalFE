@@ -1,21 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { ReportPageLayout } from '@/features/reports/components/report-page-layout';
-import type { ReportFilterState } from '@/features/reports/components/report-page-layout';
+
+import { useToast } from "@/components/ui/toast";
 import { getTrainerWiseDashboardAction } from "@/features/dashboard/action";
 import type { TrainerWiseSummaryItem } from "@/features/dashboard/types";
-import { CollapsibleChartCard, GroupedBarChart, AssessmentSummaryTable } from '@/features/reports/components/dashboard-charts';
-import type { ChartDataPoint } from '@/features/reports/components/dashboard-charts';
-import { useToast } from "@/components/ui/toast";
+import {
+  CollapsibleChartCard,
+  GroupedBarChart,
+  AssessmentSummaryTable,
+} from "@/features/reports/components/dashboard-charts";
+import type { ChartDataPoint } from "@/features/reports/components/dashboard-charts";
+import { ReportPageLayout } from "@/features/reports/components/report-page-layout";
+import type { ReportFilterState } from "@/features/reports/components/report-page-layout";
 
 export default function TrainerWiseSummaryReportPage() {
   const { error: toastError, success: toastSuccess } = useToast();
-  const [reportData, setReportData] = useState<Array<TrainerWiseSummaryItem>>([]);
-  const [loading, setLoading] = useState(false);
+  const [reportData, setReportData] = useState<Array<TrainerWiseSummaryItem>>(
+    []
+  );
 
-  const fetchDashboardData = async (filters: ReportFilterState, showToast = false) => {
-    setLoading(true);
+  const fetchDashboardData = async (
+    filters: ReportFilterState,
+    showToast = false
+  ) => {
     const res = await getTrainerWiseDashboardAction({
       division: filters.division || null,
       region: filters.region || null,
@@ -34,14 +42,13 @@ export default function TrainerWiseSummaryReportPage() {
     } else {
       toastError(res.error || "Failed to load trainer-wise summary");
     }
-    setLoading(false);
   };
 
   const chartData: Array<ChartDataPoint> = reportData.map((item) => ({
     label: item.trainerName || "Unknown",
-    passed: Number(item.passed) || 0,
-    failed: Number(item.failed) || 0,
-    total: Number(item.total) || 0,
+    passed: item.passed || 0,
+    failed: item.failed || 0,
+    total: item.total || 0,
   }));
 
   return (
@@ -53,18 +60,18 @@ export default function TrainerWiseSummaryReportPage() {
       onViewReport={async (filters) => {
         await fetchDashboardData(filters, true);
       }}
-      onGenerate={async () => {
+      onGenerate={() => {
         // Generate CSV from current trainer-wise data
         const headers = "Trainer Name,Total,Passed,Failed\n";
         const rows = chartData
           .map((d) => `"${d.label}",${d.total},${d.passed},${d.failed}`)
           .join("\n");
-        return {
+        return Promise.resolve({
           success: true,
           data: headers + rows,
           filename: `trainer-wise-summary_${new Date().toISOString().slice(0, 10)}.csv`,
           message: "Trainer-wise summary report generated",
-        };
+        });
       }}
     >
       <div className="space-y-6">
@@ -89,4 +96,3 @@ export default function TrainerWiseSummaryReportPage() {
     </ReportPageLayout>
   );
 }
-

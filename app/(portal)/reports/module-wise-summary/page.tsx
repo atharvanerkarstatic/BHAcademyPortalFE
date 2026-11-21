@@ -1,22 +1,30 @@
 "use client";
 
 import { useState } from "react";
-import { ReportPageLayout } from '@/features/reports/components/report-page-layout';
-import type { ReportFilterState } from '@/features/reports/components/report-page-layout';
-import { exportCourseWiseAssessmentAction } from "@/features/reports/action";
+
+import { useToast } from "@/components/ui/toast";
 import { getModuleWiseDashboardAction } from "@/features/dashboard/action";
 import type { ModuleWiseSummaryItem } from "@/features/dashboard/types";
-import { CollapsibleChartCard, GroupedBarChart, AssessmentSummaryTable } from '@/features/reports/components/dashboard-charts';
-import type { ChartDataPoint } from '@/features/reports/components/dashboard-charts';
-import { useToast } from "@/components/ui/toast";
+import { exportCourseWiseAssessmentAction } from "@/features/reports/action";
+import {
+  CollapsibleChartCard,
+  GroupedBarChart,
+  AssessmentSummaryTable,
+} from "@/features/reports/components/dashboard-charts";
+import type { ChartDataPoint } from "@/features/reports/components/dashboard-charts";
+import { ReportPageLayout } from "@/features/reports/components/report-page-layout";
+import type { ReportFilterState } from "@/features/reports/components/report-page-layout";
 
 export default function ModuleWiseSummaryReportPage() {
   const { error: toastError, success: toastSuccess } = useToast();
-  const [reportData, setReportData] = useState<Array<ModuleWiseSummaryItem>>([]);
-  const [loading, setLoading] = useState(false);
+  const [reportData, setReportData] = useState<Array<ModuleWiseSummaryItem>>(
+    []
+  );
 
-  const fetchDashboardData = async (filters: ReportFilterState, showToast = false) => {
-    setLoading(true);
+  const fetchDashboardData = async (
+    filters: ReportFilterState,
+    showToast = false
+  ) => {
     const res = await getModuleWiseDashboardAction({
       division: filters.division || null,
       region: filters.region || null,
@@ -36,14 +44,13 @@ export default function ModuleWiseSummaryReportPage() {
     } else {
       toastError(res.error || "Failed to load module-wise summary");
     }
-    setLoading(false);
   };
 
   const chartData: Array<ChartDataPoint> = reportData.map((item) => ({
     label: item.moduleName,
-    passed: Number(item.passed) || 0,
-    failed: Number(item.failed) || 0,
-    total: Number(item.total) || 0,
+    passed: item.passed || 0,
+    failed: item.failed || 0,
+    total: item.total || 0,
   }));
 
   // Top courses/modules (or all)
@@ -53,13 +60,21 @@ export default function ModuleWiseSummaryReportPage() {
     <ReportPageLayout
       title="Module Wise Assessment"
       breadcrumbTitle="Module Wise Summary"
-      fields={["modeOfTraining", "trainer", "division", "region", "language", "course", "dateRange"]}
+      fields={[
+        "modeOfTraining",
+        "trainer",
+        "division",
+        "region",
+        "language",
+        "course",
+        "dateRange",
+      ]}
       autoFetchOnMount={true}
       onViewReport={async (filters) => {
         await fetchDashboardData(filters, true);
       }}
-      onGenerate={async (filters) => {
-        return exportCourseWiseAssessmentAction({
+      onGenerate={(filters) =>
+        exportCourseWiseAssessmentAction({
           modeOfTraining: filters.modeOfTraining,
           division: filters.division,
           region: filters.region,
@@ -69,8 +84,8 @@ export default function ModuleWiseSummaryReportPage() {
           courseId: filters.courseId,
           startDate: filters.startDate,
           endDate: filters.endDate,
-        });
-      }}
+        })
+      }
     >
       {/* Dashboard Rendered Below Filter Card */}
       <div className="space-y-6">

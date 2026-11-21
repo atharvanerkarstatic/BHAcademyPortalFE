@@ -1,13 +1,19 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { ArrowLeft, Loader2, Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
@@ -28,7 +34,7 @@ export default function ChangePasswordPage() {
   const [isPending, startTransition] = useTransition();
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!currentPassword) {
@@ -59,7 +65,9 @@ export default function ChangePasswordPage() {
 
       if (res.success) {
         setIsSuccess(true);
-        success(res.message || "Password changed successfully. Please log in again.");
+        success(
+          res.message || "Password changed successfully. Please log in again."
+        );
         setTimeout(() => {
           router.push("/login");
         }, 3500);
@@ -80,15 +88,22 @@ export default function ChangePasswordPage() {
       />
 
       <div className="mx-auto max-w-xl">
-        <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <CardHeader className="border-b px-6 py-4 bg-white flex flex-row items-center justify-between">
+        <Card className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between border-b bg-white px-6 py-4">
             <div>
-              <CardTitle className="text-base font-bold text-slate-900">Update Password</CardTitle>
-              <CardDescription className="text-xs text-slate-500 mt-1">
+              <CardTitle className="text-base font-bold text-slate-900">
+                Update Password
+              </CardTitle>
+              <CardDescription className="mt-1 text-xs text-slate-500">
                 Enter your current password and set a secure new password.
               </CardDescription>
             </div>
-            <Button variant="ghost" size="sm" asChild className="gap-1.5 text-slate-600">
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="gap-1.5 text-slate-600"
+            >
               <Link href="/dashboard">
                 <ArrowLeft className="h-4 w-4" />
                 Back to Dashboard
@@ -97,10 +112,17 @@ export default function ChangePasswordPage() {
           </CardHeader>
 
           <CardContent className="p-6">
-            <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
+            <form
+              onSubmit={handleSubmit}
+              autoComplete="off"
+              className="space-y-4"
+            >
               {/* Current Password */}
               <div className="space-y-1.5">
-                <Label htmlFor="curr-pwd" className="text-xs font-semibold text-slate-700">
+                <Label
+                  htmlFor="curr-pwd"
+                  className="text-xs font-semibold text-slate-700"
+                >
                   Current Password <span className="text-rose-500">*</span>
                 </Label>
                 <div className="relative">
@@ -108,25 +130,36 @@ export default function ChangePasswordPage() {
                     id="curr-pwd"
                     type={showCurrentPassword ? "text" : "password"}
                     value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    onChange={(e) => {
+                      setCurrentPassword(e.target.value);
+                    }}
                     placeholder="Enter current password"
-                    className="h-10 text-xs pr-10"
+                    className="h-10 pr-10 text-xs"
                     required
                   />
                   <button
                     type="button"
-                    onClick={() => setShowCurrentPassword((prev) => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                    onClick={() => {
+                      setShowCurrentPassword((prev) => !prev);
+                    }}
+                    className="absolute top-1/2 right-3 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
                     tabIndex={-1}
                   >
-                    {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showCurrentPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </div>
 
               {/* New Password */}
               <div className="space-y-1.5">
-                <Label htmlFor="new-pwd" className="text-xs font-semibold text-slate-700">
+                <Label
+                  htmlFor="new-pwd"
+                  className="text-xs font-semibold text-slate-700"
+                >
                   New Password <span className="text-rose-500">*</span>
                 </Label>
                 <div className="relative">
@@ -134,25 +167,36 @@ export default function ChangePasswordPage() {
                     id="new-pwd"
                     type={showNewPassword ? "text" : "password"}
                     value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
+                    onChange={(e) => {
+                      setNewPassword(e.target.value);
+                    }}
                     placeholder="Enter new password (min. 8 characters)"
-                    className="h-10 text-xs pr-10"
+                    className="h-10 pr-10 text-xs"
                     required
                   />
                   <button
                     type="button"
-                    onClick={() => setShowNewPassword((prev) => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                    onClick={() => {
+                      setShowNewPassword((prev) => !prev);
+                    }}
+                    className="absolute top-1/2 right-3 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
                     tabIndex={-1}
                   >
-                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showNewPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </div>
 
               {/* Confirm Password */}
               <div className="space-y-1.5">
-                <Label htmlFor="confirm-pwd" className="text-xs font-semibold text-slate-700">
+                <Label
+                  htmlFor="confirm-pwd"
+                  className="text-xs font-semibold text-slate-700"
+                >
                   Confirm New Password <span className="text-rose-500">*</span>
                 </Label>
                 <div className="relative">
@@ -160,24 +204,33 @@ export default function ChangePasswordPage() {
                     id="confirm-pwd"
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                    }}
                     placeholder="Re-enter new password"
-                    className="h-10 text-xs pr-10"
+                    className="h-10 pr-10 text-xs"
                     required
                   />
                   <button
                     type="button"
-                    onClick={() => setShowConfirmPassword((prev) => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                    onClick={() => {
+                      setShowConfirmPassword((prev) => !prev);
+                    }}
+                    className="absolute top-1/2 right-3 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
                     tabIndex={-1}
                   >
-                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </div>
 
-              <div className="pt-2 text-xs text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                After changing your password, your current session will end and you will be asked to log in again with the new credentials.
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 pt-2 text-xs text-slate-500">
+                After changing your password, your current session will end and
+                you will be asked to log in again with the new credentials.
               </div>
 
               {/* Action Buttons */}
@@ -185,16 +238,18 @@ export default function ChangePasswordPage() {
                 <Button
                   type="submit"
                   disabled={isPending || isSuccess}
-                  className="bg-blue-600 hover:bg-blue-700 text-white min-w-36 h-9 text-xs font-semibold uppercase gap-1.5"
+                  className="h-9 min-w-36 gap-1.5 bg-blue-600 text-xs font-semibold text-white uppercase hover:bg-blue-700"
                 >
-                  {(isPending || isSuccess) && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {(isPending || isSuccess) && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  )}
                   {isSuccess ? "LOGGING OUT…" : "CHANGE PASSWORD"}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
                   asChild
-                  className="min-w-24 h-9 text-xs font-medium uppercase border-slate-300"
+                  className="h-9 min-w-24 border-slate-300 text-xs font-medium uppercase"
                 >
                   <Link href="/dashboard">CANCEL</Link>
                 </Button>
@@ -206,4 +261,3 @@ export default function ChangePasswordPage() {
     </div>
   );
 }
-

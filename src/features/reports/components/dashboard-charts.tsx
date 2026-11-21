@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { Minus, Plus } from "lucide-react";
+import { useState } from "react";
 
 export interface ChartDataPoint {
   label: string;
@@ -22,21 +22,27 @@ export function CollapsibleChartCard({
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       {/* Blue Header Bar matching screenshot */}
-      <div className="bg-[#0088ff] text-white px-4 py-2.5 flex items-center justify-between">
+      <div className="flex items-center justify-between bg-[#0088ff] px-4 py-2.5 text-white">
         <h3 className="text-sm font-semibold tracking-wide">
           {title}
           {badgeText && <span className="ml-2 font-bold">{badgeText}</span>}
         </h3>
         <button
           type="button"
-          onClick={() => setCollapsed((v) => !v)}
+          onClick={() => {
+            setCollapsed((v) => !v);
+          }}
           suppressHydrationWarning
-          className="text-white hover:bg-blue-600/50 rounded p-1 transition-colors"
+          className="rounded p-1 text-white transition-colors hover:bg-blue-600/50"
           aria-label={collapsed ? "Expand card" : "Collapse card"}
         >
-          {collapsed ? <Plus className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
+          {collapsed ? (
+            <Plus className="h-4 w-4" />
+          ) : (
+            <Minus className="h-4 w-4" />
+          )}
         </button>
       </div>
 
@@ -49,8 +55,10 @@ export function GroupedBarChart({
   data,
   passedLabel = "Passed",
   failedLabel = "Failed",
-  passedColor = "#3b82f6", // Blue
-  failedColor = "#ef4444", // Red
+  // Blue
+  passedColor = "#3b82f6",
+  // Red
+  failedColor = "#ef4444",
   height = 280,
 }: {
   data: Array<ChartDataPoint>;
@@ -71,7 +79,10 @@ export function GroupedBarChart({
   }
 
   // Calculate clean max value
-  const rawMax = Math.max(...data.map((d) => Math.max(d.passed, d.failed, 1)), 2);
+  const rawMax = Math.max(
+    ...data.map((d) => Math.max(d.passed, d.failed, 1)),
+    2
+  );
   const maxVal = Math.ceil(rawMax * 1.1);
 
   const paddingLeft = 45;
@@ -82,21 +93,32 @@ export function GroupedBarChart({
 
   const barGroupWidth = 56;
   const barWidth = 18;
-  const totalWidth = Math.max(data.length * barGroupWidth + paddingLeft + paddingRight, 650);
+  const totalWidth = Math.max(
+    data.length * barGroupWidth + paddingLeft + paddingRight,
+    650
+  );
   const chartWidth = totalWidth - paddingLeft - paddingRight;
 
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((pct) => Math.round(maxVal * pct * 10) / 10);
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map(
+    (pct) => Math.round(maxVal * pct * 10) / 10
+  );
 
   return (
     <div className="w-full space-y-3">
       {/* Legend matching screenshot */}
       <div className="flex items-center justify-center gap-6 text-xs text-slate-700">
         <div className="flex items-center gap-1.5">
-          <span className="h-3 w-6 rounded-xs" style={{ backgroundColor: passedColor }} />
+          <span
+            className="h-3 w-6 rounded-xs"
+            style={{ backgroundColor: passedColor }}
+          />
           <span>{passedLabel}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="h-3 w-6 rounded-xs" style={{ backgroundColor: failedColor }} />
+          <span
+            className="h-3 w-6 rounded-xs"
+            style={{ backgroundColor: failedColor }}
+          />
           <span>{failedLabel}</span>
         </div>
       </div>
@@ -163,8 +185,12 @@ export function GroupedBarChart({
             return (
               <g
                 key={item.label + idx}
-                onMouseEnter={() => setHoveredIdx(idx)}
-                onMouseLeave={() => setHoveredIdx(null)}
+                onMouseEnter={() => {
+                  setHoveredIdx(idx);
+                }}
+                onMouseLeave={() => {
+                  setHoveredIdx(null);
+                }}
                 className="cursor-pointer transition-opacity"
               >
                 {/* Background highlight on hover */}
@@ -233,7 +259,9 @@ export function GroupedBarChart({
                   fill="#475569"
                   className="select-none"
                 >
-                  {item.label.length > 14 ? `${item.label.slice(0, 12)}…` : item.label}
+                  {item.label.length > 14
+                    ? `${item.label.slice(0, 12)}…`
+                    : item.label}
                   <title>{item.label}</title>
                 </text>
               </g>
@@ -245,13 +273,58 @@ export function GroupedBarChart({
   );
 }
 
+// Arc path helpers
+function polarToCartesian(
+  cx: number,
+  cy: number,
+  r: number,
+  angleInDegrees: number
+) {
+  const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180;
+  return {
+    x: cx + r * Math.cos(angleInRadians),
+    y: cy + r * Math.sin(angleInRadians),
+  };
+}
+
+function describeArc(
+  cx: number,
+  cy: number,
+  r: number,
+  startAngle: number,
+  endAngle: number
+) {
+  const start = polarToCartesian(cx, cy, r, endAngle);
+  const end = polarToCartesian(cx, cy, r, startAngle);
+  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+  return [
+    "M",
+    cx,
+    cy,
+    "L",
+    start.x,
+    start.y,
+    "A",
+    r,
+    r,
+    0,
+    largeArcFlag,
+    0,
+    end.x,
+    end.y,
+    "Z",
+  ].join(" ");
+}
+
 export function DonutPieChart({
-  passed = 0,
-  failed = 0,
+  passed,
+  failed,
   passedLabel = "Passed",
   failedLabel = "Failed",
-  passedColor = "#10b981", // Green matching screenshot
-  failedColor = "#ef4444", // Red matching screenshot
+  // Green matching screenshot
+  passedColor = "#10b981",
+  // Red matching screenshot
+  failedColor = "#ef4444",
 }: {
   passed: number;
   failed: number;
@@ -271,48 +344,22 @@ export function DonutPieChart({
   const center = size / 2;
   const radius = 80;
 
-  // Arc path helper
-  const polarToCartesian = (cx: number, cy: number, r: number, angleInDegrees: number) => {
-    const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0;
-    return {
-      x: cx + r * Math.cos(angleInRadians),
-      y: cy + r * Math.sin(angleInRadians),
-    };
-  };
-
-  const describeArc = (cx: number, cy: number, r: number, startAngle: number, endAngle: number) => {
-    const start = polarToCartesian(cx, cy, r, endAngle);
-    const end = polarToCartesian(cx, cy, r, startAngle);
-    const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
-    return [
-      "M",
-      cx,
-      cy,
-      "L",
-      start.x,
-      start.y,
-      "A",
-      r,
-      r,
-      0,
-      largeArcFlag,
-      0,
-      end.x,
-      end.y,
-      "Z",
-    ].join(" ");
-  };
-
   return (
     <div className="flex flex-col items-center justify-center space-y-4 py-2">
       {/* Legend matching screenshot */}
       <div className="flex items-center justify-center gap-6 text-xs text-slate-700">
         <div className="flex items-center gap-1.5">
-          <span className="h-3 w-6 rounded-xs" style={{ backgroundColor: passedColor }} />
+          <span
+            className="h-3 w-6 rounded-xs"
+            style={{ backgroundColor: passedColor }}
+          />
           <span>{passedLabel}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="h-3 w-6 rounded-xs" style={{ backgroundColor: failedColor }} />
+          <span
+            className="h-3 w-6 rounded-xs"
+            style={{ backgroundColor: failedColor }}
+          />
           <span>{failedLabel}</span>
         </div>
       </div>
@@ -351,9 +398,13 @@ export function DonutPieChart({
 
           {/* Counts pill */}
           <div className="mt-2 text-center text-xs font-medium text-slate-600">
-            <span className="text-emerald-600 font-bold">{passed} ({passedFraction.toFixed(1)}%)</span>
+            <span className="font-bold text-emerald-600">
+              {passed} ({passedFraction.toFixed(1)}%)
+            </span>
             {" Passed • "}
-            <span className="text-rose-600 font-bold">{failed} ({failedFraction.toFixed(1)}%)</span>
+            <span className="font-bold text-rose-600">
+              {failed} ({failedFraction.toFixed(1)}%)
+            </span>
             {" Failed"}
           </div>
         </div>
@@ -373,17 +424,17 @@ export function AssessmentSummaryTable({
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h3 className="text-base font-bold text-slate-800 mb-4">{title}</h3>
+      <h3 className="mb-4 text-base font-bold text-slate-800">{title}</h3>
 
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs">
-          <thead className="border-b border-slate-200 text-slate-700 font-semibold">
+          <thead className="border-b border-slate-200 font-semibold text-slate-700">
             <tr>
-              <th className="py-2.5 px-3 w-12">#</th>
-              <th className="py-2.5 px-3">{itemLabel}</th>
-              <th className="py-2.5 px-3 text-center w-24">Total</th>
-              <th className="py-2.5 px-3 text-center w-24">Pass</th>
-              <th className="py-2.5 px-3 text-center w-24">Fail</th>
+              <th className="w-12 px-3 py-2.5">#</th>
+              <th className="px-3 py-2.5">{itemLabel}</th>
+              <th className="w-24 px-3 py-2.5 text-center">Total</th>
+              <th className="w-24 px-3 py-2.5 text-center">Pass</th>
+              <th className="w-24 px-3 py-2.5 text-center">Fail</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -395,20 +446,27 @@ export function AssessmentSummaryTable({
               </tr>
             ) : (
               data.map((item, idx) => (
-                <tr key={item.label + idx} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="py-2.5 px-3 text-slate-500 font-medium">{idx + 1}</td>
-                  <td className="py-2.5 px-3 font-medium text-slate-800">{item.label}</td>
-                  <td className="py-2.5 px-3 text-center">
+                <tr
+                  key={item.label + idx}
+                  className="transition-colors hover:bg-slate-50/70"
+                >
+                  <td className="px-3 py-2.5 font-medium text-slate-500">
+                    {idx + 1}
+                  </td>
+                  <td className="px-3 py-2.5 font-medium text-slate-800">
+                    {item.label}
+                  </td>
+                  <td className="px-3 py-2.5 text-center">
                     <span className="inline-flex min-w-[28px] items-center justify-center rounded bg-blue-600 px-2 py-0.5 text-xs font-bold text-white shadow-xs">
                       {item.total}
                     </span>
                   </td>
-                  <td className="py-2.5 px-3 text-center">
+                  <td className="px-3 py-2.5 text-center">
                     <span className="inline-flex min-w-[28px] items-center justify-center rounded bg-emerald-600 px-2 py-0.5 text-xs font-bold text-white shadow-xs">
                       {item.passed}
                     </span>
                   </td>
-                  <td className="py-2.5 px-3 text-center">
+                  <td className="px-3 py-2.5 text-center">
                     <span className="inline-flex min-w-[28px] items-center justify-center rounded bg-rose-600 px-2 py-0.5 text-xs font-bold text-white shadow-xs">
                       {item.failed}
                     </span>

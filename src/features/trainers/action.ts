@@ -1,11 +1,13 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { ENDPOINTS } from "@/config/endpoints";
-import { apiFetch, apiFetchText, ApiError } from "@/lib/api";
-import { getCurrentUser } from "@/lib/auth-server";
-import { hasPermission } from "@/lib/auth-jwt";
 import type { RolePageResponse } from "@/features/roles/types";
+import { apiFetch, apiFetchText } from "@/lib/api";
+import type { ActionRequestOptions } from "@/lib/api";
+import { requirePermission } from "@/lib/auth-server";
+import { tryCatch } from "@/lib/try-catch";
+import { createEmptyPage } from "@/lib/type-guards";
+
 import type {
   TrainerItem,
   TrainerPageResponse,
@@ -13,32 +15,28 @@ import type {
   UpdateTrainerPayload,
 } from "./types";
 
-export type GetTrainersParams = {
+export interface GetTrainersParams {
   page?: number;
   size?: number;
   search?: string;
   sort?: string;
-};
+}
 
-export async function getTrainersAction(params: GetTrainersParams = {}) {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, "users.read") && !hasPermission(userPerms, "system.all")) {
+export async function getTrainersAction(
+  params: GetTrainersParams = {},
+  options?: ActionRequestOptions
+) {
+  const auth = await requirePermission(
+    ["users.read", "system.all"],
+    "You do not have permission to view trainers."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to view trainers.",
-      data: {
-        content: [],
-        page: 1,
-        size: params.size ?? 10,
-        totalElements: 0,
-        totalPages: 0,
-        first: true,
-        last: true,
-        hasNext: false,
-        hasPrevious: false,
-      } as TrainerPageResponse,
+      error: auth.error,
+      data: createEmptyPage<TrainerItem>(
+        params.size ?? 10
+      ) satisfies TrainerPageResponse,
     };
   }
 
@@ -57,131 +55,151 @@ export async function getTrainersAction(params: GetTrainersParams = {}) {
     searchParams.set("search", params.search.trim());
   }
 
-  try {
-    const res = await apiFetch<{
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
       data: TrainerPageResponse;
-    }>(`${ENDPOINTS.users.list}?${searchParams.toString()}`);
+    }>(`${ENDPOINTS.users.list}?${searchParams.toString()}`, {
+      signal: options?.signal,
+    }),
+    "Failed to load trainers. Please try again."
+  );
 
-    return {
-      success: true,
-      data: res.data,
-      message: res.message || "Trainers retrieved successfully",
-    };
-  } catch (error) {
-    console.error("Failed to fetch trainers:", error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to load trainers. Please try again.";
+  if (!res.ok) {
+    console.error("Failed to fetch trainers:", res.error.cause);
     return {
       success: false,
-      error: message,
-      data: {
-        content: [],
-        page: 1,
-        size,
-        totalElements: 0,
-        totalPages: 0,
-        first: true,
-        last: true,
-        hasNext: false,
-        hasPrevious: false,
-      } as TrainerPageResponse,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to load trainers. Please try again.",
+      data: createEmptyPage<TrainerItem>(size) satisfies TrainerPageResponse,
     };
   }
+
+  return {
+    success: true,
+    data: res.data.data,
+    message: res.data.message || "Trainers retrieved successfully",
+  };
 }
 
-export async function getTrainerByIdAction(id: number | string) {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, "users.read") && !hasPermission(userPerms, "system.all")) {
+export async function getTrainerByIdAction(
+  id: number | string,
+  options?: ActionRequestOptions
+) {
+  const auth = await requirePermission(
+    ["users.read", "system.all"],
+    "You do not have permission to view trainer details."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to view trainer details.",
+      error: auth.error,
     };
   }
 
-  try {
-    const res = await apiFetch<{
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
       data: TrainerItem;
-    }>(ENDPOINTS.users.byId(id));
+    }>(ENDPOINTS.users.byId(id), {
+      signal: options?.signal,
+    }),
+    "Failed to load trainer details."
+  );
 
-    return {
-      success: true,
-      data: res.data,
-      message: res.message,
-    };
-  } catch (error) {
-    console.error(`Failed to fetch trainer ${id}:`, error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to load trainer details.";
+  if (!res.ok) {
+    console.error(`Failed to fetch trainer ${id}:`, res.error.cause);
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to load trainer details.",
     };
   }
+
+  return {
+    success: true,
+    data: res.data.data,
+    message: res.data.message,
+  };
 }
 
 export async function createTrainerAction(payload: CreateTrainerPayload) {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, "users.create") && !hasPermission(userPerms, "system.all")) {
+  const auth = await requirePermission(
+    ["users.create", "system.all"],
+    "You do not have permission to create trainers."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to create trainers.",
+      error: auth.error,
     };
   }
 
-  try {
-    const query = new URLSearchParams({
-      page: "0",
-      size: "20",
-      sort: "name,asc",
-      search: "TRAINER",
-    });
-    const rolesRes = await apiFetch<{
+  const query = new URLSearchParams({
+    page: "0",
+    size: "20",
+    sort: "name,asc",
+    search: "TRAINER",
+  });
+  const rolesRes = await tryCatch(
+    apiFetch<{
       success: boolean;
       message: string;
       data: RolePageResponse;
-    }>(`${ENDPOINTS.roles.list}?${query.toString()}`);
+    }>(`${ENDPOINTS.roles.list}?${query.toString()}`),
+    "Failed to create trainer. Please try again."
+  );
 
-    if (!rolesRes.success) {
-      return {
-        success: false,
-        error: rolesRes.message || "Failed to load the trainer role. Please try again.",
-      };
-    }
-
-    const trainerRole = rolesRes.data?.content?.find(
-      (role) => role.code === "TRAINER" && role.isActive === true
-    );
-
-    if (!trainerRole || trainerRole.id === null || trainerRole.id === undefined) {
-      return {
-        success: false,
-        error: "Trainer role not found. Contact your administrator.",
-      };
-    }
-
-    const body = {
-      firstName: payload.firstName,
-      lastName: payload.lastName,
-      email: payload.email,
-      password: payload.password,
-      departmentId: payload.departmentId || null,
-      mobileNumber: payload.mobileNumber,
-      profilePic: payload.profilePic,
-      roleIds: [String(trainerRole.id)],
-      pinCode: payload.pinCode || payload.pincode || "",
+  if (!rolesRes.ok) {
+    console.error("Failed to create trainer:", rolesRes.error.cause);
+    return {
+      success: false,
+      error: rolesRes.error.isApiError
+        ? rolesRes.error.message
+        : "Failed to create trainer. Please try again.",
     };
+  }
 
-    const res = await apiFetch<{
+  if (!rolesRes.data.success) {
+    return {
+      success: false,
+      error:
+        rolesRes.data.message ||
+        "Failed to load the trainer role. Please try again.",
+    };
+  }
+
+  const trainerRole = rolesRes.data.data?.content?.find(
+    (role) => role.code === "TRAINER" && role.isActive === true
+  );
+
+  if (!trainerRole || trainerRole.id === null || trainerRole.id === undefined) {
+    return {
+      success: false,
+      error: "Trainer role not found. Contact your administrator.",
+    };
+  }
+
+  const body = {
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+    email: payload.email,
+    password: payload.password,
+    departmentId: payload.departmentId || null,
+    mobileNumber: payload.mobileNumber,
+    profilePic: payload.profilePic,
+    roleIds: [String(trainerRole.id)],
+    pinCode: payload.pinCode || payload.pincode || "",
+  };
+
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
@@ -189,49 +207,67 @@ export async function createTrainerAction(payload: CreateTrainerPayload) {
     }>(ENDPOINTS.users.list, {
       method: "POST",
       body: JSON.stringify(body),
-    });
+    }),
+    "Failed to create trainer. Please try again."
+  );
 
-    revalidatePath("/trainers");
-
-    return {
-      success: true,
-      data: res?.data,
-      message: res?.message || "User created successfully",
-    };
-  } catch (error) {
-    console.error("Failed to create trainer:", error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to create trainer. Please try again.";
+  if (!res.ok) {
+    console.error("Failed to create trainer:", res.error.cause);
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to create trainer. Please try again.",
     };
   }
+
+  return {
+    success: true,
+    data: res.data?.data,
+    message: res.data?.message || "User created successfully",
+  };
 }
 
-export async function updateTrainerAction(id: number | string, payload: UpdateTrainerPayload) {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
+function resolvePinCode(payload: {
+  pinCode?: string | null;
+  pincode?: string | null;
+}): string | null {
+  if (payload.pinCode !== undefined) {
+    return payload.pinCode;
+  }
+  if (payload.pincode !== undefined) {
+    return payload.pincode;
+  }
+  return "";
+}
 
-  if (!hasPermission(userPerms, "users.update") && !hasPermission(userPerms, "system.all")) {
+export async function updateTrainerAction(
+  id: number | string,
+  payload: UpdateTrainerPayload
+) {
+  const auth = await requirePermission(
+    ["users.update", "system.all"],
+    "You do not have permission to update trainers."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to update trainers.",
+      error: auth.error,
     };
   }
 
-  try {
-    const body = {
-      firstName: payload.firstName,
-      lastName: payload.lastName,
-      email: payload.email,
-      departmentId: payload.departmentId || null,
-      profilePic: payload.profilePic ?? null,
-      mobileNumber: payload.mobileNumber,
-      pinCode: payload.pinCode !== undefined ? payload.pinCode : payload.pincode !== undefined ? payload.pincode : "",
-    };
+  const body = {
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+    email: payload.email,
+    departmentId: payload.departmentId || null,
+    profilePic: payload.profilePic ?? null,
+    mobileNumber: payload.mobileNumber,
+    pinCode: resolvePinCode(payload),
+  };
 
-    const res = await apiFetch<{
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
@@ -239,43 +275,44 @@ export async function updateTrainerAction(id: number | string, payload: UpdateTr
     }>(ENDPOINTS.users.byId(id), {
       method: "PUT",
       body: JSON.stringify(body),
-    });
+    }),
+    "Failed to update trainer. Please try again."
+  );
 
-    revalidatePath(`/trainers/${id}/edit`);
-    revalidatePath("/trainers");
-
-    return {
-      success: true,
-      data: res?.data,
-      message: res?.message || "User updated successfully",
-    };
-  } catch (error) {
-    console.error(`Failed to update trainer ${id}:`, error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to update trainer. Please try again.";
+  if (!res.ok) {
+    console.error(`Failed to update trainer ${id}:`, res.error.cause);
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to update trainer. Please try again.",
     };
   }
+
+  return {
+    success: true,
+    data: res.data?.data,
+    message: res.data?.message || "User updated successfully",
+  };
 }
 
 export async function updateTrainerStatusAction(
   id: number | string,
-  status: "ACTIVE" | "SUSPENDED" | "INACTIVE" | string
+  status: string
 ) {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, "users.update") && !hasPermission(userPerms, "system.all")) {
+  const auth = await requirePermission(
+    ["users.update", "system.all"],
+    "You do not have permission to update trainer status."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to update trainer status.",
+      error: auth.error,
     };
   }
 
-  try {
-    const res = await apiFetch<{
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
@@ -283,87 +320,97 @@ export async function updateTrainerStatusAction(
     }>(ENDPOINTS.users.status(id), {
       method: "PATCH",
       body: JSON.stringify({ status }),
-    });
+    }),
+    "Failed to update trainer status."
+  );
 
-    revalidatePath("/trainers");
-
-    return {
-      success: true,
-      data: res?.data,
-      message: res?.message || `Trainer status updated to ${status}`,
-    };
-  } catch (error) {
-    console.error(`Failed to update status for trainer ${id}:`, error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to update trainer status.";
+  if (!res.ok) {
+    console.error(
+      `Failed to update status for trainer ${id}:`,
+      res.error.cause
+    );
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to update trainer status.",
     };
   }
+
+  return {
+    success: true,
+    data: res.data?.data,
+    message: res.data?.message || `Trainer status updated to ${status}`,
+  };
 }
 
 export async function deleteTrainerAction(id: number | string) {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, "users.delete") && !hasPermission(userPerms, "system.all")) {
+  const auth = await requirePermission(
+    ["users.delete", "system.all"],
+    "You do not have permission to delete trainers."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to delete trainers.",
+      error: auth.error,
     };
   }
 
-  try {
-    const res = await apiFetch<{
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
     }>(ENDPOINTS.users.byId(id), {
       method: "DELETE",
-    });
+    }),
+    "Failed to delete trainer."
+  );
 
-    revalidatePath("/trainers");
-
-    return {
-      success: true,
-      message: res?.message || "Trainer deleted successfully",
-    };
-  } catch (error) {
-    console.error(`Failed to delete trainer ${id}:`, error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to delete trainer.";
+  if (!res.ok) {
+    console.error(`Failed to delete trainer ${id}:`, res.error.cause);
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to delete trainer.",
     };
   }
+
+  return {
+    success: true,
+    message: res.data?.message || "Trainer deleted successfully",
+  };
 }
 
 export async function exportTrainersAction() {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, "users.read") && !hasPermission(userPerms, "system.all")) {
+  const auth = await requirePermission(
+    ["users.read", "system.all"],
+    "You do not have permission to export trainers."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to export trainers.",
+      error: auth.error,
     };
   }
 
-  try {
-    const { text } = await apiFetchText(ENDPOINTS.users.exportTrainers, {}, "text/csv");
+  const res = await tryCatch(
+    apiFetchText(ENDPOINTS.users.exportTrainers, {}, "text/csv"),
+    "Failed to export trainers."
+  );
 
-    return {
-      success: true,
-      data: text,
-      filename: `trainers_export_${new Date().toISOString().slice(0, 10)}.csv`,
-      message: "Trainers exported successfully",
-    };
-  } catch (error) {
+  if (!res.ok) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to export trainers.",
+      error: res.error.message,
     };
   }
+
+  return {
+    success: true,
+    data: res.data.text,
+    filename: `trainers_export_${new Date().toISOString().slice(0, 10)}.csv`,
+    message: "Trainers exported successfully",
+  };
 }

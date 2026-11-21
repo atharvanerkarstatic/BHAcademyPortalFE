@@ -5,38 +5,47 @@ import { redirect } from "next/navigation";
 
 import { ENDPOINTS } from "@/config/endpoints";
 import { config } from "@/config/env";
-import { ALL_AUTH_COOKIES, AUTH_UPDATED_COOKIE, REFRESH_COOKIE, buildAuthCookies, userCookie } from '@/lib/auth-cookies';
-import type { TokenResponse } from '@/lib/auth-cookies';
 import { refreshTokens } from "@/lib/auth-api";
+import {
+  ALL_AUTH_COOKIES,
+  AUTH_UPDATED_COOKIE,
+  REFRESH_COOKIE,
+  buildAuthCookies,
+  userCookie,
+} from "@/lib/auth-cookies";
+import type { TokenResponse } from "@/lib/auth-cookies";
 import { extractAuthUser } from "@/lib/auth-jwt";
-import { extractErrorMessage, getStringProp, isRecord } from "@/lib/type-guards";
+import { tryCatch } from "@/lib/try-catch";
+import { asString, extractErrorMessage, isRecord } from "@/lib/type-guards";
 
-type LoginResult = {
+const AUTH_REQUEST_TIMEOUT_MS = 15_000;
+
+interface LoginResult {
   success: boolean;
   message?: string;
   error?: string;
-};
+}
 
-export type ForgotPasswordOtpResult = {
+export interface ForgotPasswordOtpResult {
   success: boolean;
   message: string;
   error?: string;
-};
+}
 
-export type VerifyOtpResult = {
+export interface VerifyOtpResult {
   success: boolean;
   message: string;
   resetToken?: string;
   maskedMobile?: string;
   expiresAt?: string;
   error?: string;
-};
+}
 
-export type ResetPasswordResult = {
+export interface ResetPasswordResult {
   success: boolean;
   message: string;
   error?: string;
-};
+}
 
 function isTokenResponse(value: unknown): value is TokenResponse {
   if (!isRecord(value)) {
@@ -44,14 +53,19 @@ function isTokenResponse(value: unknown): value is TokenResponse {
   }
 
   return (
+    "accessToken" in value &&
     typeof value.accessToken === "string" &&
     value.accessToken.length > 0 &&
+    "refreshToken" in value &&
     typeof value.refreshToken === "string" &&
     value.refreshToken.length > 0 &&
+    "tokenType" in value &&
     typeof value.tokenType === "string" &&
+    "expiresInSeconds" in value &&
     typeof value.expiresInSeconds === "number" &&
     Number.isFinite(value.expiresInSeconds) &&
     value.expiresInSeconds > 0 &&
+    "issuedAt" in value &&
     typeof value.issuedAt === "string"
   );
 }
@@ -60,37 +74,41 @@ export async function loginAction(
   email: string,
   password: string
 ): Promise<LoginResult> {
-  const rawEmail = String(email ?? "").trim();
-  const rawPassword = String(password ?? "").trim();
+  const rawEmail = (email ?? "").trim();
+  const rawPassword = (password ?? "").trim();
 
   if (!rawEmail || !rawPassword) {
-    return { success: false, error: "Please enter your email ID and password." };
+    return {
+      success: false,
+      error: "Please enter your email ID and password.",
+    };
   }
 
-  let response: Response;
-  try {
-    response = await fetch(`${config.apiBaseUrl}${ENDPOINTS.auth.login}`, {
+  const fetchResult = await tryCatch(
+    fetch(`${config.apiBaseUrl}${ENDPOINTS.auth.login}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         accept: "*/*",
       },
       body: JSON.stringify({ email: rawEmail, password: rawPassword }),
+      signal: AbortSignal.timeout(AUTH_REQUEST_TIMEOUT_MS),
       cache: "no-store",
-    });
-  } catch {
+    }),
+    "Unable to connect to the login service. Please check your network and try again."
+  );
+
+  if (!fetchResult.ok) {
     return {
       success: false,
-      error: "Unable to connect to the login service. Please check your network and try again.",
+      error:
+        "Unable to connect to the login service. Please check your network and try again.",
     };
   }
 
-  let jsonResponse: unknown;
-  try {
-    jsonResponse = await response.json();
-  } catch {
-    jsonResponse = null;
-  }
+  const response = fetchResult.data;
+  const parsedJson = await tryCatch<unknown>(response.json());
+  const jsonResponse = parsedJson.ok ? parsedJson.data : null;
 
   if (!response.ok) {
     const backendMsg = extractErrorMessage(jsonResponse);
@@ -129,7 +147,10 @@ export async function loginAction(
       : jsonResponse;
 
   if (!isTokenResponse(tokens)) {
-    console.error("Login response failed isTokenResponse validation:", jsonResponse);
+    console.error(
+      "Login response failed isTokenResponse validation:",
+      jsonResponse
+    );
     const cookieStore = await cookies();
     for (const name of ALL_AUTH_COOKIES) {
       cookieStore.delete(name);
@@ -150,13 +171,16 @@ export async function loginAction(
     }
     return {
       success: false,
-      error: "Authentication token is invalid or expired. Please contact administrator.",
+      error:
+        "Authentication token is invalid or expired. Please contact administrator.",
     };
   }
 
   // Strict case-sensitive check between entered email and token subject email
   if (authUser.email && authUser.email !== rawEmail) {
-    console.warn(`Email casing mismatch: entered '${rawEmail}', token has '${authUser.email}'`);
+    console.warn(
+      `Email casing mismatch: entered '${rawEmail}', token has '${authUser.email}'`
+    );
     const cookieStore = await cookies();
     for (const name of ALL_AUTH_COOKIES) {
       cookieStore.delete(name);
@@ -180,13 +204,15 @@ export async function loginAction(
   const targetRoute = getFirstAccessibleRoute(userPerms);
 
   if (!targetRoute) {
-    redirect("/access-denied");
+    return redirect("/access-denied");
   }
 
-  redirect(targetRoute);
+  return redirect(targetRoute);
 }
 
-export async function requestPasswordResetOtpAction(email: string): Promise<ForgotPasswordOtpResult> {
+export async function requestPasswordResetOtpAction(
+  email: string
+): Promise<ForgotPasswordOtpResult> {
   const normalizedEmail = email.trim();
   if (!normalizedEmail) {
     return {
@@ -196,54 +222,62 @@ export async function requestPasswordResetOtpAction(email: string): Promise<Forg
     };
   }
 
-  try {
-    const res = await fetch(`${config.apiBaseUrl}${ENDPOINTS.auth.forgotPassword}`, {
+  const fetchResult = await tryCatch(
+    fetch(`${config.apiBaseUrl}${ENDPOINTS.auth.forgotPassword}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         accept: "*/*",
       },
       body: JSON.stringify({ email: normalizedEmail }),
+      signal: AbortSignal.timeout(AUTH_REQUEST_TIMEOUT_MS),
       cache: "no-store",
-    });
+    }),
+    "Unable to connect to the server. Please check your network and try again."
+  );
 
-    let json: unknown = null;
-    try {
-      json = await res.json();
-    } catch {
-      json = null;
-    }
-
-    const apiMsg =
-      extractErrorMessage(json) ||
-      (res.ok
-        ? "An OTP has been sent to your registered email address."
-        : "Failed to send OTP. Please check your email and try again.");
-
-    if (!res.ok) {
-      return { success: false, message: apiMsg, error: apiMsg };
-    }
-
-    return {
-      success: true,
-      message: (isRecord(json) ? getStringProp(json, "message") : undefined) ?? apiMsg,
-    };
-  } catch {
+  if (!fetchResult.ok) {
     return {
       success: false,
-      message: "Unable to connect to the server. Please check your network and try again.",
-      error: "Unable to connect to the server. Please check your network and try again.",
+      message:
+        "Unable to connect to the server. Please check your network and try again.",
+      error:
+        "Unable to connect to the server. Please check your network and try again.",
     };
   }
+
+  const res = fetchResult.data;
+  const parsedJson = await tryCatch<unknown>(res.json());
+  const json = parsedJson.ok ? parsedJson.data : null;
+
+  const apiMsg =
+    extractErrorMessage(json) ||
+    (res.ok
+      ? "An OTP has been sent to your registered email address."
+      : "Failed to send OTP. Please check your email and try again.");
+
+  if (!res.ok) {
+    return { success: false, message: apiMsg, error: apiMsg };
+  }
+
+  return {
+    success: true,
+    message:
+      (isRecord(json) && "message" in json
+        ? asString(json.message)
+        : undefined) ?? apiMsg,
+  };
 }
 
 export async function verifyPasswordResetOtpAction(
   email: string,
   otp: string,
-  salt = "test-123"
+  salt?: string
 ): Promise<VerifyOtpResult> {
   const normalizedEmail = email.trim();
   const normalizedOtp = otp.trim();
+  const effectiveSalt =
+    salt || (process.env.FORGOT_PASSWORD_OTP_SALT ?? "test-123");
 
   if (!normalizedEmail || !normalizedOtp) {
     return {
@@ -253,8 +287,8 @@ export async function verifyPasswordResetOtpAction(
     };
   }
 
-  try {
-    const res = await fetch(`${config.apiBaseUrl}${ENDPOINTS.auth.verifyOtp}`, {
+  const fetchResult = await tryCatch(
+    fetch(`${config.apiBaseUrl}${ENDPOINTS.auth.verifyOtp}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -263,49 +297,73 @@ export async function verifyPasswordResetOtpAction(
       body: JSON.stringify({
         email: normalizedEmail,
         otp: normalizedOtp,
-        salt: salt || "test-123",
+        salt: effectiveSalt,
       }),
+      signal: AbortSignal.timeout(AUTH_REQUEST_TIMEOUT_MS),
       cache: "no-store",
-    });
+    }),
+    "Failed to verify OTP. Please check your network and try again."
+  );
 
-    let json: unknown = null;
-    try {
-      json = await res.json();
-    } catch {
-      json = null;
-    }
-
-    const apiMsg =
-      extractErrorMessage(json) ||
-      (res.ok
-        ? "OTP verified successfully. Use the reset token to set a new password."
-        : "Invalid or expired OTP. Please try again.");
-
-    if (!res.ok) {
-      return { success: false, message: apiMsg, error: apiMsg };
-    }
-
-    const rootObj = isRecord(json) ? json : {};
-    const dataObj = isRecord(rootObj.data) ? rootObj.data : {};
-    const resetToken = getStringProp(dataObj, "resetToken") ?? getStringProp(rootObj, "resetToken");
-    const maskedMobile =
-      getStringProp(dataObj, "maskedMobile") ?? getStringProp(rootObj, "maskedMobile");
-    const expiresAt = getStringProp(dataObj, "expiresAt") ?? getStringProp(rootObj, "expiresAt");
-
-    return {
-      success: true,
-      message: getStringProp(rootObj, "message") ?? apiMsg,
-      resetToken,
-      maskedMobile,
-      expiresAt,
-    };
-  } catch {
+  if (!fetchResult.ok) {
     return {
       success: false,
       message: "Failed to verify OTP. Please check your network and try again.",
       error: "Failed to verify OTP. Please check your network and try again.",
     };
   }
+
+  const res = fetchResult.data;
+  const parsedJson = await tryCatch<unknown>(res.json());
+  const json = parsedJson.ok ? parsedJson.data : null;
+
+  const apiMsg =
+    extractErrorMessage(json) ||
+    (res.ok
+      ? "OTP verified successfully. Use the reset token to set a new password."
+      : "Invalid or expired OTP. Please try again.");
+
+  if (!res.ok) {
+    return { success: false, message: apiMsg, error: apiMsg };
+  }
+
+  const rootObj = isRecord(json) ? json : null;
+  const dataObj =
+    rootObj && "data" in rootObj && isRecord(rootObj.data)
+      ? rootObj.data
+      : null;
+  const resetToken =
+    (dataObj && "resetToken" in dataObj
+      ? asString(dataObj.resetToken)
+      : undefined) ??
+    (rootObj && "resetToken" in rootObj
+      ? asString(rootObj.resetToken)
+      : undefined);
+  const maskedMobile =
+    (dataObj && "maskedMobile" in dataObj
+      ? asString(dataObj.maskedMobile)
+      : undefined) ??
+    (rootObj && "maskedMobile" in rootObj
+      ? asString(rootObj.maskedMobile)
+      : undefined);
+  const expiresAt =
+    (dataObj && "expiresAt" in dataObj
+      ? asString(dataObj.expiresAt)
+      : undefined) ??
+    (rootObj && "expiresAt" in rootObj
+      ? asString(rootObj.expiresAt)
+      : undefined);
+
+  return {
+    success: true,
+    message:
+      (rootObj && "message" in rootObj
+        ? asString(rootObj.message)
+        : undefined) ?? apiMsg,
+    resetToken,
+    maskedMobile,
+    expiresAt,
+  };
 }
 
 export async function resetPasswordWithTokenAction(payload: {
@@ -314,8 +372,8 @@ export async function resetPasswordWithTokenAction(payload: {
   confirmPassword: string;
 }): Promise<ResetPasswordResult> {
   const resetToken = payload.resetToken?.trim();
-  const newPassword = payload.newPassword;
-  const confirmPassword = payload.confirmPassword;
+  const { newPassword } = payload;
+  const { confirmPassword } = payload;
 
   if (!resetToken) {
     return {
@@ -341,8 +399,8 @@ export async function resetPasswordWithTokenAction(payload: {
     };
   }
 
-  try {
-    const res = await fetch(`${config.apiBaseUrl}${ENDPOINTS.auth.resetPassword}`, {
+  const fetchResult = await tryCatch(
+    fetch(`${config.apiBaseUrl}${ENDPOINTS.auth.resetPassword}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -353,37 +411,41 @@ export async function resetPasswordWithTokenAction(payload: {
         newPassword,
         confirmPassword,
       }),
+      signal: AbortSignal.timeout(AUTH_REQUEST_TIMEOUT_MS),
       cache: "no-store",
-    });
+    }),
+    "Failed to reset password. Please try again."
+  );
 
-    let json: unknown = null;
-    try {
-      json = await res.json();
-    } catch {
-      json = null;
-    }
-
-    const apiMsg =
-      extractErrorMessage(json) ||
-      (res.ok
-        ? "Password has been reset successfully. Please log in with your new password."
-        : "Failed to reset password. Please try again.");
-
-    if (!res.ok) {
-      return { success: false, message: apiMsg, error: apiMsg };
-    }
-
-    return {
-      success: true,
-      message: (isRecord(json) ? getStringProp(json, "message") : undefined) ?? apiMsg,
-    };
-  } catch {
+  if (!fetchResult.ok) {
     return {
       success: false,
       message: "Failed to reset password. Please try again.",
       error: "Failed to reset password. Please try again.",
     };
   }
+
+  const res = fetchResult.data;
+  const parsedJson = await tryCatch<unknown>(res.json());
+  const json = parsedJson.ok ? parsedJson.data : null;
+
+  const apiMsg =
+    extractErrorMessage(json) ||
+    (res.ok
+      ? "Password has been reset successfully. Please log in with your new password."
+      : "Failed to reset password. Please try again.");
+
+  if (!res.ok) {
+    return { success: false, message: apiMsg, error: apiMsg };
+  }
+
+  return {
+    success: true,
+    message:
+      (isRecord(json) && "message" in json
+        ? asString(json.message)
+        : undefined) ?? apiMsg,
+  };
 }
 
 export async function logoutAction() {
@@ -408,31 +470,35 @@ export async function refreshUserSessionAction(): Promise<{
     return { success: false, error: "No refresh token available." };
   }
 
-  try {
-    const fresh = await refreshTokens(refreshToken);
-    if (!fresh?.accessToken) {
-      for (const name of ALL_AUTH_COOKIES) {
-        cookieStore.delete(name);
-      }
-      return { success: false, error: "Session expired." };
-    }
-
-    const cookieList = buildAuthCookies(fresh);
-    for (const c of cookieList) {
-      cookieStore.set(c.name, c.value, c.options);
-    }
-
-    cookieStore.set(AUTH_UPDATED_COOKIE, "1", {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60,
-    });
-
-    return { success: true };
-  } catch (error: unknown) {
-    console.error("refreshUserSessionAction error:", error);
+  const refreshResult = await tryCatch(
+    refreshTokens(refreshToken),
+    "Failed to refresh token."
+  );
+  if (!refreshResult.ok) {
+    console.error("refreshUserSessionAction error:", refreshResult.error.cause);
     return { success: false, error: "Failed to refresh token." };
   }
+
+  const fresh = refreshResult.data;
+  if (!fresh?.accessToken) {
+    for (const name of ALL_AUTH_COOKIES) {
+      cookieStore.delete(name);
+    }
+    return { success: false, error: "Session expired." };
+  }
+
+  const cookieList = buildAuthCookies(fresh);
+  for (const c of cookieList) {
+    cookieStore.set(c.name, c.value, c.options);
+  }
+
+  cookieStore.set(AUTH_UPDATED_COOKIE, "1", {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60,
+  });
+
+  return { success: true };
 }

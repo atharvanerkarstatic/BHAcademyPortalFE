@@ -1,11 +1,12 @@
 import { extractErrorMessage, isRecord } from "./type-guards";
 
 export class PortalQueryError extends Error {
-  constructor(
-    message: string,
-    public status?: number
-  ) {
+  status?: number;
+
+  constructor(message: string, status?: number) {
     super(message);
+    this.name = "PortalQueryError";
+    this.status = status;
   }
 }
 
@@ -42,10 +43,12 @@ export async function portalGet<T>(
     );
   }
 
-  if (isRecord(body) && body.success === false) {
+  if (isRecord(body) && "success" in body && body.success === false) {
     throw new PortalQueryError(
       extractErrorMessage(body) ?? "Request failed",
-      typeof body.status === "number" ? body.status : undefined
+      "status" in body && typeof body.status === "number"
+        ? body.status
+        : undefined
     );
   }
 

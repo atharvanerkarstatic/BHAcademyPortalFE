@@ -1,4 +1,20 @@
-export type CityItem = {
+export type CityTranslationCode =
+  | "Hi"
+  | "Bn"
+  | "Kn"
+  | "Ml"
+  | "Or"
+  | "Ta"
+  | "Te"
+  | "As"
+  | "Gu"
+  | "Mr";
+export type CityTranslationKey = `city${CityTranslationCode}`;
+export type StateTranslationKey = `state${CityTranslationCode}`;
+export type CityTranslations = Partial<Record<CityTranslationKey, string>>;
+export type StateTranslations = Partial<Record<StateTranslationKey, string>>;
+
+export interface CityItem {
   id: number;
   pinCode: string;
   division: string | null;
@@ -27,10 +43,9 @@ export type CityItem = {
   stateOr?: string | null;
   stateTa?: string | null;
   stateTe?: string | null;
-  [key: string]: unknown;
-};
+}
 
-export type SaveCityPayload = {
+export interface SaveCityPayload {
   pinCode: string;
   division?: string;
   region?: string;
@@ -56,6 +71,4 @@ export type SaveCityPayload = {
   stateAs?: string;
   stateGu?: string;
   stateMr?: string;
-  [key: string]: unknown;
-};
-
+}

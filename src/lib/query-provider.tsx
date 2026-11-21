@@ -2,8 +2,8 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { useState } from 'react';
-import type { ReactNode } from 'react';
+import { useMemo } from "react";
+import type { ReactNode } from "react";
 
 function createQueryClient(): QueryClient {
   return new QueryClient({
@@ -19,13 +19,16 @@ function createQueryClient(): QueryClient {
 }
 
 export function QueryProvider({ children }: { children: ReactNode }) {
-  const [queryClient] = useState(createQueryClient);
+  const queryClient = useMemo(() => createQueryClient(), []);
 
   return (
     <QueryClientProvider client={queryClient}>
       {children}
       {process.env.NODE_ENV === "development" ? (
-        <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-right" />
+        <ReactQueryDevtools
+          initialIsOpen={false}
+          buttonPosition="bottom-right"
+        />
       ) : null}
     </QueryClientProvider>
   );

@@ -1,10 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { ENDPOINTS } from "@/config/endpoints";
-import { apiFetch, ApiError } from "@/lib/api";
-import { getCurrentUser } from "@/lib/auth-server";
-import { hasPermission } from "@/lib/auth-jwt";
+import { apiFetch } from "@/lib/api";
+import type { ActionRequestOptions } from "@/lib/api";
+import { requirePermission } from "@/lib/auth-server";
+import { tryCatch } from "@/lib/try-catch";
+import { createEmptyPage } from "@/lib/type-guards";
+
 import type {
   ApiResponse,
   CategoryItem,
@@ -13,24 +15,27 @@ import type {
   UpdateCategoryPayload,
 } from "./types";
 
-export type GetCategoriesParams = {
+export interface GetCategoriesParams {
   page?: number;
   size?: number;
   sort?: "asc" | "desc";
-  status?: "ACTIVE" | "INACTIVE" | string | null;
-};
+  status?: string | null;
+}
 
-function sanitizePayload<T extends CreateCategoryPayload  >(payload: T): T {
-  const sanitized: Record<string, unknown> = {
+function sanitizePayload(
+  payload: CreateCategoryPayload
+): CreateCategoryPayload {
+  const sanitized: CreateCategoryPayload = {
     category: payload.category.trim(),
-    displayOrder: typeof payload.displayOrder === "number" ? payload.displayOrder : 0,
+    displayOrder:
+      typeof payload.displayOrder === "number" ? payload.displayOrder : 0,
     status: payload.status === "INACTIVE" ? "INACTIVE" : "ACTIVE",
-    featured: Boolean(payload.featured),
+    featured: payload.featured,
   };
 
   // Clean imageUrl: trim whitespace and newlines, or omit if empty
   if (typeof payload.imageUrl === "string") {
-    const cleaned = payload.imageUrl.replaceAll(/[\r\n\t]/g, "").trim();
+    const cleaned = payload.imageUrl.replaceAll(/[\r\n\t]/gu, "").trim();
     if (cleaned) {
       sanitized.imageUrl = cleaned;
     }
@@ -51,34 +56,30 @@ function sanitizePayload<T extends CreateCategoryPayload  >(payload: T): T {
   ] as const;
 
   for (const key of transKeys) {
-    const val = (payload as Record<string, unknown>)[key];
+    const val = payload[key];
     if (typeof val === "string") {
       sanitized[key] = val.trim();
     }
   }
 
-  return sanitized as T;
+  return sanitized;
 }
 
-export async function getCategoriesAction(params: GetCategoriesParams = {}) {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, "categories.read")) {
+export async function getCategoriesAction(
+  params: GetCategoriesParams = {},
+  options?: ActionRequestOptions
+) {
+  const auth = await requirePermission(
+    "categories.read",
+    "You do not have permission to view categories."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to view categories.",
-      data: {
-        content: [],
-        page: 1,
-        size: params.size ?? 0,
-        totalElements: 0,
-        totalPages: 0,
-        first: true,
-        last: true,
-        hasNext: false,
-        hasPrevious: false,
-      } as CategoryPageResponse,
+      error: auth.error,
+      data: createEmptyPage<CategoryItem>(
+        params.size ?? 0
+      ) satisfies CategoryPageResponse,
     };
   }
 
@@ -99,179 +100,194 @@ export async function getCategoriesAction(params: GetCategoriesParams = {}) {
     query.set("status", params.status);
   }
 
-  try {
-    const res = await apiFetch<ApiResponse<CategoryPageResponse>>(
-      `${ENDPOINTS.categories.list}?${query.toString()}`
-    );
-    return {
-      success: true,
-      data: res.data,
-      message: res.message,
-    };
-  } catch (error) {
-    console.error("Failed to fetch categories:", error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to load categories. Please try again.";
+  const res = await tryCatch(
+    apiFetch<ApiResponse<CategoryPageResponse>>(
+      `${ENDPOINTS.categories.list}?${query.toString()}`,
+      { signal: options?.signal }
+    ),
+    "Failed to load categories. Please try again."
+  );
+
+  if (!res.ok) {
+    console.error("Failed to fetch categories:", res.error.cause);
     return {
       success: false,
-      error: message,
-      data: {
-        content: [],
-        page: 1,
-        size,
-        totalElements: 0,
-        totalPages: 0,
-        first: true,
-        last: true,
-        hasNext: false,
-        hasPrevious: false,
-      } as CategoryPageResponse,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to load categories. Please try again.",
+      data: createEmptyPage<CategoryItem>(size) satisfies CategoryPageResponse,
     };
   }
+
+  return {
+    success: true,
+    data: res.data.data,
+    message: res.data.message,
+  };
 }
 
-export async function getCategoryByIdAction(id: string) {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, "categories.read")) {
+export async function getCategoryByIdAction(
+  id: string,
+  options?: ActionRequestOptions
+) {
+  const auth = await requirePermission(
+    "categories.read",
+    "You do not have permission to view this category."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to view this category.",
+      error: auth.error,
     };
   }
 
-  try {
-    // Note: /v1/category/{id} is removed on backend; fetch from the category list endpoint
-    const listRes = await apiFetch<ApiResponse<CategoryPageResponse>>(
-      `${ENDPOINTS.categories.list}?page=0&size=200`
-    );
-    const found = listRes?.data?.content?.find((item) => String(item.categoryId) === String(id));
-    if (found) {
-      return {
-        success: true,
-        data: found,
-      };
-    }
+  // Note: /v1/category/{id} is removed on backend; fetch from the category list endpoint
+  const res = await tryCatch(
+    apiFetch<ApiResponse<CategoryPageResponse>>(
+      `${ENDPOINTS.categories.list}?page=0&size=200`,
+      { signal: options?.signal }
+    ),
+    "Failed to load category details. Please try again."
+  );
 
+  if (!res.ok) {
+    console.error(`Failed to fetch category ${id}:`, res.error.cause);
     return {
       success: false,
-      error: `Category ${id} not found.`,
-    };
-  } catch (error) {
-    console.error(`Failed to fetch category ${id}:`, error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to load category details. Please try again.";
-    return {
-      success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to load category details. Please try again.",
     };
   }
+
+  const found = res.data?.data?.content?.find(
+    (item) => String(item.categoryId) === id
+  );
+  if (found) {
+    return {
+      success: true,
+      data: found,
+    };
+  }
+
+  return {
+    success: false,
+    error: `Category ${id} not found.`,
+  };
 }
 
 export async function createCategoryAction(payload: CreateCategoryPayload) {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, "categories.create")) {
+  const auth = await requirePermission(
+    "categories.create",
+    "You do not have permission to create categories."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to create categories.",
+      error: auth.error,
     };
   }
 
   const cleanPayload = sanitizePayload(payload);
 
-  try {
-    const res = await apiFetch<ApiResponse<CategoryItem>>(ENDPOINTS.categories.list, {
+  const res = await tryCatch(
+    apiFetch<ApiResponse<CategoryItem>>(ENDPOINTS.categories.list, {
       method: "POST",
       body: JSON.stringify(cleanPayload),
-    });
+    }),
+    "Failed to create category. Please try again."
+  );
 
-    revalidatePath("/categories");
-
-    return {
-      success: true,
-      data: res.data,
-      message: res.message || "Category created successfully",
-    };
-  } catch (error) {
-    console.error("Failed to create category:", error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to create category. Please try again.";
+  if (!res.ok) {
+    console.error("Failed to create category:", res.error.cause);
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to create category. Please try again.",
     };
   }
+
+  return {
+    success: true,
+    data: res.data.data,
+    message: res.data.message || "Category created successfully",
+  };
 }
 
-export async function updateCategoryAction(id: string, payload: UpdateCategoryPayload) {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, "categories.update")) {
+export async function updateCategoryAction(
+  id: string,
+  payload: UpdateCategoryPayload
+) {
+  const auth = await requirePermission(
+    "categories.update",
+    "You do not have permission to update categories."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to update categories.",
+      error: auth.error,
     };
   }
 
   const cleanPayload = sanitizePayload(payload);
 
-  try {
-    const res = await apiFetch<ApiResponse<CategoryItem>>(ENDPOINTS.categories.byId(id), {
+  const res = await tryCatch(
+    apiFetch<ApiResponse<CategoryItem>>(ENDPOINTS.categories.byId(id), {
       method: "PUT",
       body: JSON.stringify(cleanPayload),
-    });
+    }),
+    "Failed to update category. Please try again."
+  );
 
-    revalidatePath("/categories");
-
-    return {
-      success: true,
-      data: res.data,
-      message: res.message || "Category updated successfully",
-    };
-  } catch (error) {
-    console.error(`Failed to update category ${id}:`, error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to update category. Please try again.";
+  if (!res.ok) {
+    console.error(`Failed to update category ${id}:`, res.error.cause);
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to update category. Please try again.",
     };
   }
+
+  return {
+    success: true,
+    data: res.data.data,
+    message: res.data.message || "Category updated successfully",
+  };
 }
 
 export async function deleteCategoryAction(id: string) {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, "categories.delete")) {
+  const auth = await requirePermission(
+    "categories.delete",
+    "You do not have permission to delete categories."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to delete categories.",
+      error: auth.error,
     };
   }
 
-  try {
-    const res = await apiFetch<ApiResponse<void>>(ENDPOINTS.categories.byId(id), {
+  const res = await tryCatch(
+    apiFetch<ApiResponse<void>>(ENDPOINTS.categories.byId(id), {
       method: "DELETE",
-    });
+    }),
+    "Failed to delete category. Please try again."
+  );
 
-    revalidatePath("/categories");
-
-    return {
-      success: true,
-      message: res?.message || "Category deleted successfully",
-    };
-  } catch (error) {
-    console.error(`Failed to delete category ${id}:`, error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to delete category. Please try again.";
+  if (!res.ok) {
+    console.error(`Failed to delete category ${id}:`, res.error.cause);
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to delete category. Please try again.",
     };
   }
+
+  return {
+    success: true,
+    message: res.data?.message || "Category deleted successfully",
+  };
 }

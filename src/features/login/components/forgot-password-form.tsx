@@ -1,9 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Check,
@@ -15,6 +11,10 @@ import {
   Mail,
   RotateCw,
 } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +27,15 @@ import {
 
 type Step = "EMAIL" | "OTP" | "PASSWORD" | "SUCCESS";
 
-const OTP_COUNTDOWN_SECONDS = 120; // 2 minutes
+// 2 minutes
+const OTP_COUNTDOWN_SECONDS = 120;
+
+// Format seconds into mm:ss
+function formatTime(totalSeconds: number) {
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
 
 export default function ForgotPasswordForm() {
   const router = useRouter();
@@ -56,12 +64,12 @@ export default function ForgotPasswordForm() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Helper to clear timer
-  const clearOtpTimer = () => {
+  const clearOtpTimer = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-  };
+  }, []);
 
   // Helper to start/reset the 2-minute countdown
   const startOtpTimer = () => {
@@ -78,15 +86,8 @@ export default function ForgotPasswordForm() {
     }, 1000);
   };
 
-  // Format seconds into mm:ss
-  const formatTime = (totalSeconds: number) => {
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-  };
-
   // Complete reset to clean Email Entry screen
-  const resetEntireFlow = () => {
+  const resetEntireFlow = useCallback(() => {
     clearOtpTimer();
     setTimerSeconds(0);
     setStep("EMAIL");
@@ -99,7 +100,7 @@ export default function ForgotPasswordForm() {
     setShowPassword(false);
     setShowConfirmPassword(false);
     setLoading(false);
-  };
+  }, [clearOtpTimer]);
 
   // Reset on browser back-forward cache restore
   useEffect(() => {
@@ -115,16 +116,16 @@ export default function ForgotPasswordForm() {
       window.removeEventListener("popstate", handlePageShow);
       clearOtpTimer();
     };
-  }, []);
+  }, [clearOtpTimer, resetEntireFlow]);
 
   // Password strength checks
   const hasMinLength = password.length >= 8;
-  const hasMixedCase = /[a-z]/.test(password) && /[A-Z]/.test(password);
-  const hasNumberOrSymbol = /[0-9!@#$%^&*(),.?":{}|<>]/.test(password);
+  const hasMixedCase = /[a-z]/u.test(password) && /[A-Z]/u.test(password);
+  const hasNumberOrSymbol = /[0-9!@#$%^&*(),.?":{}|<>]/u.test(password);
   const isStrongPassword = hasMinLength && hasMixedCase && hasNumberOrSymbol;
 
   // 1. Submit Email -> Send OTP
-  const handleEmailSubmit = async (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const cleanEmail = email.trim();
@@ -154,7 +155,9 @@ export default function ForgotPasswordForm() {
 
   // 2. Resend OTP
   const handleResendOtp = async () => {
-    if (timerSeconds > 0) {return;}
+    if (timerSeconds > 0) {
+      return;
+    }
 
     setLoading(true);
     try {
@@ -162,7 +165,8 @@ export default function ForgotPasswordForm() {
       if (res.success) {
         toastSuccess(res.message || "A new OTP has been sent.");
         setOtp("");
-        startOtpTimer(); // Reset countdown whenever a new OTP is successfully sent
+        // Reset countdown whenever a new OTP is successfully sent
+        startOtpTimer();
       } else {
         toastError(res.error || res.message);
       }
@@ -174,7 +178,7 @@ export default function ForgotPasswordForm() {
   };
 
   // 3. Verify OTP
-  const handleOtpSubmit = async (e: React.FormEvent) => {
+  const handleOtpSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const cleanOtp = otp.trim();
@@ -190,7 +194,9 @@ export default function ForgotPasswordForm() {
         toastSuccess(res.message);
         clearOtpTimer();
         setResetToken(res.resetToken);
-        if (res.maskedMobile) {setMaskedMobile(res.maskedMobile);}
+        if (res.maskedMobile) {
+          setMaskedMobile(res.maskedMobile);
+        }
         setStep("PASSWORD");
       } else {
         toastError(res.error || res.message || "Failed to verify OTP.");
@@ -203,7 +209,9 @@ export default function ForgotPasswordForm() {
   };
 
   // 4. Reset Password & Redirect to Login
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (
+    e: React.SubmitEvent<HTMLFormElement>
+  ) => {
     e.preventDefault();
 
     if (!resetToken) {
@@ -238,7 +246,10 @@ export default function ForgotPasswordForm() {
       });
 
       if (res.success) {
-        toastSuccess(res.message || "Password has been reset successfully. Please log in with your new password.");
+        toastSuccess(
+          res.message ||
+            "Password has been reset successfully. Please log in with your new password."
+        );
         setStep("SUCCESS");
 
         // Redirect to Login page after a brief delay for toast visibility
@@ -255,6 +266,13 @@ export default function ForgotPasswordForm() {
       setLoading(false);
     }
   };
+
+  let stepTwoDotClass = "bg-slate-100 text-slate-400";
+  if (step === "OTP") {
+    stepTwoDotClass = "bg-blue-600 text-white";
+  } else if (step === "PASSWORD") {
+    stepTwoDotClass = "bg-blue-100 text-blue-700";
+  }
 
   return (
     <div className="w-full max-w-md">
@@ -273,13 +291,16 @@ export default function ForgotPasswordForm() {
             {step === "PASSWORD" ? "Set New Password" : "Forgot Password"}
           </h1>
           <p className="mt-1 text-center text-xs text-slate-500">
-            {step === "EMAIL" && "Enter your registered email to receive a verification OTP"}
+            {step === "EMAIL" &&
+              "Enter your registered email to receive a verification OTP"}
             {step === "OTP" &&
               (maskedMobile
                 ? `Enter the OTP sent to your registered mobile ending with ${maskedMobile}`
                 : `Enter the OTP sent to your registered contact`)}
-            {step === "PASSWORD" && "Create a secure, strong password for your account"}
-            {step === "SUCCESS" && "Password reset successful! Redirecting to login…"}
+            {step === "PASSWORD" &&
+              "Create a secure, strong password for your account"}
+            {step === "SUCCESS" &&
+              "Password reset successful! Redirecting to login…"}
           </p>
 
           {/* Stepper Dots */}
@@ -302,13 +323,7 @@ export default function ForgotPasswordForm() {
                 }`}
               />
               <span
-                className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
-                  step === "OTP"
-                    ? "bg-blue-600 text-white"
-                    : step === "PASSWORD"
-                    ? "bg-blue-100 text-blue-700"
-                    : "bg-slate-100 text-slate-400"
-                }`}
+                className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${stepTwoDotClass}`}
               >
                 2
               </span>
@@ -332,9 +347,15 @@ export default function ForgotPasswordForm() {
 
         {/* STEP 1: ENTER EMAIL */}
         {step === "EMAIL" && (
-          <form onSubmit={handleEmailSubmit} className="space-y-5 p-6">
+          <form
+            onSubmit={(e) => {
+              void handleEmailSubmit(e);
+            }}
+            className="space-y-5 p-6"
+          >
             <p className="text-center text-sm text-slate-600">
-              Please enter your registered email address. We will send an OTP to verify your account.
+              Please enter your registered email address. We will send an OTP to
+              verify your account.
             </p>
 
             <div className="flex">
@@ -347,7 +368,9 @@ export default function ForgotPasswordForm() {
                 autoComplete="off"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                }}
                 className="h-11 rounded-l-none bg-slate-50"
               />
             </div>
@@ -375,12 +398,21 @@ export default function ForgotPasswordForm() {
 
         {/* STEP 2: VERIFY OTP */}
         {step === "OTP" && (
-          <form onSubmit={handleOtpSubmit} className="space-y-5 p-6">
-            <div className="rounded-lg bg-blue-50 p-3 text-xs text-blue-900 border border-blue-200">
+          <form
+            onSubmit={(e) => {
+              void handleOtpSubmit(e);
+            }}
+            className="space-y-5 p-6"
+          >
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
               OTP sent for <strong>{email}</strong>
               {maskedMobile && (
-                <span> (mobile ending with <strong>{maskedMobile}</strong>)</span>
-              )}. Please enter the 6-digit code below.
+                <span>
+                  {" "}
+                  (mobile ending with <strong>{maskedMobile}</strong>)
+                </span>
+              )}
+              . Please enter the 6-digit code below.
             </div>
 
             <div className="flex">
@@ -393,8 +425,10 @@ export default function ForgotPasswordForm() {
                 maxLength={6}
                 required
                 value={otp}
-                onChange={(e) => setOtp(e.target.value.replaceAll(/\D/g, ""))}
-                className="h-11 rounded-l-none bg-slate-50 tracking-widest text-center font-mono text-lg font-semibold"
+                onChange={(e) => {
+                  setOtp(e.target.value.replaceAll(/\D/gu, ""));
+                }}
+                className="h-11 rounded-l-none bg-slate-50 text-center font-mono text-lg font-semibold tracking-widest"
               />
             </div>
 
@@ -414,7 +448,7 @@ export default function ForgotPasswordForm() {
               </button>
 
               {timerSeconds > 0 ? (
-                <span className="text-slate-500 font-medium">
+                <span className="font-medium text-slate-500">
                   Resend OTP in{" "}
                   <span className="font-mono font-semibold text-blue-600">
                     {formatTime(timerSeconds)}
@@ -424,8 +458,10 @@ export default function ForgotPasswordForm() {
                 <button
                   type="button"
                   disabled={loading}
-                  onClick={handleResendOtp}
-                  className="inline-flex items-center gap-1 text-blue-600 hover:underline disabled:opacity-50 font-medium"
+                  onClick={() => {
+                    void handleResendOtp();
+                  }}
+                  className="inline-flex items-center gap-1 font-medium text-blue-600 hover:underline disabled:opacity-50"
                 >
                   <RotateCw className="h-3 w-3" />
                   Resend OTP
@@ -456,73 +492,112 @@ export default function ForgotPasswordForm() {
 
         {/* STEP 3: SET NEW STRONG PASSWORD */}
         {step === "PASSWORD" && (
-          <form onSubmit={handlePasswordSubmit} className="space-y-4 p-6">
+          <form
+            onSubmit={(e) => {
+              void handlePasswordSubmit(e);
+            }}
+            className="space-y-4 p-6"
+          >
             <p className="text-center text-xs text-slate-600">
               Create a new strong password for <strong>{email}</strong>
             </p>
 
             {/* New Password */}
             <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-700">New Password</label>
+              <label
+                htmlFor="forgot-new-password"
+                className="text-xs font-medium text-slate-700"
+              >
+                New Password
+              </label>
               <div className="flex">
                 <span className="flex w-12 items-center justify-center rounded-l-md border border-r-0 bg-slate-100 text-slate-500">
                   <Lock className="h-4 w-4" />
                 </span>
                 <Input
+                  id="forgot-new-password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter strong password"
                   required
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-11 rounded-none border-x-0 bg-slate-50 focus-visible:ring-0 focus-visible:border-input"
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                  }}
+                  className="focus-visible:border-input h-11 rounded-none border-x-0 bg-slate-50 focus-visible:ring-0"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  className="flex w-12 items-center justify-center rounded-r-md border border-l-0 bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
+                  onClick={() => {
+                    setShowPassword((prev) => !prev);
+                  }}
+                  className="flex w-12 items-center justify-center rounded-r-md border border-l-0 bg-slate-100 text-slate-500 transition-colors hover:text-slate-700"
                   tabIndex={-1}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
             </div>
 
             {/* Confirm Password */}
             <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-700">Confirm Password</label>
+              <label
+                htmlFor="forgot-confirm-password"
+                className="text-xs font-medium text-slate-700"
+              >
+                Confirm Password
+              </label>
               <div className="flex">
                 <span className="flex w-12 items-center justify-center rounded-l-md border border-r-0 bg-slate-100 text-slate-500">
                   <Lock className="h-4 w-4" />
                 </span>
                 <Input
+                  id="forgot-confirm-password"
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="Re-enter password"
                   required
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="h-11 rounded-none border-x-0 bg-slate-50 focus-visible:ring-0 focus-visible:border-input"
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                  }}
+                  className="focus-visible:border-input h-11 rounded-none border-x-0 bg-slate-50 focus-visible:ring-0"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowConfirmPassword((prev) => !prev)}
-                  className="flex w-12 items-center justify-center rounded-r-md border border-l-0 bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
+                  onClick={() => {
+                    setShowConfirmPassword((prev) => !prev);
+                  }}
+                  className="flex w-12 items-center justify-center rounded-r-md border border-l-0 bg-slate-100 text-slate-500 transition-colors hover:text-slate-700"
                   tabIndex={-1}
                 >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
             </div>
 
             {/* Password Validation Requirements */}
-            <div className="rounded-md bg-slate-50 p-3 text-xs space-y-1 border border-slate-200">
-              <p className="font-semibold text-slate-700 mb-1">Password Requirements:</p>
+            <div className="space-y-1 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs">
+              <p className="mb-1 font-semibold text-slate-700">
+                Password Requirements:
+              </p>
               <div className="flex items-center gap-1.5">
                 <Check
                   className={`h-3.5 w-3.5 ${
                     hasMinLength ? "text-emerald-600" : "text-slate-300"
                   }`}
                 />
-                <span className={hasMinLength ? "text-emerald-700" : "text-slate-500"}>
+                <span
+                  className={
+                    hasMinLength ? "text-emerald-700" : "text-slate-500"
+                  }
+                >
                   At least 8 characters
                 </span>
               </div>
@@ -532,7 +607,11 @@ export default function ForgotPasswordForm() {
                     hasMixedCase ? "text-emerald-600" : "text-slate-300"
                   }`}
                 />
-                <span className={hasMixedCase ? "text-emerald-700" : "text-slate-500"}>
+                <span
+                  className={
+                    hasMixedCase ? "text-emerald-700" : "text-slate-500"
+                  }
+                >
                   Includes uppercase & lowercase letters
                 </span>
               </div>
@@ -542,7 +621,11 @@ export default function ForgotPasswordForm() {
                     hasNumberOrSymbol ? "text-emerald-600" : "text-slate-300"
                   }`}
                 />
-                <span className={hasNumberOrSymbol ? "text-emerald-700" : "text-slate-500"}>
+                <span
+                  className={
+                    hasNumberOrSymbol ? "text-emerald-700" : "text-slate-500"
+                  }
+                >
                   Includes numbers or special symbols
                 </span>
               </div>
@@ -572,13 +655,14 @@ export default function ForgotPasswordForm() {
         {/* STEP 4: SUCCESS & REDIRECTING */}
         {step === "SUCCESS" && (
           <div className="flex flex-col items-center gap-4 p-8 text-center">
-            <CheckCircle2 className="h-12 w-12 text-emerald-600 animate-pulse" />
+            <CheckCircle2 className="h-12 w-12 animate-pulse text-emerald-600" />
             <div>
               <h2 className="text-lg font-semibold text-slate-900">
                 Password Reset Successfully!
               </h2>
               <p className="mt-1 text-xs text-slate-500">
-                Redirecting to login page… Please sign in with your new password.
+                Redirecting to login page… Please sign in with your new
+                password.
               </p>
             </div>
             <Button
@@ -587,7 +671,7 @@ export default function ForgotPasswordForm() {
                 resetEntireFlow();
                 router.push("/login");
               }}
-              className="mt-2 bg-blue-500 hover:bg-blue-600 text-xs font-semibold"
+              className="mt-2 bg-blue-500 text-xs font-semibold hover:bg-blue-600"
               size="sm"
             >
               Go to Login Now

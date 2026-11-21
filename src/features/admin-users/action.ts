@@ -1,10 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { ENDPOINTS } from "@/config/endpoints";
-import { apiFetch, ApiError } from "@/lib/api";
-import { getCurrentUser } from "@/lib/auth-server";
-import { hasPermission } from "@/lib/auth-jwt";
+import { apiFetch } from "@/lib/api";
+import type { ActionRequestOptions } from "@/lib/api";
+import { requirePermission } from "@/lib/auth-server";
+import { tryCatch } from "@/lib/try-catch";
+import { createEmptyPage } from "@/lib/type-guards";
+
 import type {
   AdminUserItem,
   AdminUserPageResponse,
@@ -14,32 +16,28 @@ import type {
   RoleItem,
 } from "./types";
 
-export type GetAdminUsersParams = {
+export interface GetAdminUsersParams {
   page?: number;
   size?: number;
   search?: string;
   sort?: string;
-};
+}
 
-export async function getAdminUsersAction(params: GetAdminUsersParams = {}) {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, "users.read") && !hasPermission(userPerms, "system.all")) {
+export async function getAdminUsersAction(
+  params: GetAdminUsersParams = {},
+  options?: ActionRequestOptions
+) {
+  const auth = await requirePermission(
+    ["users.read", "system.all"],
+    "You do not have permission to view users."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to view users.",
-      data: {
-        content: [],
-        page: 1,
-        size: params.size ?? 10,
-        totalElements: 0,
-        totalPages: 0,
-        first: true,
-        last: true,
-        hasNext: false,
-        hasPrevious: false,
-      } as AdminUserPageResponse,
+      error: auth.error,
+      data: createEmptyPage<AdminUserItem>(
+        params.size ?? 10
+      ) satisfies AdminUserPageResponse,
     };
   }
 
@@ -57,89 +55,106 @@ export async function getAdminUsersAction(params: GetAdminUsersParams = {}) {
     searchParams.set("search", params.search.trim());
   }
 
-  try {
-    const res = await apiFetch<{
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
       data: AdminUserPageResponse;
-    }>(`${ENDPOINTS.users.list}?${searchParams.toString()}`);
+    }>(`${ENDPOINTS.users.list}?${searchParams.toString()}`, {
+      signal: options?.signal,
+    }),
+    "Failed to load admin users."
+  );
 
-    return {
-      success: true,
-      data: res.data,
-    };
-  } catch (error) {
-    console.error("Failed to fetch admin users:", error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to load admin users.";
+  if (!res.ok) {
+    console.error("Failed to fetch admin users:", res.error.cause);
     return {
       success: false,
-      error: message,
-      data: {
-        content: [],
-        page: 1,
-        size,
-        totalElements: 0,
-        totalPages: 0,
-        first: true,
-        last: true,
-        hasNext: false,
-        hasPrevious: false,
-      } as AdminUserPageResponse,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to load admin users.",
+      data: createEmptyPage<AdminUserItem>(
+        size
+      ) satisfies AdminUserPageResponse,
     };
   }
+
+  return {
+    success: true,
+    data: res.data.data,
+  };
 }
 
-export async function getAdminUserByIdAction(id: string | number) {
-  try {
-    const res = await apiFetch<{
+export async function getAdminUserByIdAction(
+  id: string | number,
+  options?: ActionRequestOptions
+) {
+  const auth = await requirePermission(
+    ["users.read", "system.all"],
+    "You do not have permission to view user details."
+  );
+  if (!auth.ok) {
+    return {
+      success: false,
+      error: auth.error,
+    };
+  }
+
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
       data: AdminUserItem;
-    }>(ENDPOINTS.users.byId(id));
+    }>(ENDPOINTS.users.byId(id), {
+      signal: options?.signal,
+    }),
+    "Failed to load user details."
+  );
 
-    return {
-      success: true,
-      data: res.data,
-    };
-  } catch (error) {
-    console.error(`Failed to fetch user ${id}:`, error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to load user details.";
+  if (!res.ok) {
+    console.error(`Failed to fetch user ${id}:`, res.error.cause);
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to load user details.",
     };
   }
+
+  return {
+    success: true,
+    data: res.data.data,
+  };
 }
 
 export async function createAdminUserAction(payload: CreateAdminUserPayload) {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, "users.create") && !hasPermission(userPerms, "system.all")) {
+  const auth = await requirePermission(
+    ["users.create", "system.all"],
+    "You do not have permission to create users."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to create users.",
+      error: auth.error,
     };
   }
 
-  try {
-    const body = {
-      firstName: payload.firstName,
-      lastName: payload.lastName,
-      email: payload.email,
-      password: payload.password,
-      departmentId: payload.departmentId || null,
-      roleIds: payload.roleIds,
-      mobileNumber: payload.mobileNumber || null,
-      profilePic: payload.profilePic || null,
-      pinCode: payload.pinCode || payload.pincode || "",
-    };
+  const body = {
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+    email: payload.email,
+    password: payload.password,
+    departmentId: payload.departmentId || null,
+    roleIds: payload.roleIds,
+    mobileNumber: payload.mobileNumber || null,
+    profilePic: payload.profilePic || null,
+    pinCode: payload.pinCode || payload.pincode || "",
+  };
 
-    const res = await apiFetch<{
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
@@ -147,54 +162,68 @@ export async function createAdminUserAction(payload: CreateAdminUserPayload) {
     }>(ENDPOINTS.users.list, {
       method: "POST",
       body: JSON.stringify(body),
-    });
+    }),
+    "Failed to create user."
+  );
 
-    revalidatePath("/admin-users");
-    revalidatePath("/users");
-
-    return {
-      success: true,
-      data: res.data,
-      message: res.message || "User created successfully",
-    };
-  } catch (error) {
-    console.error("Failed to create admin user:", error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to create user.";
+  if (!res.ok) {
+    console.error("Failed to create admin user:", res.error.cause);
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to create user.",
     };
   }
+
+  return {
+    success: true,
+    data: res.data.data,
+    message: res.data.message || "User created successfully",
+  };
+}
+
+function resolvePinCode(payload: {
+  pinCode?: string | null;
+  pincode?: string | null;
+}): string | null {
+  if (payload.pinCode !== undefined) {
+    return payload.pinCode;
+  }
+  if (payload.pincode !== undefined) {
+    return payload.pincode;
+  }
+  return "";
 }
 
 export async function updateAdminUserAction(
   id: string | number,
   payload: UpdateAdminUserPayload
 ) {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, "users.update") && !hasPermission(userPerms, "system.all")) {
+  const auth = await requirePermission(
+    ["users.update", "system.all"],
+    "You do not have permission to update users."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to update users.",
+      error: auth.error,
     };
   }
 
-  try {
-    const body = {
-      firstName: payload.firstName,
-      lastName: payload.lastName,
-      email: payload.email,
-      departmentId: payload.departmentId || null,
-      mobileNumber: payload.mobileNumber || null,
-      profilePic: payload.profilePic ?? null,
-      roleIds: payload.roleIds,
-      pinCode: payload.pinCode !== undefined ? payload.pinCode : payload.pincode !== undefined ? payload.pincode : "",
-    };
+  const body = {
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+    email: payload.email,
+    departmentId: payload.departmentId || null,
+    mobileNumber: payload.mobileNumber || null,
+    profilePic: payload.profilePic ?? null,
+    roleIds: payload.roleIds,
+    pinCode: resolvePinCode(payload),
+  };
 
-    const res = await apiFetch<{
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
@@ -202,43 +231,44 @@ export async function updateAdminUserAction(
     }>(ENDPOINTS.users.byId(id), {
       method: "PUT",
       body: JSON.stringify(body),
-    });
+    }),
+    "Failed to update user."
+  );
 
-    revalidatePath("/admin-users");
-    revalidatePath("/users");
-
-    return {
-      success: true,
-      data: res.data,
-      message: res.message || "User updated successfully",
-    };
-  } catch (error) {
-    console.error(`Failed to update user ${id}:`, error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to update user.";
+  if (!res.ok) {
+    console.error(`Failed to update user ${id}:`, res.error.cause);
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to update user.",
     };
   }
+
+  return {
+    success: true,
+    data: res.data.data,
+    message: res.data.message || "User updated successfully",
+  };
 }
 
 export async function resetUserPasswordAction(
   id: string | number,
   newPassword: string
 ): Promise<{ success: boolean; message?: string; error?: string }> {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, "users.update") && !hasPermission(userPerms, "system.all")) {
+  const auth = await requirePermission(
+    ["users.update", "system.all"],
+    "You do not have permission to reset user passwords."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to reset user passwords.",
+      error: auth.error,
     };
   }
 
-  try {
-    const res = await apiFetch<{
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
@@ -246,39 +276,46 @@ export async function resetUserPasswordAction(
     }>(ENDPOINTS.users.resetPassword(id), {
       method: "POST",
       body: JSON.stringify({ newPassword }),
-    });
+    }),
+    "Failed to reset password."
+  );
 
-    return {
-      success: true,
-      message: res.message || res.data?.message || "User password reset successfully",
-    };
-  } catch (error) {
-    console.error(`Failed to reset password for user ${id}:`, error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to reset password.";
+  if (!res.ok) {
+    console.error(`Failed to reset password for user ${id}:`, res.error.cause);
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to reset password.",
     };
   }
+
+  return {
+    success: true,
+    message:
+      res.data.message ||
+      res.data.data?.message ||
+      "User password reset successfully",
+  };
 }
 
 export async function updateAdminUserStatusAction(
   id: string | number,
   status: "ACTIVE" | "SUSPENDED" | "DELETED"
 ) {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, "users.update") && !hasPermission(userPerms, "system.all")) {
+  const auth = await requirePermission(
+    ["users.update", "system.all"],
+    "You do not have permission to update user status."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to update user status.",
+      error: auth.error,
     };
   }
 
-  try {
-    const res = await apiFetch<{
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
@@ -286,88 +323,108 @@ export async function updateAdminUserStatusAction(
     }>(ENDPOINTS.users.status(id), {
       method: "PATCH",
       body: JSON.stringify({ status }),
-    });
+    }),
+    "Failed to update user status."
+  );
 
-    revalidatePath("/admin-users");
-    revalidatePath("/users");
-
-    return {
-      success: true,
-      data: res.data,
-      message: res.message || `User status changed to ${status}`,
-    };
-  } catch (error) {
-    console.error(`Failed to update user status ${id}:`, error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to update user status.";
+  if (!res.ok) {
+    console.error(`Failed to update user status ${id}:`, res.error.cause);
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to update user status.",
     };
   }
+
+  return {
+    success: true,
+    data: res.data.data,
+    message: res.data.message || `User status changed to ${status}`,
+  };
 }
 
 export async function deleteAdminUserAction(id: string | number) {
-  const user = await getCurrentUser();
-  const userPerms = user ? [...user.roles, ...user.permissions] : [];
-
-  if (!hasPermission(userPerms, "users.delete") && !hasPermission(userPerms, "system.all")) {
+  const auth = await requirePermission(
+    ["users.delete", "system.all"],
+    "You do not have permission to delete users."
+  );
+  if (!auth.ok) {
     return {
       success: false,
-      error: "You do not have permission to delete users.",
+      error: auth.error,
     };
   }
 
-  try {
-    const res = await apiFetch<{
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
     }>(ENDPOINTS.users.byId(id), {
       method: "DELETE",
-    });
+    }),
+    "Failed to delete user."
+  );
 
-    revalidatePath("/admin-users");
-    revalidatePath("/users");
-
-    return {
-      success: true,
-      message: res?.message || "User archived successfully",
-    };
-  } catch (error) {
-    console.error(`Failed to delete user ${id}:`, error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to delete user.";
+  if (!res.ok) {
+    console.error(`Failed to delete user ${id}:`, res.error.cause);
     return {
       success: false,
-      error: message,
+      error: res.error.isApiError
+        ? res.error.message
+        : "Failed to delete user.",
     };
   }
+
+  return {
+    success: true,
+    message: res.data?.message || "User archived successfully",
+  };
 }
 
-export async function getRolesPicklistAction(): Promise<{
+export async function getRolesPicklistAction(
+  options?: ActionRequestOptions
+): Promise<{
   success: boolean;
   data: Array<RoleItem>;
   error?: string;
 }> {
-  try {
-    const res = await apiFetch<{
+  const auth = await requirePermission(
+    ["roles.read", "users.create", "users.update", "system.all"],
+    "You do not have permission to load roles."
+  );
+  if (!auth.ok) {
+    return {
+      success: false,
+      data: [],
+      error: auth.error,
+    };
+  }
+
+  const res = await tryCatch(
+    apiFetch<{
       success: boolean;
       status: number;
       message: string;
       data: RolePageResponse;
-    }>(`${ENDPOINTS.roles.list}?page=0&size=100&sort=name,asc&search=`);
+    }>(`${ENDPOINTS.roles.list}?page=0&size=100&sort=name,asc&search=`, {
+      signal: options?.signal,
+    }),
+    "Failed to load roles."
+  );
 
-    return {
-      success: true,
-      data: res.data?.content || [],
-    };
-  } catch (error) {
-    console.error("Failed to fetch roles picklist:", error);
+  if (!res.ok) {
+    console.error("Failed to fetch roles picklist:", res.error.cause);
     return {
       success: false,
       data: [],
-      error: error instanceof ApiError ? error.message : "Failed to load roles.",
+      error: res.error.isApiError ? res.error.message : "Failed to load roles.",
     };
   }
+
+  return {
+    success: true,
+    data: res.data.data?.content || [],
+  };
 }

@@ -1,17 +1,29 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, MapPin, Languages } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { createCityAction } from "@/features/cities/action";
-import type { SaveCityPayload } from "@/features/cities/types";
+import type {
+  CityTranslationKey,
+  SaveCityPayload,
+  StateTranslationKey,
+} from "@/features/cities/types";
+import { queryKeys } from "@/lib/query-keys";
 
 const TRANSLATION_LANGUAGES = [
   { code: "Hi", name: "Hindi (हिन्दी)" },
@@ -26,7 +38,7 @@ const TRANSLATION_LANGUAGES = [
   { code: "Mr", name: "Marathi (मराठी)" },
 ] as const;
 
-const initialCityTranslations: Record<string, string> = {
+const initialCityTranslations: Record<CityTranslationKey, string> = {
   cityHi: "",
   cityBn: "",
   cityKn: "",
@@ -39,7 +51,7 @@ const initialCityTranslations: Record<string, string> = {
   cityMr: "",
 };
 
-const initialStateTranslations: Record<string, string> = {
+const initialStateTranslations: Record<StateTranslationKey, string> = {
   stateHi: "",
   stateBn: "",
   stateKn: "",
@@ -54,6 +66,7 @@ const initialStateTranslations: Record<string, string> = {
 
 export default function NewCityPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { success, error: toastError } = useToast();
 
   const [formKey, setFormKey] = useState(0);
@@ -63,11 +76,15 @@ export default function NewCityPage() {
   const [division, setDivision] = useState("");
   const [region, setRegion] = useState("");
 
-  const [cityTranslations, setCityTranslations] = useState<Record<string, string>>({
+  const [cityTranslations, setCityTranslations] = useState<
+    Record<CityTranslationKey, string>
+  >({
     ...initialCityTranslations,
   });
 
-  const [stateTranslations, setStateTranslations] = useState<Record<string, string>>({
+  const [stateTranslations, setStateTranslations] = useState<
+    Record<StateTranslationKey, string>
+  >({
     ...initialStateTranslations,
   });
 
@@ -84,7 +101,7 @@ export default function NewCityPage() {
     setFormKey((k) => k + 1);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!pinCode.trim()) {
@@ -113,6 +130,11 @@ export default function NewCityPage() {
     startTransition(async () => {
       const res = await createCityAction(payload);
       if (res.success) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.cities.all }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.divisions }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all }),
+        ]);
         success(res.message || "City created successfully");
         resetForm();
         router.push("/cities");
@@ -148,7 +170,12 @@ export default function NewCityPage() {
         ]}
       />
 
-      <form key={formKey} onSubmit={handleSubmit} noValidate className="w-full space-y-6">
+      <form
+        key={formKey}
+        onSubmit={handleSubmit}
+        noValidate
+        className="w-full space-y-6"
+      >
         {/* Basic Information Card */}
         <Card className="w-full shadow-sm">
           <CardHeader>
@@ -161,15 +188,20 @@ export default function NewCityPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="pinCode" className="text-xs font-semibold text-slate-700">
+                <Label
+                  htmlFor="pinCode"
+                  className="text-xs font-semibold text-slate-700"
+                >
                   Pincode <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="pinCode"
                   value={pinCode}
-                  onChange={(e) => setPinCode(e.target.value)}
+                  onChange={(e) => {
+                    setPinCode(e.target.value);
+                  }}
                   placeholder="e.g. 411001"
                   className="font-mono text-xs"
                   required
@@ -177,13 +209,18 @@ export default function NewCityPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="city" className="text-xs font-semibold text-slate-700">
+                <Label
+                  htmlFor="city"
+                  className="text-xs font-semibold text-slate-700"
+                >
                   City Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="city"
                   value={city}
-                  onChange={(e) => setCity(e.target.value)}
+                  onChange={(e) => {
+                    setCity(e.target.value);
+                  }}
                   placeholder="e.g. Pune"
                   className="text-xs"
                   required
@@ -191,13 +228,18 @@ export default function NewCityPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="state" className="text-xs font-semibold text-slate-700">
+                <Label
+                  htmlFor="state"
+                  className="text-xs font-semibold text-slate-700"
+                >
                   State <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="state"
                   value={state}
-                  onChange={(e) => setState(e.target.value)}
+                  onChange={(e) => {
+                    setState(e.target.value);
+                  }}
                   placeholder="e.g. Maharashtra"
                   className="text-xs"
                   required
@@ -205,26 +247,36 @@ export default function NewCityPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="division" className="text-xs font-semibold text-slate-700">
+                <Label
+                  htmlFor="division"
+                  className="text-xs font-semibold text-slate-700"
+                >
                   Division
                 </Label>
                 <Input
                   id="division"
                   value={division}
-                  onChange={(e) => setDivision(e.target.value)}
+                  onChange={(e) => {
+                    setDivision(e.target.value);
+                  }}
                   placeholder="e.g. Pune Division"
                   className="text-xs"
                 />
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="region" className="text-xs font-semibold text-slate-700">
+                <Label
+                  htmlFor="region"
+                  className="text-xs font-semibold text-slate-700"
+                >
                   Region
                 </Label>
                 <Input
                   id="region"
                   value={region}
-                  onChange={(e) => setRegion(e.target.value)}
+                  onChange={(e) => {
+                    setRegion(e.target.value);
+                  }}
                   placeholder="e.g. West"
                   className="text-xs"
                 />
@@ -245,22 +297,31 @@ export default function NewCityPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {TRANSLATION_LANGUAGES.map((lang) => {
-                const cityKey = `city${lang.code}`;
+                const cityKey: CityTranslationKey = `city${lang.code}`;
                 return (
-                  <div key={lang.code} className="space-y-1.5 rounded-lg border border-slate-200 p-3 bg-slate-50/50">
-                    <Label htmlFor={`new-${cityKey}`} className="text-xs font-medium text-slate-700">
+                  <div
+                    key={lang.code}
+                    className="space-y-1.5 rounded-lg border border-slate-200 bg-slate-50/50 p-3"
+                  >
+                    <Label
+                      htmlFor={`new-${cityKey}`}
+                      className="text-xs font-medium text-slate-700"
+                    >
                       {lang.name}
                     </Label>
                     <Input
                       id={`new-${cityKey}`}
                       value={cityTranslations[cityKey] || ""}
-                      onChange={(e) =>
-                        setCityTranslations((prev) => ({ ...prev, [cityKey]: e.target.value }))
-                      }
+                      onChange={(e) => {
+                        setCityTranslations((prev) => ({
+                          ...prev,
+                          [cityKey]: e.target.value,
+                        }));
+                      }}
                       placeholder={`City in ${lang.name}`}
-                      className="h-8 text-xs bg-white"
+                      className="h-8 bg-white text-xs"
                     />
                   </div>
                 );
@@ -281,22 +342,31 @@ export default function NewCityPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {TRANSLATION_LANGUAGES.map((lang) => {
-                const stateKey = `state${lang.code}`;
+                const stateKey: StateTranslationKey = `state${lang.code}`;
                 return (
-                  <div key={lang.code} className="space-y-1.5 rounded-lg border border-slate-200 p-3 bg-slate-50/50">
-                    <Label htmlFor={`new-${stateKey}`} className="text-xs font-medium text-slate-700">
+                  <div
+                    key={lang.code}
+                    className="space-y-1.5 rounded-lg border border-slate-200 bg-slate-50/50 p-3"
+                  >
+                    <Label
+                      htmlFor={`new-${stateKey}`}
+                      className="text-xs font-medium text-slate-700"
+                    >
                       {lang.name}
                     </Label>
                     <Input
                       id={`new-${stateKey}`}
                       value={stateTranslations[stateKey] || ""}
-                      onChange={(e) =>
-                        setStateTranslations((prev) => ({ ...prev, [stateKey]: e.target.value }))
-                      }
+                      onChange={(e) => {
+                        setStateTranslations((prev) => ({
+                          ...prev,
+                          [stateKey]: e.target.value,
+                        }));
+                      }}
                       placeholder={`State in ${lang.name}`}
-                      className="h-8 text-xs bg-white"
+                      className="h-8 bg-white text-xs"
                     />
                   </div>
                 );
@@ -314,14 +384,14 @@ export default function NewCityPage() {
               resetForm();
               router.back();
             }}
-            className="border-slate-300 uppercase text-xs font-semibold"
+            className="border-slate-300 text-xs font-semibold uppercase"
           >
             Back
           </Button>
           <Button
             type="submit"
             disabled={isPending}
-            className="bg-blue-600 hover:bg-blue-700 text-white min-w-28 uppercase text-xs font-semibold"
+            className="min-w-28 bg-blue-600 text-xs font-semibold text-white uppercase hover:bg-blue-700"
           >
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save City
