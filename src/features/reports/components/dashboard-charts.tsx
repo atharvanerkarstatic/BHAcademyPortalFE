@@ -53,7 +53,7 @@ export function GroupedBarChart({
   failedColor = "#ef4444", // Red
   height = 280,
 }: {
-  data: ChartDataPoint[];
+  data: Array<ChartDataPoint>;
   passedLabel?: string;
   failedLabel?: string;
   passedColor?: string;
@@ -369,7 +369,7 @@ export function AssessmentSummaryTable({
 }: {
   title: string;
   itemLabel?: string;
-  data: ChartDataPoint[];
+  data: Array<ChartDataPoint>;
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">

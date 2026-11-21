@@ -1,16 +1,26 @@
 "use client";
 
-import { Suspense, useEffect, useState, useTransition, useMemo } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Award,
+  Clock,
+  Download,
+  Image as ImageIcon,
+  Loader2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  Video,
+} from "lucide-react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
-import { Plus, RefreshCw, Search, Image as ImageIcon, Award, Video, Clock, Pencil, Trash2, Download, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 
-import { DataTable, type Column } from "@/components/common/data-table";
+import { DataTable } from '@/components/common/data-table';
+import type { Column } from '@/components/common/data-table';
 import { PageHeader } from "@/components/common/page-header";
-import { StatusText } from "@/components/common/status-text";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,107 +31,53 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { useAuth } from "@/lib/auth-context";
 import {
-  getCoursesAction,
-  getCategoryCoursesAction,
   deleteCourseAction,
   exportCoursesAction,
   toggleCourseStatusAction,
 } from "@/features/courses/action";
 import type { CourseItem, CoursePageResponse } from "@/features/courses/types";
+import { useAuth } from "@/lib/auth-context";
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
+import { cn } from "@/lib/utils";
+
+const PAGE_SIZE = 10;
+
+const EMPTY_PAGE: CoursePageResponse = {
+  content: [],
+  page: 1,
+  size: PAGE_SIZE,
+  totalElements: 0,
+  totalPages: 0,
+  first: true,
+  last: true,
+  hasNext: false,
+  hasPrevious: false,
+};
 
 function CoursesView() {
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
-  const pathname = usePathname();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const categoryId = searchParams.get("category")?.trim() || null;
 
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
   const [page, setPage] = useState(1);
-  const pageSize = 10;
-  const [categoryCourses, setCategoryCourses] = useState<CourseItem[]>([]);
-
-  const [pageData, setPageData] = useState<CoursePageResponse>({
-    content: [],
-    page: 1,
-    size: pageSize,
-    totalElements: 0,
-    totalPages: 0,
-    first: true,
-    last: true,
-    hasNext: false,
-    hasPrevious: false,
-  });
-
-  const [isPending, startTransition] = useTransition();
-
-  // Export CSV state
   const [isExporting, setIsExporting] = useState(false);
-
-  // Delete modal state
   const [courseToDelete, setCourseToDelete] = useState<CourseItem | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  // Status toggle state
   const [togglingCourseId, setTogglingCourseId] = useState<number | null>(null);
 
-  // Permission flags
   const canCreate = can("courses.create");
   const canUpdate = can("courses.update");
   const canDelete = can("courses.delete");
   const canExport = can("courses.export") || can("courses.read");
 
-  const loadCourses = (
-    targetPage = page,
-    searchTerm = activeSearch,
-    showSuccessToast = false
-  ) => {
-    startTransition(async () => {
-      if (categoryId) {
-        const res = await getCategoryCoursesAction(categoryId);
-        setCategoryCourses(res.data);
-        if (res.success) {
-          if (showSuccessToast) {
-            success("Courses refreshed successfully");
-          }
-        } else {
-          toastError(res.error || "Failed to load courses");
-        }
-        return;
-      }
-
-      const res = await getCoursesAction({
-        page: targetPage,
-        size: pageSize,
-        search: searchTerm,
-        sort: "ASC",
-      });
-
-      if (res.success && res.data) {
-        setPageData(res.data);
-        if (showSuccessToast) {
-          success("Courses refreshed successfully");
-        }
-      } else {
-        toastError(res.error || "Failed to load courses");
-      }
-    });
-  };
-
-  // Reset search filter whenever navigating away or returning to this route
-  useEffect(() => {
-    return () => {
-      setSearchInput("");
-      setActiveSearch("");
-      setPage(1);
-    };
-  }, [pathname]);
-
-  // Debounced search: as soon as typing stops, update activeSearch and query API
   useEffect(() => {
     const timer = setTimeout(() => {
       setPage(1);
@@ -131,17 +87,136 @@ function CoursesView() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  useEffect(() => {
-    loadCourses(page, activeSearch);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, activeSearch, categoryId]);
+  const listQueryKey = queryKeys.courses.list({
+    page,
+    size: PAGE_SIZE,
+    search: activeSearch,
+    sort: "ASC",
+  });
 
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
+  const pagedQuery = useQuery({
+    queryKey: listQueryKey,
+    queryFn: ({ signal }) =>
+      portalGet<CoursePageResponse>(
+        "courses",
+        { page, size: PAGE_SIZE, search: activeSearch, sort: "ASC" },
+        signal
+      ),
+    enabled: !categoryId,
+    placeholderData: keepPreviousData,
+  });
+
+  const categoryQuery = useQuery({
+    queryKey: queryKeys.courses.byCategory(categoryId ?? ""),
+    queryFn: ({ signal }) =>
+      portalGet<Array<CourseItem>>(
+        `courses/by-category/${encodeURIComponent(categoryId ?? "")}`,
+        undefined,
+        signal
+      ),
+    enabled: Boolean(categoryId),
+  });
+
+  const pageData = pagedQuery.data ?? EMPTY_PAGE;
+  const categoryCourses = useMemo(() => categoryQuery.data ?? [], [categoryQuery.data]);
+  const isInitialLoading = categoryId ? categoryQuery.isLoading : pagedQuery.isLoading;
+  const isFetching = categoryId ? categoryQuery.isFetching : pagedQuery.isFetching;
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteCourseAction(id),
+    onSuccess: async (res) => {
+      setCourseToDelete(null);
+      if (res.success) {
+        success(res.message || "Course deleted successfully");
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.courses.all }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.reportFilters }),
+        ]);
+      } else {
+        toastError(res.error || "Failed to delete course");
+      }
+    },
+    onError: () => {
+      setCourseToDelete(null);
+      toastError("Failed to delete course");
+    },
+  });
+
+  const toggleStatusMutation = useMutation({
+    mutationFn: (course: CourseItem) => toggleCourseStatusAction(course.id),
+    onMutate: (course) => {
+      setTogglingCourseId(course.id);
+    },
+    onSuccess: async (res, course) => {
+      if (res.success) {
+        const newStatus =
+          typeof res.data === "string" && res.data
+            ? res.data
+            : course.status?.toUpperCase() === "ACTIVE"
+              ? "INACTIVE"
+              : "ACTIVE";
+
+        queryClient.setQueryData<CoursePageResponse>(listQueryKey, (prev) =>
+          prev
+            ? {
+                ...prev,
+                content: prev.content.map((item) =>
+                  item.id === course.id ? { ...item, status: newStatus } : item
+                ),
+              }
+            : prev
+        );
+
+        if (categoryId) {
+          queryClient.setQueryData<Array<CourseItem>>(
+            queryKeys.courses.byCategory(categoryId),
+            (prev) =>
+              prev?.map((item) =>
+                item.id === course.id ? { ...item, status: newStatus } : item
+              )
+          );
+        }
+
+        success(res.message || "Course status updated successfully");
+        await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+      } else {
+        toastError(res.error || "Failed to update course status");
+      }
+    },
+    onError: () => {
+      toastError("Failed to update course status");
+    },
+    onSettled: () => {
+      setTogglingCourseId(null);
+    },
+  });
+
+  const toggleStatus = toggleStatusMutation.mutate;
+
+  const handleToggleStatus = useCallback(
+    (course: CourseItem) => {
+      if (!canUpdate) {
+        toastError("You do not have permission to update course status.");
+        return;
+      }
+      toggleStatus(course);
+    },
+    [canUpdate, toastError, toggleStatus]
+  );
+
+  const handleRefresh = async () => {
+    setPage(1);
+    const result = categoryId ? await categoryQuery.refetch() : await pagedQuery.refetch();
+    if (result.error) {
+      toastError(result.error.message || "Failed to load courses");
+    } else {
+      success("Courses refreshed successfully");
+    }
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSearchSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     setPage(1);
     setActiveSearch(searchInput.trim());
   };
@@ -152,68 +227,14 @@ function CoursesView() {
     setActiveSearch("");
   };
 
-  const confirmDelete = async () => {
-    if (!courseToDelete) return;
-    setIsDeleting(true);
-
-    const res = await deleteCourseAction(courseToDelete.id);
-    setIsDeleting(false);
-    setCourseToDelete(null);
-
-    if (res.success) {
-      success(res.message || "Course deleted successfully");
-      loadCourses(page, activeSearch);
-    } else {
-      toastError(res.error || "Failed to delete course");
-    }
-  };
-
-  const handleToggleStatus = async (course: CourseItem) => {
-    if (!canUpdate) {
-      toastError("You do not have permission to update course status.");
-      return;
-    }
-
-    setTogglingCourseId(course.id);
-    try {
-      const res = await toggleCourseStatusAction(course.id);
-      if (res.success) {
-        // Optimistically update the status in local state
-        const newStatus =
-          typeof res.data === "string" && res.data
-            ? res.data
-            : course.status?.toUpperCase() === "ACTIVE"
-            ? "INACTIVE"
-            : "ACTIVE";
-
-        setPageData((prev) => ({
-          ...prev,
-          content: prev.content.map((item) =>
-            item.id === course.id ? { ...item, status: newStatus } : item
-          ),
-        }));
-        setCategoryCourses((prev) =>
-          prev.map((item) =>
-            item.id === course.id ? { ...item, status: newStatus } : item
-          )
-        );
-
-        success(res.message || "Course status updated successfully");
-      } else {
-        toastError(res.error || "Failed to update course status");
-      }
-    } catch (err) {
-      console.error("Error toggling course status:", err);
-      toastError("Failed to update course status");
-    } finally {
-      setTogglingCourseId(null);
-    }
-  };
-
   const visibleCourses = useMemo(() => {
-    if (!categoryId) return pageData.content;
+    if (!categoryId) {
+      return pageData.content;
+    }
     const query = activeSearch.toLowerCase();
-    if (!query) return categoryCourses;
+    if (!query) {
+      return categoryCourses;
+    }
 
     return categoryCourses.filter(
       (course) =>
@@ -223,27 +244,28 @@ function CoursesView() {
     );
   }, [categoryId, categoryCourses, pageData.content, activeSearch]);
 
-  const columns: Column<CourseItem>[] = useMemo(() => {
-    const cols: Column<CourseItem>[] = [
+  const columns: Array<Column<CourseItem>> = useMemo(() => {
+    const cols: Array<Column<CourseItem>> = [
       {
         header: "ID",
-        cell: (r) => <span className="font-mono text-xs font-semibold text-slate-700">{r.id}</span>,
+        cell: (row) => <span className="font-mono text-xs font-semibold text-slate-700">{row.id}</span>,
         className: "w-16 text-center",
       },
       {
         header: "Image",
-        cell: (r) => {
-          const validImg = r.imageUrl && r.imageUrl.startsWith("http");
+        cell: (row) => {
+          const validImg = row.imageUrl && row.imageUrl.startsWith("http");
           return (
             <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50">
               {validImg ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={r.imageUrl}
-                  alt={r.courseName}
+                  src={row.imageUrl}
+                  alt={row.courseName}
                   className="h-full w-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = "none";
+                  onError={(event) => {
+                    if (event.currentTarget instanceof HTMLElement) {
+                      event.currentTarget.style.display = "none";
+                    }
                   }}
                 />
               ) : (
@@ -256,49 +278,51 @@ function CoursesView() {
       },
       {
         header: "Course Code",
-        cell: (r) => (
+        cell: (row) => (
           <span className="font-mono text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-            {r.courseCode || "—"}
+            {row.courseCode || "—"}
           </span>
         ),
         className: "w-32",
       },
       {
         header: "Course Name",
-        cell: (r) => (
+        cell: (row) => (
           <div className="max-w-xs space-y-0.5">
-            <p className="font-medium text-slate-900 leading-snug">{r.courseName}</p>
+            <p className="font-medium text-slate-900 leading-snug">{row.courseName}</p>
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
-                {r.categoryName || r.categoryId}
+                {row.categoryName || row.categoryId}
               </span>
-              {r.courseNameHi && (
+              {row.courseNameHi ? (
                 <span className="text-[11px] text-slate-500 font-normal truncate max-w-[180px]">
-                  {r.courseNameHi}
+                  {row.courseNameHi}
                 </span>
-              )}
+              ) : null}
             </div>
           </div>
         ),
       },
       {
         header: "Level",
-        cell: (r) => {
-          if (!r.courseLevel) return <span className="text-xs text-slate-400">—</span>;
+        cell: (row) => {
+          if (!row.courseLevel) {
+            return <span className="text-xs text-slate-400">—</span>;
+          }
 
-          const level = r.courseLevel.toLowerCase();
+          const level = row.courseLevel.toLowerCase();
           const badgeClass =
             level === "basic"
               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
               : level === "intermediate"
-              ? "bg-sky-50 text-sky-700 border-sky-200"
-              : "bg-purple-50 text-purple-700 border-purple-200";
+                ? "bg-sky-50 text-sky-700 border-sky-200"
+                : "bg-purple-50 text-purple-700 border-purple-200";
 
           return (
             <span
               className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${badgeClass}`}
             >
-              {r.courseLevel}
+              {row.courseLevel}
             </span>
           );
         },
@@ -306,57 +330,57 @@ function CoursesView() {
       },
       {
         header: "Mode",
-        cell: (r) => (
-          <span className="text-xs font-medium text-slate-700">
-            {r.mode || "Virtual"}
-          </span>
+        cell: (row) => (
+          <span className="text-xs font-medium text-slate-700">{row.mode || "Virtual"}</span>
         ),
         className: "w-20 text-center",
       },
       {
         header: "Duration",
-        cell: (r) => (
+        cell: (row) => (
           <div className="flex items-center gap-1 text-xs text-slate-700">
             <Clock className="h-3 w-3 text-slate-400" />
-            <span>{r.duration ? `${r.duration} m` : "—"}</span>
+            <span>{row.duration ? `${row.duration} m` : "—"}</span>
           </div>
         ),
         className: "w-24",
       },
       {
         header: "Videos",
-        cell: (r) => (
+        cell: (row) => (
           <div className="flex items-center gap-1 text-xs text-slate-700">
             <Video className="h-3 w-3 text-slate-400" />
-            <span>{r.noOfVideos ?? 0}</span>
+            <span>{row.noOfVideos ?? 0}</span>
           </div>
         ),
         className: "w-20",
       },
       {
         header: "Points",
-        cell: (r) => (
+        cell: (row) => (
           <span className="inline-flex items-center rounded bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 border border-amber-200">
-            {r.points ?? 0} pts
+            {row.points ?? 0} pts
           </span>
         ),
         className: "w-20 text-center",
       },
       {
         header: "Certifications",
-        cell: (r) => (
+        cell: (row) => (
           <div className="flex items-center gap-1 text-xs text-slate-700">
             <Award className="h-3 w-3 text-amber-500" />
-            <span>{r.noOfCertifications ? Number(r.noOfCertifications).toLocaleString() : 0}</span>
+            <span>
+              {row.noOfCertifications ? Number(row.noOfCertifications).toLocaleString() : 0}
+            </span>
           </div>
         ),
         className: "w-28",
       },
       {
         header: "Status",
-        cell: (r) => {
-          const isActive = r.status?.toUpperCase() === "ACTIVE";
-          const isToggling = togglingCourseId === r.id;
+        cell: (row) => {
+          const isActive = row.status?.toUpperCase() === "ACTIVE";
+          const isToggling = togglingCourseId === row.id;
 
           if (!canUpdate) {
             return (
@@ -383,7 +407,7 @@ function CoursesView() {
             <button
               type="button"
               disabled={isToggling}
-              onClick={() => handleToggleStatus(r)}
+              onClick={() => handleToggleStatus(row)}
               title={`Click to toggle status (${isActive ? "Inactivate" : "Activate"})`}
               className={cn(
                 "group relative inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-all shadow-xs border cursor-pointer",
@@ -411,13 +435,15 @@ function CoursesView() {
       },
       {
         header: "Manage",
-        cell: (r) => (
+        cell: (row) => (
           <Button
             asChild
             size="xs"
             className="bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-none h-6 px-2.5 text-xs"
           >
-            <Link href={`/courses/${r.id}`} prefetch={false}>Manage</Link>
+            <Link href={`/courses/${row.id}`} prefetch={false}>
+              Manage
+            </Link>
           </Button>
         ),
         className: "w-24 text-center",
@@ -427,9 +453,9 @@ function CoursesView() {
     if (canUpdate || canDelete) {
       cols.push({
         header: "Actions",
-        cell: (r) => (
+        cell: (row) => (
           <div className="flex items-center justify-end gap-1.5">
-            {canUpdate && (
+            {canUpdate ? (
               <Button
                 asChild
                 variant="ghost"
@@ -437,24 +463,24 @@ function CoursesView() {
                 className="text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                 title="Edit Course"
               >
-                <Link href={`/courses/${r.id}/edit`}>
+                <Link href={`/courses/${row.id}/edit`}>
                   <Pencil className="h-4 w-4" />
                 </Link>
               </Button>
-            )}
+            ) : null}
 
-            {canDelete && (
+            {canDelete ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => setCourseToDelete(r)}
+                onClick={() => setCourseToDelete(row)}
                 className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
                 title="Delete Course"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
-            )}
+            ) : null}
           </div>
         ),
         className: "w-24 text-right",
@@ -462,7 +488,7 @@ function CoursesView() {
     }
 
     return cols;
-  }, [canUpdate, canDelete, togglingCourseId]);
+  }, [canUpdate, canDelete, togglingCourseId, handleToggleStatus, setCourseToDelete]);
 
   const handleDownloadCourses = async () => {
     setIsExporting(true);
@@ -474,16 +500,15 @@ function CoursesView() {
         const link = document.createElement("a");
         link.href = url;
         link.setAttribute("download", res.filename || "courses_export.csv");
-        document.body.appendChild(link);
+        document.body.append(link);
         link.click();
-        document.body.removeChild(link);
+        link.remove();
         URL.revokeObjectURL(url);
         success("Courses CSV downloaded successfully");
       } else {
         toastError(res.error || "Failed to download courses CSV");
       }
-    } catch (err) {
-      console.error("Export error:", err);
+    } catch {
       toastError("Failed to export courses.");
     } finally {
       setIsExporting(false);
@@ -502,8 +527,8 @@ function CoursesView() {
         logoSrc="/logo.png"
         columns={columns}
         data={visibleCourses}
-        getRowId={(r) => r.id}
-        loading={isPending}
+        getRowId={(row) => row.id}
+        loading={isInitialLoading}
         emptyMessage={
           activeSearch
             ? `No courses matching "${activeSearch}"`
@@ -513,16 +538,15 @@ function CoursesView() {
         }
         action={
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Search Input beside Refresh */}
             <form onSubmit={handleSearchSubmit} className="relative flex items-center">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <Input
                 placeholder="Search courses..."
                 value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
+                onChange={(event) => setSearchInput(event.target.value)}
                 className="h-8 w-44 pl-8 pr-14 text-xs sm:w-56"
               />
-              {searchInput && (
+              {searchInput ? (
                 <button
                   type="button"
                   onClick={handleSearchClear}
@@ -530,29 +554,24 @@ function CoursesView() {
                 >
                   Clear
                 </button>
-              )}
+              ) : null}
               <Button type="submit" variant="ghost" size="sm" className="hidden">
                 Search
               </Button>
             </form>
 
-            {/* Refresh button */}
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                setPage(1);
-                loadCourses(1, activeSearch, true);
-              }}
-              disabled={isPending}
+              onClick={handleRefresh}
+              disabled={isFetching}
               className="gap-1.5 text-slate-600"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`} />
+              <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
 
-            {/* Download Courses button */}
-            {canExport && (
+            {canExport ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -563,37 +582,38 @@ function CoursesView() {
                 <Download className={`h-3.5 w-3.5 ${isExporting ? "animate-bounce" : ""}`} />
                 <span>{isExporting ? "Downloading…" : "Download Courses"}</span>
               </Button>
-            )}
+            ) : null}
 
-            {/* Add Course button visible only if user has courses.create permission */}
-            {canCreate && (
+            {canCreate ? (
               <Button asChild size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white">
                 <Link href="/courses/new">
                   <Plus className="h-4 w-4" />
                   Add Course
                 </Link>
               </Button>
-            )}
+            ) : null}
           </div>
         }
-
         pagination={
           categoryId
             ? undefined
             : {
                 page,
-                pageSize,
+                pageSize: PAGE_SIZE,
                 totalElements: pageData.totalElements,
                 totalPages: pageData.totalPages,
-                onPageChange: handlePageChange,
+                onPageChange: setPage,
               }
         }
       />
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog
         open={Boolean(courseToDelete)}
-        onOpenChange={(open) => !open && setCourseToDelete(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCourseToDelete(null);
+          }
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -609,16 +629,18 @@ function CoursesView() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              disabled={isDeleting}
-              onClick={(e) => {
-                e.preventDefault();
-                confirmDelete();
+              disabled={deleteMutation.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                if (courseToDelete) {
+                  deleteMutation.mutate(courseToDelete.id);
+                }
               }}
               className="bg-red-600 text-white hover:bg-red-700"
             >
-              {isDeleting ? "Deleting…" : "Yes, Delete"}
+              {deleteMutation.isPending ? "Deleting…" : "Yes, Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

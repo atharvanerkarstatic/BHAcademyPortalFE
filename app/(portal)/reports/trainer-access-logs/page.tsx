@@ -1,27 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ReportPageLayout, type ReportFilterState } from "@/features/reports/components/report-page-layout";
+import { ReportPageLayout } from '@/features/reports/components/report-page-layout';
+import type { ReportFilterState } from '@/features/reports/components/report-page-layout';
 import { exportTrainerAccessLogsAction } from "@/features/reports/action";
-import { DataTable, type Column } from "@/components/common/data-table";
-import { parseCsv } from "@/lib/csv-parser";
+import { DataTable } from '@/components/common/data-table';
+import type { Column } from '@/components/common/data-table';
+import { parseCsv } from '@/lib/csv-parser';
+import type { CsvRow } from '@/lib/csv-parser';
 import { useToast } from "@/components/ui/toast";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
-export interface TrainerAccessLogRow {
-  "User ID": string;
-  "Trainer Name": string;
-  "Login ID": string;
-  "Login Date Time": string;
-  "Login IP": string;
-  "Logout Time": string;
-  [key: string]: string;
-}
-
 export default function TrainerAccessLogsPage() {
   const { error: toastError, success: toastSuccess } = useToast();
-  const [rows, setRows] = useState<TrainerAccessLogRow[]>([]);
+  const [rows, setRows] = useState<Array<CsvRow>>([]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -35,7 +28,7 @@ export default function TrainerAccessLogsPage() {
     });
 
     if (res.success) {
-      const parsed = parseCsv<TrainerAccessLogRow>(res.data ?? "");
+      const parsed = parseCsv(res.data ?? "");
       setRows(parsed);
       setHasLoaded(true);
       setPage(1);
@@ -48,7 +41,9 @@ export default function TrainerAccessLogsPage() {
   };
 
   const filteredRows = useMemo(() => {
-    if (!search.trim()) return rows;
+    if (!search.trim()) {
+      return rows;
+    }
     const q = search.toLowerCase();
     return rows.filter((r) =>
       Object.values(r).some((val) => String(val).toLowerCase().includes(q))
@@ -60,7 +55,7 @@ export default function TrainerAccessLogsPage() {
     return filteredRows.slice(start, start + pageSize);
   }, [filteredRows, page, pageSize]);
 
-  const columns: Column<TrainerAccessLogRow>[] = useMemo(
+  const columns: Array<Column<CsvRow>> = useMemo(
     () => [
       {
         header: "#",

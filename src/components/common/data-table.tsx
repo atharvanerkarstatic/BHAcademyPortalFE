@@ -12,7 +12,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { isRecord } from "@/lib/type-guards";
 import { cn } from "@/lib/utils";
+
+function resolveFallbackRowId(row: unknown, index: number): string | number {
+  if (isRecord(row)) {
+    const candidate = row._rowId ?? row.id ?? row.key;
+    if (typeof candidate === "string" || typeof candidate === "number") {
+      return candidate;
+    }
+  }
+  return index;
+}
 
 export type Column<T> = {
   header: string;
@@ -32,8 +43,8 @@ type DataTableProps<T> = {
   title?: string;
   icon?: LucideIcon;
   logoSrc?: string;
-  columns: Column<T>[];
-  data: T[];
+  columns: Array<Column<T>>;
+  data: Array<T>;
   getRowId?: (row: T, index?: number) => string | number;
   loading?: boolean;
   search?: string;
@@ -64,7 +75,6 @@ export function DataTable<T>({
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5">
           {logoSrc && (
-            // eslint-disable-next-line @next/next/no-img-element
             <img src={logoSrc} alt="Logo" className="h-6 w-auto" />
           )}
           {Icon && <Icon className="h-5 w-5 text-blue-600" />}
@@ -121,7 +131,7 @@ export function DataTable<T>({
               </TableRow>
             ) : (
               data.map((row, index) => (
-                <TableRow key={getRowId ? getRowId(row, index) : ((row as any)?._rowId ?? (row as any)?.id ?? (row as any)?.key ?? index)}>
+                <TableRow key={getRowId ? getRowId(row, index) : resolveFallbackRowId(row, index)}>
                   {columns.map((col) => (
                     <TableCell key={col.header} className={col.className}>
                       {col.cell(row, index)}

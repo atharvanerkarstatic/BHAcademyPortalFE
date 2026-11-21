@@ -3,17 +3,13 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { ENDPOINTS } from "@/config/endpoints";
 import { config } from "@/config/env";
-import {
-  ALL_AUTH_COOKIES,
-  AUTH_UPDATED_COOKIE,
-  REFRESH_COOKIE,
-  buildAuthCookies,
-  userCookie,
-  type TokenResponse,
-} from "@/lib/auth-cookies";
+import { ALL_AUTH_COOKIES, AUTH_UPDATED_COOKIE, REFRESH_COOKIE, buildAuthCookies, userCookie } from '@/lib/auth-cookies';
+import type { TokenResponse } from '@/lib/auth-cookies';
 import { refreshTokens } from "@/lib/auth-api";
 import { extractAuthUser } from "@/lib/auth-jwt";
+import { extractErrorMessage, getStringProp, isRecord } from "@/lib/type-guards";
 
 type LoginResult = {
   success: boolean;
@@ -43,19 +39,20 @@ export type ResetPasswordResult = {
 };
 
 function isTokenResponse(value: unknown): value is TokenResponse {
-  if (typeof value !== "object" || value === null) return false;
+  if (!isRecord(value)) {
+    return false;
+  }
 
-  const tokens = value as Record<string, unknown>;
   return (
-    typeof tokens.accessToken === "string" &&
-    tokens.accessToken.length > 0 &&
-    typeof tokens.refreshToken === "string" &&
-    tokens.refreshToken.length > 0 &&
-    typeof tokens.tokenType === "string" &&
-    typeof tokens.expiresInSeconds === "number" &&
-    Number.isFinite(tokens.expiresInSeconds) &&
-    tokens.expiresInSeconds > 0 &&
-    typeof tokens.issuedAt === "string"
+    typeof value.accessToken === "string" &&
+    value.accessToken.length > 0 &&
+    typeof value.refreshToken === "string" &&
+    value.refreshToken.length > 0 &&
+    typeof value.tokenType === "string" &&
+    typeof value.expiresInSeconds === "number" &&
+    Number.isFinite(value.expiresInSeconds) &&
+    value.expiresInSeconds > 0 &&
+    typeof value.issuedAt === "string"
   );
 }
 
@@ -72,7 +69,7 @@ export async function loginAction(
 
   let response: Response;
   try {
-    response = await fetch(`${config.apiBaseUrl}/auth/login`, {
+    response = await fetch(`${config.apiBaseUrl}${ENDPOINTS.auth.login}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -81,8 +78,7 @@ export async function loginAction(
       body: JSON.stringify({ email: rawEmail, password: rawPassword }),
       cache: "no-store",
     });
-  } catch (err) {
-    console.error("Login fetch error:", err);
+  } catch {
     return {
       success: false,
       error: "Unable to connect to the login service. Please check your network and try again.",
@@ -92,23 +88,12 @@ export async function loginAction(
   let jsonResponse: unknown;
   try {
     jsonResponse = await response.json();
-  } catch (err) {
-    console.error("Failed to parse JSON response:", err);
+  } catch {
     jsonResponse = null;
   }
 
   if (!response.ok) {
-    let backendMsg: string | undefined;
-    if (jsonResponse && typeof jsonResponse === "object") {
-      const obj = jsonResponse as Record<string, unknown>;
-      if (typeof obj.message === "string" && obj.message.trim()) {
-        backendMsg = obj.message.trim();
-      } else if (typeof obj.error === "string" && obj.error.trim()) {
-        backendMsg = obj.error.trim();
-      } else if (typeof obj.details === "string" && obj.details.trim()) {
-        backendMsg = obj.details.trim();
-      }
-    }
+    const backendMsg = extractErrorMessage(jsonResponse);
 
     // Clear any previous stale cookies on login failure
     const cookieStore = await cookies();
@@ -138,15 +123,10 @@ export async function loginAction(
   }
 
   // Check if tokens are enclosed under `data` or returned directly at top level
-  let tokens: unknown = jsonResponse;
-  if (
-    typeof jsonResponse === "object" &&
-    jsonResponse !== null &&
-    "data" in jsonResponse &&
-    (jsonResponse as Record<string, unknown>).data
-  ) {
-    tokens = (jsonResponse as Record<string, unknown>).data;
-  }
+  const tokens: unknown =
+    isRecord(jsonResponse) && "data" in jsonResponse && jsonResponse.data
+      ? jsonResponse.data
+      : jsonResponse;
 
   if (!isTokenResponse(tokens)) {
     console.error("Login response failed isTokenResponse validation:", jsonResponse);
@@ -217,7 +197,7 @@ export async function requestPasswordResetOtpAction(email: string): Promise<Forg
   }
 
   try {
-    const res = await fetch(`${config.apiBaseUrl}/auth/v1/forgot-password`, {
+    const res = await fetch(`${config.apiBaseUrl}${ENDPOINTS.auth.forgotPassword}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -227,7 +207,7 @@ export async function requestPasswordResetOtpAction(email: string): Promise<Forg
       cache: "no-store",
     });
 
-    let json: Record<string, unknown> | null = null;
+    let json: unknown = null;
     try {
       json = await res.json();
     } catch {
@@ -235,7 +215,7 @@ export async function requestPasswordResetOtpAction(email: string): Promise<Forg
     }
 
     const apiMsg =
-      (json && ((json.message as string) || (json.error as string) || (json.details as string))) ||
+      extractErrorMessage(json) ||
       (res.ok
         ? "An OTP has been sent to your registered email address."
         : "Failed to send OTP. Please check your email and try again.");
@@ -246,10 +226,9 @@ export async function requestPasswordResetOtpAction(email: string): Promise<Forg
 
     return {
       success: true,
-      message: typeof json?.message === "string" ? json.message : apiMsg,
+      message: (isRecord(json) ? getStringProp(json, "message") : undefined) ?? apiMsg,
     };
-  } catch (err) {
-    console.error("requestPasswordResetOtpAction error:", err);
+  } catch {
     return {
       success: false,
       message: "Unable to connect to the server. Please check your network and try again.",
@@ -261,7 +240,7 @@ export async function requestPasswordResetOtpAction(email: string): Promise<Forg
 export async function verifyPasswordResetOtpAction(
   email: string,
   otp: string,
-  salt: string = "test-123"
+  salt = "test-123"
 ): Promise<VerifyOtpResult> {
   const normalizedEmail = email.trim();
   const normalizedOtp = otp.trim();
@@ -275,7 +254,7 @@ export async function verifyPasswordResetOtpAction(
   }
 
   try {
-    const res = await fetch(`${config.apiBaseUrl}/auth/v1/forgot-password/verify-otp`, {
+    const res = await fetch(`${config.apiBaseUrl}${ENDPOINTS.auth.verifyOtp}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -289,7 +268,7 @@ export async function verifyPasswordResetOtpAction(
       cache: "no-store",
     });
 
-    let json: Record<string, unknown> | null = null;
+    let json: unknown = null;
     try {
       json = await res.json();
     } catch {
@@ -297,27 +276,30 @@ export async function verifyPasswordResetOtpAction(
     }
 
     const apiMsg =
-      (json && ((json.message as string) || (json.error as string) || (json.details as string))) ||
-      (res.ok ? "OTP verified successfully. Use the reset token to set a new password." : "Invalid or expired OTP. Please try again.");
+      extractErrorMessage(json) ||
+      (res.ok
+        ? "OTP verified successfully. Use the reset token to set a new password."
+        : "Invalid or expired OTP. Please try again.");
 
     if (!res.ok) {
       return { success: false, message: apiMsg, error: apiMsg };
     }
 
-    const dataObj = (json?.data && typeof json.data === "object" ? json.data : {}) as Record<string, unknown>;
-    const resetToken = (dataObj.resetToken as string) || (json?.resetToken as string);
-    const maskedMobile = (dataObj.maskedMobile as string) || (json?.maskedMobile as string);
-    const expiresAt = (dataObj.expiresAt as string) || (json?.expiresAt as string);
+    const rootObj = isRecord(json) ? json : {};
+    const dataObj = isRecord(rootObj.data) ? rootObj.data : {};
+    const resetToken = getStringProp(dataObj, "resetToken") ?? getStringProp(rootObj, "resetToken");
+    const maskedMobile =
+      getStringProp(dataObj, "maskedMobile") ?? getStringProp(rootObj, "maskedMobile");
+    const expiresAt = getStringProp(dataObj, "expiresAt") ?? getStringProp(rootObj, "expiresAt");
 
     return {
       success: true,
-      message: typeof json?.message === "string" ? json.message : apiMsg,
+      message: getStringProp(rootObj, "message") ?? apiMsg,
       resetToken,
       maskedMobile,
       expiresAt,
     };
-  } catch (err) {
-    console.error("verifyPasswordResetOtpAction error:", err);
+  } catch {
     return {
       success: false,
       message: "Failed to verify OTP. Please check your network and try again.",
@@ -360,7 +342,7 @@ export async function resetPasswordWithTokenAction(payload: {
   }
 
   try {
-    const res = await fetch(`${config.apiBaseUrl}/auth/v1/forgot-password/reset`, {
+    const res = await fetch(`${config.apiBaseUrl}${ENDPOINTS.auth.resetPassword}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -374,7 +356,7 @@ export async function resetPasswordWithTokenAction(payload: {
       cache: "no-store",
     });
 
-    let json: Record<string, unknown> | null = null;
+    let json: unknown = null;
     try {
       json = await res.json();
     } catch {
@@ -382,8 +364,10 @@ export async function resetPasswordWithTokenAction(payload: {
     }
 
     const apiMsg =
-      (json && ((json.message as string) || (json.error as string) || (json.details as string))) ||
-      (res.ok ? "Password has been reset successfully. Please log in with your new password." : "Failed to reset password. Please try again.");
+      extractErrorMessage(json) ||
+      (res.ok
+        ? "Password has been reset successfully. Please log in with your new password."
+        : "Failed to reset password. Please try again.");
 
     if (!res.ok) {
       return { success: false, message: apiMsg, error: apiMsg };
@@ -391,10 +375,9 @@ export async function resetPasswordWithTokenAction(payload: {
 
     return {
       success: true,
-      message: typeof json?.message === "string" ? json.message : apiMsg,
+      message: (isRecord(json) ? getStringProp(json, "message") : undefined) ?? apiMsg,
     };
-  } catch (err) {
-    console.error("resetPasswordWithTokenAction error:", err);
+  } catch {
     return {
       success: false,
       message: "Failed to reset password. Please try again.",
@@ -448,8 +431,8 @@ export async function refreshUserSessionAction(): Promise<{
     });
 
     return { success: true };
-  } catch (err: unknown) {
-    console.error("refreshUserSessionAction error:", err);
+  } catch (error: unknown) {
+    console.error("refreshUserSessionAction error:", error);
     return { success: false, error: "Failed to refresh token." };
   }
 }

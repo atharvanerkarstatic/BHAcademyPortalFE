@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -39,13 +39,6 @@ export default function NewLanguagePage() {
     handleReset();
     router.back();
   };
-
-  useEffect(() => {
-    handleReset();
-    return () => {
-      handleReset();
-    };
-  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Languages, Loader2 } from "lucide-react";
@@ -87,13 +87,6 @@ export default function NewFaqPage() {
     setFormKey(Date.now());
   };
 
-  useEffect(() => {
-    resetForm();
-    return () => {
-      resetForm();
-    };
-  }, []);
-
   const handleBack = () => {
     resetForm();
     router.back();
@@ -116,13 +109,13 @@ export default function NewFaqPage() {
 
     const sanitizedQuestions: Record<string, string> = {};
     for (const [key, val] of Object.entries(questions)) {
-      if (!val) continue;
+      if (!val) {continue;}
       sanitizedQuestions[key] = sanitizeTextInput(val, 500);
     }
 
     const sanitizedAnswers: Record<string, string> = {};
     for (const [key, val] of Object.entries(answers)) {
-      if (!val) continue;
+      if (!val) {continue;}
       sanitizedAnswers[key] = sanitizeTextInput(val, 5000);
     }
 

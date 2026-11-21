@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, type LucideIcon } from "lucide-react";
+import { ArrowRight } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 import { cn } from "@/lib/utils";
 

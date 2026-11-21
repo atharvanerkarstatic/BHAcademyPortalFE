@@ -1,9 +1,15 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { Download, Loader2, Minus, Plus, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2, Minus, Plus, X } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from 'react';
+import type { ReactNode } from 'react';
+
 import { PageHeader } from "@/components/common/page-header";
-import { getReportFilterOptionsAction, type ExportReportResult } from "../action";
+import type { ExportReportResult, ReportFilterOptions } from "@/features/reports/action";
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
+import { useReportFiltersStore } from "@/stores/report-filters-store";
 
 export type FilterFieldType =
   | "language"
@@ -14,7 +20,7 @@ export type FilterFieldType =
   | "trainer"
   | "dateRange";
 
-export interface ReportFilterState {
+export type ReportFilterState = {
   languageId?: string;
   courseId?: string;
   modeOfTraining?: string;
@@ -24,22 +30,22 @@ export interface ReportFilterState {
   startDate?: string;
   endDate?: string;
   emails?: string;
-}
+};
 
-export interface ReportPageLayoutProps {
+export type ReportPageLayoutProps = {
   title: string;
   breadcrumbTitle?: string;
   defaultEmail?: string;
-  fields?: FilterFieldType[];
+  fields?: Array<FilterFieldType>;
   onGenerate: (filters: ReportFilterState) => Promise<ExportReportResult>;
   onViewReport?: (filters: ReportFilterState) => Promise<void> | void;
   autoFetchOnMount?: boolean;
-  children?: React.ReactNode;
-  splitRightSlot?: React.ReactNode;
+  children?: ReactNode;
+  splitRightSlot?: ReactNode;
   layoutMode?: "stacked" | "split";
   cardTitle?: string;
   showEmailSection?: boolean;
-}
+};
 
 export function ReportPageLayout({
   title,
@@ -55,21 +61,30 @@ export function ReportPageLayout({
   cardTitle,
   showEmailSection = true,
 }: ReportPageLayoutProps) {
-  const [languages, setLanguages] = useState<{ id: string; name: string }[]>([]);
-  const [courses, setCourses] = useState<{ id: string; name: string }[]>([]);
-  const [trainers, setTrainers] = useState<{ id: string; name: string }[]>([]);
+  const { data: filterOptions } = useQuery({
+    queryKey: queryKeys.reportFilters,
+    queryFn: ({ signal }) => portalGet<ReportFilterOptions>("report-filters", undefined, signal),
+    staleTime: 5 * 60_000,
+  });
 
-  const [selectedLanguage, setSelectedLanguage] = useState("");
-  const [selectedCourse, setSelectedCourse] = useState("");
-  const [modeOfTraining, setModeOfTraining] = useState("PHYSICAL");
-  const [division, setDivision] = useState("");
-  const [region, setRegion] = useState("");
-  const [trainer, setTrainer] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [emails, setEmails] = useState(defaultEmail);
+  const languages = filterOptions?.languages ?? [];
+  const courses = filterOptions?.courses ?? [];
+  const trainers = filterOptions?.trainers ?? [];
 
-  const [filterCollapsed, setFilterCollapsed] = useState(false);
+  const selectedLanguage = useReportFiltersStore((state) => state.languageId);
+  const selectedCourse = useReportFiltersStore((state) => state.courseId);
+  const modeOfTraining = useReportFiltersStore((state) => state.modeOfTraining);
+  const division = useReportFiltersStore((state) => state.division);
+  const region = useReportFiltersStore((state) => state.region);
+  const trainer = useReportFiltersStore((state) => state.trainer);
+  const startDate = useReportFiltersStore((state) => state.startDate);
+  const endDate = useReportFiltersStore((state) => state.endDate);
+  const storedEmails = useReportFiltersStore((state) => state.emails);
+  const filterCollapsed = useReportFiltersStore((state) => state.filterCollapsed);
+  const setField = useReportFiltersStore((state) => state.setField);
+  const toggleFilterCollapsed = useReportFiltersStore((state) => state.toggleFilterCollapsed);
+
+  const emails = storedEmails || filterOptions?.userEmail || defaultEmail;
 
   const [statusBanner, setStatusBanner] = useState<{
     show: boolean;
@@ -81,9 +96,9 @@ export function ReportPageLayout({
     type: "success",
   });
 
-  const [downloadLink, setDownloadLink] = useState<{ url: string; filename: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isViewPending, startViewTransition] = useTransition();
+  const didAutoFetch = useRef(false);
 
   const currentFilters: ReportFilterState = {
     languageId: selectedLanguage,
@@ -98,35 +113,26 @@ export function ReportPageLayout({
   };
 
   useEffect(() => {
-    getReportFilterOptionsAction().then((res) => {
-      if (res.languages) setLanguages(res.languages);
-      if (res.courses) setCourses(res.courses);
-      if (res.trainers) setTrainers(res.trainers);
-      if (res.userEmail && !emails) {
-        setEmails(res.userEmail);
-      }
-    });
-
-    if (onViewReport && autoFetchOnMount) {
-      startViewTransition(async () => {
-        await onViewReport({
-          modeOfTraining: "PHYSICAL",
-          languageId: "",
-          courseId: "",
-          division: "",
-          region: "",
-          trainer: "",
-          startDate: "",
-          endDate: "",
-        });
-      });
+    if (didAutoFetch.current || !onViewReport || !autoFetchOnMount) {
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    didAutoFetch.current = true;
+    startViewTransition(async () => {
+      await onViewReport({
+        modeOfTraining: "PHYSICAL",
+        languageId: "",
+        courseId: "",
+        division: "",
+        region: "",
+        trainer: "",
+        startDate: "",
+        endDate: "",
+      });
+    });
+  }, [autoFetchOnMount, onViewReport]);
 
   const handleGenerate = () => {
     setStatusBanner({ show: false, message: "", type: "success" });
-    setDownloadLink(null);
 
     startTransition(async () => {
       const res = await onGenerate(currentFilters);
@@ -141,16 +147,15 @@ export function ReportPageLayout({
 
         const blob = new Blob([res.data], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
-        const filename = res.filename || `${title.toLowerCase().replace(/\s+/g, "-")}.csv`;
+        const filename = res.filename || `${title.toLowerCase().replaceAll(/\s+/g, "-")}.csv`;
 
-        setDownloadLink({ url, filename });
-
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = filename;
+        document.body.append(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
       } else {
         setStatusBanner({
           show: true,
@@ -162,34 +167,34 @@ export function ReportPageLayout({
   };
 
   const handleViewReportClick = () => {
-    if (!onViewReport) return;
+    if (!onViewReport) {
+      return;
+    }
     startViewTransition(async () => {
       await onViewReport(currentFilters);
     });
   };
 
-  const hasField = (f: FilterFieldType) => fields.includes(f);
+  const hasField = (field: FilterFieldType) => fields.includes(field);
 
   const filterFormCard = (
     <div className="rounded-xl border border-slate-200 bg-white p-6 md:p-8 shadow-sm">
-      {/* Card Title with optional Collapse for Split mode */}
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-xl font-bold tracking-tight text-slate-800">
           {cardTitle || (layoutMode === "split" ? "Filter" : title)}
         </h2>
-        {layoutMode === "split" && (
+        {layoutMode === "split" ? (
           <button
             type="button"
-            onClick={() => setFilterCollapsed((v) => !v)}
+            onClick={toggleFilterCollapsed}
             className="text-slate-400 hover:text-slate-600 rounded p-1"
           >
             {filterCollapsed ? <Plus className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
           </button>
-        )}
+        ) : null}
       </div>
 
-      {/* Status Notification Banner */}
-      {statusBanner.show && (
+      {statusBanner.show ? (
         <div
           className={`mb-6 flex items-start justify-between rounded-md p-3 text-sm transition-all ${
             statusBanner.type === "success"
@@ -207,12 +212,11 @@ export function ReportPageLayout({
             <X className="h-4 w-4" />
           </button>
         </div>
-      )}
+      ) : null}
 
-      {!filterCollapsed && (
+      {!filterCollapsed ? (
         <div className={layoutMode === "split" ? "space-y-3.5" : "mx-auto max-w-2xl space-y-4 py-2"}>
-          {/* Mode of Training */}
-          {hasField("modeOfTraining") && (
+          {hasField("modeOfTraining") ? (
             <div className="flex flex-col sm:flex-row sm:items-center">
               <label className="w-28 shrink-0 pb-1 text-sm font-medium text-slate-700 sm:pb-0 sm:pr-4 sm:text-right">
                 Training
@@ -220,7 +224,7 @@ export function ReportPageLayout({
               <div className="flex-1">
                 <select
                   value={modeOfTraining}
-                  onChange={(e) => setModeOfTraining(e.target.value)}
+                  onChange={(event) => setField("modeOfTraining", event.target.value)}
                   suppressHydrationWarning
                   className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
@@ -229,10 +233,9 @@ export function ReportPageLayout({
                 </select>
               </div>
             </div>
-          )}
+          ) : null}
 
-          {/* Trainer */}
-          {hasField("trainer") && (
+          {hasField("trainer") ? (
             <div className="flex flex-col sm:flex-row sm:items-center">
               <label className="w-28 shrink-0 pb-1 text-sm font-medium text-slate-700 sm:pb-0 sm:pr-4 sm:text-right">
                 Trainer
@@ -241,14 +244,14 @@ export function ReportPageLayout({
                 {trainers.length > 0 ? (
                   <select
                     value={trainer}
-                    onChange={(e) => setTrainer(e.target.value)}
+                    onChange={(event) => setField("trainer", event.target.value)}
                     suppressHydrationWarning
                     className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="">All Trainers</option>
-                    {trainers.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
+                    {trainers.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
                       </option>
                     ))}
                   </select>
@@ -256,7 +259,7 @@ export function ReportPageLayout({
                   <input
                     type="text"
                     value={trainer}
-                    onChange={(e) => setTrainer(e.target.value)}
+                    onChange={(event) => setField("trainer", event.target.value)}
                     placeholder="Enter trainer name or id"
                     suppressHydrationWarning
                     className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -264,10 +267,9 @@ export function ReportPageLayout({
                 )}
               </div>
             </div>
-          )}
+          ) : null}
 
-          {/* Division */}
-          {hasField("division") && (
+          {hasField("division") ? (
             <div className="flex flex-col sm:flex-row sm:items-center">
               <label className="w-28 shrink-0 pb-1 text-sm font-medium text-slate-700 sm:pb-0 sm:pr-4 sm:text-right">
                 Division
@@ -276,17 +278,16 @@ export function ReportPageLayout({
                 <input
                   type="text"
                   value={division}
-                  onChange={(e) => setDivision(e.target.value)}
+                  onChange={(event) => setField("division", event.target.value)}
                   placeholder="Enter division"
                   suppressHydrationWarning
                   className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
             </div>
-          )}
+          ) : null}
 
-          {/* Region */}
-          {hasField("region") && (
+          {hasField("region") ? (
             <div className="flex flex-col sm:flex-row sm:items-center">
               <label className="w-28 shrink-0 pb-1 text-sm font-medium text-slate-700 sm:pb-0 sm:pr-4 sm:text-right">
                 Region
@@ -295,17 +296,16 @@ export function ReportPageLayout({
                 <input
                   type="text"
                   value={region}
-                  onChange={(e) => setRegion(e.target.value)}
+                  onChange={(event) => setField("region", event.target.value)}
                   placeholder="Enter region"
                   suppressHydrationWarning
                   className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
             </div>
-          )}
+          ) : null}
 
-          {/* Languages */}
-          {hasField("language") && (
+          {hasField("language") ? (
             <div className="flex flex-col sm:flex-row sm:items-center">
               <label className="w-28 shrink-0 pb-1 text-sm font-medium text-slate-700 sm:pb-0 sm:pr-4 sm:text-right">
                 Languages
@@ -313,23 +313,22 @@ export function ReportPageLayout({
               <div className="flex-1">
                 <select
                   value={selectedLanguage}
-                  onChange={(e) => setSelectedLanguage(e.target.value)}
+                  onChange={(event) => setField("languageId", event.target.value)}
                   suppressHydrationWarning
                   className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="">All Languages</option>
-                  {languages.map((l, idx) => (
-                    <option key={l.id ? `lang-${l.id}` : `lang-idx-${idx}`} value={l.id}>
-                      {l.name}
+                  {languages.map((lang, idx) => (
+                    <option key={lang.id ? `lang-${lang.id}` : `lang-idx-${idx}`} value={lang.id}>
+                      {lang.name}
                     </option>
                   ))}
                 </select>
               </div>
             </div>
-          )}
+          ) : null}
 
-          {/* Courses */}
-          {hasField("course") && (
+          {hasField("course") ? (
             <div className="flex flex-col sm:flex-row sm:items-center">
               <label className="w-28 shrink-0 pb-1 text-sm font-medium text-slate-700 sm:pb-0 sm:pr-4 sm:text-right">
                 Courses
@@ -337,23 +336,25 @@ export function ReportPageLayout({
               <div className="flex-1">
                 <select
                   value={selectedCourse}
-                  onChange={(e) => setSelectedCourse(e.target.value)}
+                  onChange={(event) => setField("courseId", event.target.value)}
                   suppressHydrationWarning
                   className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="">All Courses</option>
-                  {courses.map((c, idx) => (
-                    <option key={c.id ? `course-${c.id}` : `course-idx-${idx}`} value={c.id}>
-                      {c.name}
+                  {courses.map((course, idx) => (
+                    <option
+                      key={course.id ? `course-${course.id}` : `course-idx-${idx}`}
+                      value={course.id}
+                    >
+                      {course.name}
                     </option>
                   ))}
                 </select>
               </div>
             </div>
-          )}
+          ) : null}
 
-          {/* Date Range */}
-          {hasField("dateRange") && (
+          {hasField("dateRange") ? (
             <>
               <div className="flex flex-col sm:flex-row sm:items-center">
                 <label className="w-28 shrink-0 pb-1 text-sm font-medium text-slate-700 sm:pb-0 sm:pr-4 sm:text-right">
@@ -363,7 +364,7 @@ export function ReportPageLayout({
                   <input
                     type="date"
                     value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+                    onChange={(event) => setField("startDate", event.target.value)}
                     placeholder="dd----yyyy"
                     suppressHydrationWarning
                     className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -379,7 +380,7 @@ export function ReportPageLayout({
                   <input
                     type="date"
                     value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
+                    onChange={(event) => setField("endDate", event.target.value)}
                     placeholder="dd----yyyy"
                     suppressHydrationWarning
                     className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -387,10 +388,9 @@ export function ReportPageLayout({
                 </div>
               </div>
             </>
-          )}
+          ) : null}
 
-          {/* EMAIL REPORT TO SECTION (For export downloads) */}
-          {showEmailSection && (
+          {showEmailSection ? (
             <div className="pt-2">
               <div className="flex">
                 <div className="w-28 shrink-0 hidden sm:block" />
@@ -406,7 +406,7 @@ export function ReportPageLayout({
                   <textarea
                     rows={2}
                     value={emails}
-                    onChange={(e) => setEmails(e.target.value)}
+                    onChange={(event) => setField("emails", event.target.value)}
                     placeholder="Enter email addresses"
                     className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
@@ -416,12 +416,11 @@ export function ReportPageLayout({
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
 
-          {/* Action Buttons */}
           <div className="pt-4 flex flex-col items-center justify-center text-center space-y-2.5">
             <div className="flex flex-wrap items-center justify-center gap-3">
-              {onViewReport && (
+              {onViewReport ? (
                 <button
                   type="button"
                   onClick={handleViewReportClick}
@@ -438,7 +437,7 @@ export function ReportPageLayout({
                     "VIEW REPORT"
                   )}
                 </button>
-              )}
+              ) : null}
 
               <button
                 type="button"
@@ -458,34 +457,20 @@ export function ReportPageLayout({
               </button>
             </div>
 
-            {showEmailSection && (
+            {showEmailSection ? (
               <div className="text-xs text-[#0ea5e9] font-medium max-w-md leading-relaxed space-y-0.5">
                 <p>Your report will be generated after you click on generate report button.</p>
                 <p>It will be available for download below.</p>
               </div>
-            )}
-{/* 
-            {downloadLink && (
-              <div className="mt-4 pt-4 border-t border-slate-200 w-full flex flex-col items-center">
-                <a
-                  href={downloadLink.url}
-                  download={downloadLink.filename}
-                  className="inline-flex items-center gap-2 rounded-md border border-blue-600 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition-colors shadow-sm"
-                >
-                  <Download className="h-4 w-4" />
-                  Download {downloadLink.filename}
-                </a>
-              </div>
-            )} */}
+            ) : null}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 
   return (
     <div className="space-y-6">
-      {/* Page Title & Breadcrumb header */}
       <PageHeader
         title={title}
         breadcrumbs={[

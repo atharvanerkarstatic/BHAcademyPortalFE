@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useTransition, useMemo } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Plus, RefreshCw, Search, UserRound, Pencil, Trash2, Loader2 } from "lucide-react";
 
-import { DataTable, type Column } from "@/components/common/data-table";
+import { DataTable } from '@/components/common/data-table';
+import type { Column } from '@/components/common/data-table';
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,118 +22,45 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import {
-  getAdminUsersAction,
   deleteAdminUserAction,
   updateAdminUserStatusAction,
 } from "@/features/admin-users/action";
 import type { AdminUserItem, AdminUserPageResponse } from "@/features/admin-users/types";
 
+const PAGE_SIZE = 10;
+
+const EMPTY_PAGE: AdminUserPageResponse = {
+  content: [],
+  page: 1,
+  size: PAGE_SIZE,
+  totalElements: 0,
+  totalPages: 0,
+  first: true,
+  last: true,
+  hasNext: false,
+  hasPrevious: false,
+};
+
 export default function AdminUsersPage() {
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
-  const pathname = usePathname();
+  const queryClient = useQueryClient();
 
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = PAGE_SIZE;
 
-  const [pageData, setPageData] = useState<AdminUserPageResponse>({
-    content: [],
-    page: 1,
-    size: pageSize,
-    totalElements: 0,
-    totalPages: 0,
-    first: true,
-    last: true,
-    hasNext: false,
-    hasPrevious: false,
-  });
-
-  const [isPending, startTransition] = useTransition();
   const [userToDelete, setUserToDelete] = useState<AdminUserItem | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [togglingUserId, setTogglingUserId] = useState<number | null>(null);
 
   const canCreate = can("users.create") || can("system.all");
   const canUpdate = can("users.update") || can("system.all");
   const canDelete = can("users.delete") || can("system.all");
-
-  const handleToggleStatus = async (user: AdminUserItem) => {
-    if (!canUpdate) return;
-    const currentActive = user.status === "ACTIVE";
-    const nextStatus = currentActive ? "SUSPENDED" : "ACTIVE";
-
-    // Optimistically update the UI
-    setTogglingUserId(user.id);
-    setPageData((prev) => ({
-      ...prev,
-      content: prev.content.map((item) =>
-        item.id === user.id ? { ...item, status: nextStatus } : item
-      ),
-    }));
-
-    try {
-      const res = await updateAdminUserStatusAction(user.id, nextStatus);
-      if (res.success) {
-        success(res.message || `User status updated to ${nextStatus === "ACTIVE" ? "Active" : "Inactive"}`);
-      } else {
-        // Revert on failure
-        setPageData((prev) => ({
-          ...prev,
-          content: prev.content.map((item) =>
-            item.id === user.id ? { ...item, status: user.status } : item
-          ),
-        }));
-        toastError(res.error || "Failed to update user status");
-      }
-    } catch {
-      // Revert on error
-      setPageData((prev) => ({
-        ...prev,
-        content: prev.content.map((item) =>
-          item.id === user.id ? { ...item, status: user.status } : item
-        ),
-      }));
-      toastError("An error occurred while updating user status");
-    } finally {
-      setTogglingUserId(null);
-    }
-  };
-
-  const loadUsers = (
-    targetPage = page,
-    searchTerm = activeSearch,
-    showSuccessToast = false
-  ) => {
-    startTransition(async () => {
-      const res = await getAdminUsersAction({
-        page: targetPage,
-        size: pageSize,
-        search: searchTerm,
-      });
-
-      if (res.success && res.data) {
-        setPageData(res.data);
-        if (showSuccessToast) {
-          success("Users refreshed successfully");
-        }
-      } else {
-        toastError(res.error || "Failed to load users");
-      }
-    });
-  };
-
-  // Reset search filter whenever navigating away or returning to this route
-  useEffect(() => {
-    return () => {
-      setSearchInput("");
-      setActiveSearch("");
-      setPage(1);
-    };
-  }, [pathname]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -143,10 +71,88 @@ export default function AdminUsersPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  useEffect(() => {
-    loadUsers(page, activeSearch);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, activeSearch]);
+  const listKey = queryKeys.adminUsers.list({ page, size: pageSize, search: activeSearch });
+
+  const { data: pageData = EMPTY_PAGE, isLoading, refetch } = useQuery({
+    queryKey: listKey,
+    queryFn: ({ signal }) =>
+      portalGet<AdminUserPageResponse>(
+        "admin-users",
+        { page, size: pageSize, search: activeSearch },
+        signal
+      ),
+    placeholderData: keepPreviousData,
+  });
+
+  const isPending = isLoading;
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, nextStatus }: { id: number; nextStatus: "ACTIVE" | "SUSPENDED" }) =>
+      updateAdminUserStatusAction(id, nextStatus),
+    onMutate: async ({ id, nextStatus }) => {
+      setTogglingUserId(id);
+      await queryClient.cancelQueries({ queryKey: listKey });
+      const previous = queryClient.getQueryData<AdminUserPageResponse>(listKey);
+      queryClient.setQueryData<AdminUserPageResponse>(listKey, (prev) =>
+        prev
+          ? {
+              ...prev,
+              content: prev.content.map((item) =>
+                item.id === id ? { ...item, status: nextStatus } : item
+              ),
+            }
+          : prev
+      );
+      return { previous };
+    },
+    onSuccess: (res, { nextStatus }, context) => {
+      if (res.success) {
+        success(
+          res.message || `User status updated to ${nextStatus === "ACTIVE" ? "Active" : "Inactive"}`
+        );
+      } else {
+        if (context?.previous) {
+          queryClient.setQueryData(listKey, context.previous);
+        }
+        toastError(res.error || "Failed to update user status");
+      }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(listKey, context.previous);
+      }
+      toastError("An error occurred while updating user status");
+    },
+    onSettled: () => {
+      setTogglingUserId(null);
+    },
+  });
+
+  const handleToggleStatus = useCallback(
+    (user: AdminUserItem) => {
+      if (!canUpdate) {
+        return;
+      }
+      const nextStatus = user.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
+      toggleMutation.mutate({ id: user.id, nextStatus });
+    },
+    [canUpdate, toggleMutation]
+  );
+
+  const loadUsers = (
+    targetPage = page,
+    _searchTerm = activeSearch,
+    showSuccessToast = false
+  ) => {
+    setPage(targetPage);
+    void refetch().then((result) => {
+      if (result.error) {
+        toastError(result.error.message || "Failed to load users");
+      } else if (showSuccessToast) {
+        success("Users refreshed successfully");
+      }
+    });
+  };
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
@@ -164,24 +170,34 @@ export default function AdminUsersPage() {
     setActiveSearch("");
   };
 
-  const confirmDelete = async () => {
-    if (!userToDelete) return;
-    setIsDeleting(true);
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteAdminUserAction(id),
+    onSuccess: async (res) => {
+      setUserToDelete(null);
+      if (res.success) {
+        success(res.message || "User archived successfully");
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers.all });
+      } else {
+        toastError(res.error || "Failed to delete user");
+      }
+    },
+    onError: () => {
+      setUserToDelete(null);
+      toastError("Failed to delete user");
+    },
+  });
 
-    const res = await deleteAdminUserAction(userToDelete.id);
-    setIsDeleting(false);
-    setUserToDelete(null);
+  const isDeleting = deleteMutation.isPending;
 
-    if (res.success) {
-      success(res.message || "User archived successfully");
-      loadUsers(page, activeSearch);
-    } else {
-      toastError(res.error || "Failed to delete user");
+  const confirmDelete = () => {
+    if (!userToDelete) {
+      return;
     }
+    deleteMutation.mutate(userToDelete.id);
   };
 
-  const columns: Column<AdminUserItem>[] = useMemo(() => {
-    const cols: Column<AdminUserItem>[] = [
+  const columns: Array<Column<AdminUserItem>> = useMemo(() => {
+    const cols: Array<Column<AdminUserItem>> = [
       {
         header: "ID",
         cell: (r) => <span className="font-mono text-xs font-semibold text-slate-700">{r.id}</span>,
@@ -194,7 +210,6 @@ export default function AdminUsersPage() {
           return (
             <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50">
               {validImg ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={r.profilePic || ""}
                   alt={r.firstName}

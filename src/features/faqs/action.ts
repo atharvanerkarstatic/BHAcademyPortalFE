@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ENDPOINTS } from "@/config/endpoints";
 import { apiFetch, ApiError } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth-server";
 import { hasPermission } from "@/lib/auth-jwt";
@@ -47,7 +48,9 @@ export async function getFaqsAction(params: GetFaqsParams = {}) {
   });
 
   try {
-    const res = await apiFetch<ApiResponse<FaqPageResponse>>(`/v1/faqs?${query.toString()}`);
+    const res = await apiFetch<ApiResponse<FaqPageResponse>>(
+      `${ENDPOINTS.faqs.list}?${query.toString()}`
+    );
     return {
       success: true,
       data: res.data,
@@ -85,7 +88,7 @@ export async function getFaqByIdAction(id: number | string) {
   }
 
   try {
-    const res = await apiFetch<ApiResponse<FaqItem>>(`/v1/faqs/${id}`);
+    const res = await apiFetch<ApiResponse<FaqItem>>(ENDPOINTS.faqs.byId(id));
     return {
       success: true,
       data: res.data,
@@ -112,7 +115,7 @@ export async function createFaqAction(payload: CreateFaqPayload) {
   }
 
   try {
-    const res = await apiFetch<ApiResponse<FaqItem>>("/v1/faqs", {
+    const res = await apiFetch<ApiResponse<FaqItem>>(ENDPOINTS.faqs.list, {
       method: "POST",
       body: JSON.stringify(payload),
     });
@@ -145,7 +148,7 @@ export async function updateFaqAction(id: number | string, payload: UpdateFaqPay
   }
 
   try {
-    const res = await apiFetch<ApiResponse<FaqItem>>(`/v1/faqs/${id}`, {
+    const res = await apiFetch<ApiResponse<FaqItem>>(ENDPOINTS.faqs.byId(id), {
       method: "PUT",
       body: JSON.stringify(payload),
     });
@@ -178,7 +181,7 @@ export async function deleteFaqAction(id: number | string) {
   }
 
   try {
-    const res = await apiFetch<ApiResponse<void>>(`/v1/faqs/${id}`, {
+    const res = await apiFetch<ApiResponse<void>>(ENDPOINTS.faqs.byId(id), {
       method: "DELETE",
     });
 

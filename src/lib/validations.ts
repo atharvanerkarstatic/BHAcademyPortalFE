@@ -18,7 +18,7 @@ export const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
  * Strips non-digit characters and ensures maximum 10 digits.
  */
 export function sanitizeMobileNumber(value: string): string {
-  return value.replace(/\D/g, "").slice(0, 10);
+  return value.replaceAll(/\D/g, "").slice(0, 10);
 }
 
 /**
@@ -40,8 +40,22 @@ export function isValidEmail(email: string): boolean {
  * Prevents basic injection / corrupted input before reaching API.
  */
 export function sanitizeTextInput(value: string, maxLength?: number): string {
-  if (!value) return "";
-  let clean = value.replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F]/g, "").trim();
+  if (!value) {
+    return "";
+  }
+  let clean = "";
+  for (const ch of value) {
+    const code = ch.charCodeAt(0);
+    const isControl =
+      (code >= 0 && code <= 8) ||
+      code === 11 ||
+      code === 12 ||
+      (code >= 14 && code <= 31);
+    if (!isControl) {
+      clean += ch;
+    }
+  }
+  clean = clean.trim();
   if (typeof maxLength === "number" && maxLength > 0) {
     clean = clean.slice(0, maxLength);
   }
@@ -56,9 +70,9 @@ export function sanitizeNonNegativeNumber(
   fallback = 0,
   min = 0
 ): number {
-  if (value === "" || value === null || value === undefined) return fallback;
-  const num = typeof value === "number" ? value : parseInt(String(value).trim(), 10);
-  if (isNaN(num)) return fallback;
+  if (value === "" || value === null || value === undefined) {return fallback;}
+  const num = typeof value === "number" ? value : Number.parseInt(String(value).trim(), 10);
+  if (isNaN(num)) {return fallback;}
   return Math.max(min, num);
 }
 

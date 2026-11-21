@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { ArrowLeft, Loader2, MapPin, Languages } from "lucide-react";
 
 import { PageHeader } from "@/components/common/page-header";
@@ -84,14 +83,6 @@ export default function NewCityPage() {
     setStateTranslations({ ...initialStateTranslations });
     setFormKey((k) => k + 1);
   };
-
-  // Ensure fresh blank state on mount, unmount, and back/forward navigation
-  useEffect(() => {
-    resetForm();
-    return () => {
-      resetForm();
-    };
-  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

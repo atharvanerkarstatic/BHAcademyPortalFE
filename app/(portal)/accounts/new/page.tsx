@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -36,24 +36,6 @@ export default function NewAccountPage() {
   const [isPending, startTransition] = useTransition();
 
   const canCreate = can("users.create") || can("accounts.create");
-
-  useEffect(() => {
-    // Prevent Next.js client caching on mount/revisit
-    setName("");
-    setMobileNumber("");
-    setEmailId("");
-    setPincode("");
-    setImageFile(null);
-    setFormKey((k) => k + 1);
-
-    return () => {
-      setName("");
-      setMobileNumber("");
-      setEmailId("");
-      setPincode("");
-      setImageFile(null);
-    };
-  }, []);
 
   const handleReset = () => {
     setName("");
@@ -138,8 +120,8 @@ export default function NewAccountPage() {
           } else {
             console.warn("Image upload warning:", uploadRes.error);
           }
-        } catch (err) {
-          console.error("Failed to upload image:", err);
+        } catch (error) {
+          console.error("Failed to upload image:", error);
         }
       }
 
@@ -266,7 +248,7 @@ export default function NewAccountPage() {
                 <Input
                   id="acc-pincode"
                   value={pincode}
-                  onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onChange={(e) => setPincode(e.target.value.replaceAll(/\D/g, "").slice(0, 6))}
                   placeholder="e.g. 245101"
                   maxLength={6}
                   className="h-9 text-xs font-mono"

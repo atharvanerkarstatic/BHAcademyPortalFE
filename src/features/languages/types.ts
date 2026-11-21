@@ -8,7 +8,7 @@ export type LanguageItem = {
 };
 
 export type LanguagePageResponse = {
-  content: LanguageItem[];
+  content: Array<LanguageItem>;
   page: number;
   size: number;
   totalElements: number;

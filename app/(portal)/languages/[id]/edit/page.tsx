@@ -40,7 +40,7 @@ export default function EditLanguagePage() {
 
   useEffect(() => {
     async function fetchDetail() {
-      if (!languageId) return;
+      if (!languageId) {return;}
       setIsLoading(true);
       const res = await getLanguageByIdAction(languageId);
       setIsLoading(false);
@@ -66,7 +66,6 @@ export default function EditLanguagePage() {
       }
     }
     fetchDetail();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [languageId]);
 
   const handleReset = () => {

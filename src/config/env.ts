@@ -6,13 +6,22 @@ const API_URLS = {
 
 type AppEnv = keyof typeof API_URLS;
 
-const appEnv = (process.env.APP_ENV ?? "dev") as AppEnv;
-
-if (!(appEnv in API_URLS)) {
-  throw new Error(`Invalid APP_ENV "${appEnv}".`);
+function resolveAppEnv(raw: string | undefined): AppEnv {
+  if (raw === undefined || raw === "dev") {
+    return "dev";
+  }
+  if (raw === "uat") {
+    return "uat";
+  }
+  if (raw === "prod") {
+    return "prod";
+  }
+  throw new Error(`Invalid APP_ENV "${raw}".`);
 }
+
+const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 export const config = {
   appEnv,
   apiBaseUrl: API_URLS[appEnv],
-};
+} as const;

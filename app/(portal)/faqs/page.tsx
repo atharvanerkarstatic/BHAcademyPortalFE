@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useTransition, useMemo } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Plus, RefreshCw, Pencil, Trash2, Search } from "lucide-react";
 
-import { DataTable, type Column } from "@/components/common/data-table";
+import { DataTable } from '@/components/common/data-table';
+import type { Column } from '@/components/common/data-table';
 import { PageHeader } from "@/components/common/page-header";
 import { StatusText } from "@/components/common/status-text";
 import { Button } from "@/components/ui/button";
@@ -22,8 +23,24 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
-import { getFaqsAction, deleteFaqAction } from "@/features/faqs/action";
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
+import { deleteFaqAction } from "@/features/faqs/action";
 import type { FaqItem, FaqPageResponse } from "@/features/faqs/types";
+
+const PAGE_SIZE = 10;
+
+const EMPTY_PAGE: FaqPageResponse = {
+  content: [],
+  page: 1,
+  size: PAGE_SIZE,
+  totalElements: 0,
+  totalPages: 0,
+  first: true,
+  last: true,
+  hasNext: false,
+  hasPrevious: false,
+};
 
 const LANGUAGES = [
   { code: "en", label: "English (en)" },
@@ -42,94 +59,78 @@ const LANGUAGES = [
 export default function FaqsPage() {
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
-  const pathname = usePathname();
-  const [search, setSearch] = useState("");
+  const queryClient = useQueryClient();
 
-  // Reset search filter whenever navigating away or returning to this route
-  useEffect(() => {
-    return () => {
-      setSearch("");
-      setPage(1);
-    };
-  }, [pathname]);
+  const [search, setSearch] = useState("");
   const [language, setLanguage] = useState("en");
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = PAGE_SIZE;
 
-  const [pageData, setPageData] = useState<FaqPageResponse>({
-    content: [],
-    page: 1,
-    size: pageSize,
-    totalElements: 0,
-    totalPages: 0,
-    first: true,
-    last: true,
-    hasNext: false,
-    hasPrevious: false,
-  });
-
-  const [isPending, startTransition] = useTransition();
-
-  // Delete modal state
   const [faqToDelete, setFaqToDelete] = useState<FaqItem | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
-  // Permission flags
   const canCreate = can("faqs.create");
   const canUpdate = can("faqs.update");
   const canDelete = can("faqs.delete");
 
+  const { data: pageData = EMPTY_PAGE, isLoading, refetch } = useQuery({
+    queryKey: queryKeys.faqs.list({ page, size: pageSize, language }),
+    queryFn: ({ signal }) =>
+      portalGet<FaqPageResponse>("faqs", { page, size: pageSize, language }, signal),
+    placeholderData: keepPreviousData,
+  });
+
+  const isPending = isLoading;
+
   const loadFaqs = (targetPage = page, targetLang = language, showSuccessToast = false) => {
-    startTransition(async () => {
-      const res = await getFaqsAction({
-        language: targetLang,
-        page: targetPage,
-        size: pageSize,
-      });
-      if (res.success && res.data) {
-        setPageData(res.data);
-        if (showSuccessToast) {
-          success("FAQs refreshed successfully");
-        }
-      } else {
-        toastError(res.error || "Failed to load FAQs");
+    setPage(targetPage);
+    setLanguage(targetLang);
+    void refetch().then((result) => {
+      if (result.error) {
+        toastError(result.error.message || "Failed to load FAQs");
+      } else if (showSuccessToast) {
+        success("FAQs refreshed successfully");
       }
     });
   };
 
-  useEffect(() => {
-    loadFaqs(page, language);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, language]);
-
   const handleLanguageChange = (newLang: string) => {
     setLanguage(newLang);
-    setPage(1); // Reset to page 1 on filter change
+    setPage(1);
   };
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
   };
 
-  const confirmDelete = async () => {
-    if (!faqToDelete) return;
-    setIsDeleting(true);
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteFaqAction(id),
+    onSuccess: async (res) => {
+      setFaqToDelete(null);
+      if (res.success) {
+        success(res.message || "FAQ deleted successfully");
+        await queryClient.invalidateQueries({ queryKey: queryKeys.faqs.all });
+      } else {
+        toastError(res.error || "Failed to delete FAQ");
+      }
+    },
+    onError: () => {
+      setFaqToDelete(null);
+      toastError("Failed to delete FAQ");
+    },
+  });
 
-    const res = await deleteFaqAction(faqToDelete.id);
-    setIsDeleting(false);
-    setFaqToDelete(null);
+  const isDeleting = deleteMutation.isPending;
 
-    if (res.success) {
-      success(res.message || "FAQ deleted successfully");
-      loadFaqs(page, language);
-    } else {
-      toastError(res.error || "Failed to delete FAQ");
+  const confirmDelete = () => {
+    if (!faqToDelete) {
+      return;
     }
+    deleteMutation.mutate(faqToDelete.id);
   };
 
   // Live client-side search filtering on the current fetched items
   const filteredData = useMemo(() => {
-    if (!search.trim()) return pageData.content;
+    if (!search.trim()) {return pageData.content;}
     const query = search.toLowerCase();
     return pageData.content.filter(
       (item) =>
@@ -139,8 +140,8 @@ export default function FaqsPage() {
     );
   }, [pageData.content, search]);
 
-  const columns: Column<FaqItem>[] = useMemo(() => {
-    const cols: Column<FaqItem>[] = [
+  const columns: Array<Column<FaqItem>> = useMemo(() => {
+    const cols: Array<Column<FaqItem>> = [
       { header: "ID", cell: (r) => r.id, className: "w-16 font-mono text-xs" },
       { header: "Display Order", cell: (r) => r.displayOrder, className: "w-28 text-center" },
       {

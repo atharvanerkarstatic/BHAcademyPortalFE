@@ -1,4 +1,4 @@
-import { extractAuthUser, type AuthUser } from "./auth-jwt";
+import { extractAuthUser } from "./auth-jwt";
 
 export const ACCESS_COOKIE = "access_token";
 export const REFRESH_COOKIE = "refresh_token";
@@ -11,9 +11,9 @@ export const ALL_AUTH_COOKIES = [
   USER_COOKIE,
   AUTH_PERMS_COOKIE,
   AUTH_UPDATED_COOKIE,
-];
+] as const;
 
-const REFRESH_MAX_AGE = 60 * 60 * 24 * 7; 
+const REFRESH_MAX_AGE = 60 * 60 * 24 * 7;
 const EXPIRY_BUFFER = 30; // seconds
 
 export type TokenResponse = {
@@ -51,7 +51,7 @@ export function buildAuthCookies(tokens: TokenResponse) {
 
   const maxAge = Math.max(tokens.expiresInSeconds - EXPIRY_BUFFER, 1);
 
-  return [
+  const result = [
     {
       name: ACCESS_COOKIE,
       value: tokens.accessToken,
@@ -67,16 +67,17 @@ export function buildAuthCookies(tokens: TokenResponse) {
       value: encodeURIComponent(authPayload),
       options: { ...clientReadable, maxAge },
     },
-    ...(user?.email
-      ? [
-          {
-            name: USER_COOKIE,
-            value: user.email,
-            options: { ...base, maxAge: REFRESH_MAX_AGE },
-          },
-        ]
-      : []),
   ];
+
+  if (user?.email) {
+    result.push({
+      name: USER_COOKIE,
+      value: user.email,
+      options: { ...base, maxAge: REFRESH_MAX_AGE },
+    });
+  }
+
+  return result;
 }
 
 export function userCookie(email: string) {

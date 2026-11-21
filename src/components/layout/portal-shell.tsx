@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, type ReactNode } from "react";
+import { Suspense, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { usePathname, useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
@@ -18,7 +19,7 @@ function ShellBody({ children, user }: { children: ReactNode; user: ReactNode })
 
   // Instant route-level authorization check
   useEffect(() => {
-    if (!authUser) return;
+    if (!authUser) {return;}
 
     const userPerms = [...authUser.roles, ...authUser.permissions];
     const firstAllowedRoute = getFirstAccessibleRoute(userPerms);

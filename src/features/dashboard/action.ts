@@ -1,5 +1,6 @@
 "use server";
 
+import { ENDPOINTS } from "@/config/endpoints";
 import { apiFetch, ApiError } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth-server";
 import { hasPermission } from "@/lib/auth-jwt";
@@ -32,7 +33,7 @@ export async function getDashboardDataAction(division?: string | null): Promise<
 
   try {
     const query = division !== undefined && division !== null ? `?division=${encodeURIComponent(division.trim())}` : "?division=";
-    const res = await apiFetch<DashboardApiResponse>(`/v1/dashboard${query}`);
+    const res = await apiFetch<DashboardApiResponse>(`${ENDPOINTS.dashboard.summary}${query}`);
     return {
       success: true,
       data: res.data || {},
@@ -51,7 +52,7 @@ export async function getDashboardDataAction(division?: string | null): Promise<
 
 export async function getDivisionsAction(): Promise<{
   success: boolean;
-  data: string[];
+  data: Array<string>;
   error?: string;
 }> {
   const user = await getCurrentUser();
@@ -70,8 +71,8 @@ export async function getDivisionsAction(): Promise<{
       success: boolean;
       status: number;
       message: string;
-      data: string[];
-    }>("/v1/city/division");
+      data: Array<string>;
+    }>(ENDPOINTS.cities.divisions);
     return {
       success: true,
       data: Array.isArray(res.data) ? res.data : [],
@@ -90,7 +91,7 @@ export async function getDivisionsAction(): Promise<{
 
 export async function getModuleWiseDashboardAction(payload: ModuleWiseFilterPayload): Promise<{
   success: boolean;
-  data: ModuleWiseSummaryItem[];
+  data: Array<ModuleWiseSummaryItem>;
   message?: string;
   error?: string;
 }> {
@@ -106,17 +107,17 @@ export async function getModuleWiseDashboardAction(payload: ModuleWiseFilterPayl
   }
 
   const queryParams = new URLSearchParams();
-  if (payload.division) queryParams.set("division", payload.division);
-  if (payload.region) queryParams.set("region", payload.region);
+  if (payload.division) {queryParams.set("division", payload.division);}
+  if (payload.region) {queryParams.set("region", payload.region);}
   const trainerVal = payload.trainerId || payload.trainer;
   if (trainerVal) {
     queryParams.set("trainerId", String(trainerVal));
     queryParams.set("trainer", String(trainerVal));
   }
-  if (payload.languageId) queryParams.set("languageId", String(payload.languageId));
-  if (payload.startDate) queryParams.set("startDate", payload.startDate);
-  if (payload.endDate) queryParams.set("endDate", payload.endDate);
-  if (payload.modeOfTraining) queryParams.set("modeOfTraining", payload.modeOfTraining);
+  if (payload.languageId) {queryParams.set("languageId", String(payload.languageId));}
+  if (payload.startDate) {queryParams.set("startDate", payload.startDate);}
+  if (payload.endDate) {queryParams.set("endDate", payload.endDate);}
+  if (payload.modeOfTraining) {queryParams.set("modeOfTraining", payload.modeOfTraining);}
   const queryString = queryParams.toString() ? `?${queryParams.toString()}` : "";
 
   // Attempt 1: Try GET with query parameters (standard RESTful read)
@@ -125,8 +126,8 @@ export async function getModuleWiseDashboardAction(payload: ModuleWiseFilterPayl
       success?: boolean;
       status?: number;
       message?: string;
-      data?: ModuleWiseSummaryItem[];
-    }>(`/v1/dashboard/module-wise${queryString}`, {
+      data?: Array<ModuleWiseSummaryItem>;
+    }>(`${ENDPOINTS.dashboard.moduleWise}${queryString}`, {
       method: "GET",
     });
 
@@ -135,13 +136,13 @@ export async function getModuleWiseDashboardAction(payload: ModuleWiseFilterPayl
       data: Array.isArray(res.data) ? res.data : [],
       message: res.message || "Module-wise summary fetched successfully",
     };
-  } catch (getErr) {
+  } catch (error) {
     const isMethodNotAllowed =
-      (getErr instanceof ApiError && (getErr.status === 405 || getErr.message?.toLowerCase().includes("not supported"))) ||
-      (getErr instanceof Error && getErr.message?.toLowerCase().includes("not supported"));
+      (error instanceof ApiError && (error.status === 405 || error.message?.toLowerCase().includes("not supported"))) ||
+      (error instanceof Error && error.message?.toLowerCase().includes("not supported"));
 
     if (!isMethodNotAllowed) {
-      console.warn("GET /v1/dashboard/module-wise failed, attempting POST fallback:", getErr);
+      console.warn("GET /v1/dashboard/module-wise failed, attempting POST fallback:", error);
     }
 
     // Attempt 2: Fallback to POST with body
@@ -162,7 +163,7 @@ export async function getModuleWiseDashboardAction(payload: ModuleWiseFilterPayl
         status?: number;
         message?: string;
         data?: ModuleWiseSummaryItem[];
-      }>("/v1/dashboard/module-wise", {
+      }>(ENDPOINTS.dashboard.moduleWise, {
         method: "POST",
         body: JSON.stringify(body),
       });
@@ -177,8 +178,8 @@ export async function getModuleWiseDashboardAction(payload: ModuleWiseFilterPayl
       const message =
         postErr instanceof ApiError
           ? postErr.message
-          : getErr instanceof ApiError
-          ? getErr.message
+          : error instanceof ApiError
+          ? error.message
           : "Failed to load module-wise summary.";
       return {
         success: false,
@@ -191,7 +192,7 @@ export async function getModuleWiseDashboardAction(payload: ModuleWiseFilterPayl
 
 export async function getTrainerWiseDashboardAction(payload: TrainerWiseFilterPayload): Promise<{
   success: boolean;
-  data: TrainerWiseSummaryItem[];
+  data: Array<TrainerWiseSummaryItem>;
   message?: string;
   error?: string;
 }> {
@@ -208,15 +209,15 @@ export async function getTrainerWiseDashboardAction(payload: TrainerWiseFilterPa
 
   const courseIdValue = payload.courseId || payload.coursreId || null;
   const queryParams = new URLSearchParams();
-  if (payload.division) queryParams.set("division", payload.division);
-  if (payload.region) queryParams.set("region", payload.region);
-  if (payload.languageId) queryParams.set("languageId", String(payload.languageId));
+  if (payload.division) {queryParams.set("division", payload.division);}
+  if (payload.region) {queryParams.set("region", payload.region);}
+  if (payload.languageId) {queryParams.set("languageId", String(payload.languageId));}
   if (courseIdValue) {
     queryParams.set("courseId", String(courseIdValue));
     queryParams.set("coursreId", String(courseIdValue));
   }
-  if (payload.startDate) queryParams.set("startDate", payload.startDate);
-  if (payload.endDate) queryParams.set("endDate", payload.endDate);
+  if (payload.startDate) {queryParams.set("startDate", payload.startDate);}
+  if (payload.endDate) {queryParams.set("endDate", payload.endDate);}
   const queryString = queryParams.toString() ? `?${queryParams.toString()}` : "";
 
   // Attempt 1: Try GET with query parameters
@@ -225,12 +226,12 @@ export async function getTrainerWiseDashboardAction(payload: TrainerWiseFilterPa
       success?: boolean;
       status?: number;
       message?: string;
-      data?: TrainerWiseSummaryItem | TrainerWiseSummaryItem[];
-    }>(`/v1/dashboard/trainer-wise${queryString}`, {
+      data?: TrainerWiseSummaryItem | Array<TrainerWiseSummaryItem>;
+    }>(`${ENDPOINTS.dashboard.trainerWise}${queryString}`, {
       method: "GET",
     });
 
-    let items: TrainerWiseSummaryItem[] = [];
+    let items: Array<TrainerWiseSummaryItem> = [];
     if (Array.isArray(res.data)) {
       items = res.data;
     } else if (res.data && typeof res.data === "object") {
@@ -242,7 +243,7 @@ export async function getTrainerWiseDashboardAction(payload: TrainerWiseFilterPa
       data: items,
       message: res.message || "Trainer-wise summary fetched successfully",
     };
-  } catch (getErr) {
+  } catch (error) {
     // Attempt 2: Fallback to POST
     try {
       const body = {
@@ -260,7 +261,7 @@ export async function getTrainerWiseDashboardAction(payload: TrainerWiseFilterPa
         status?: number;
         message?: string;
         data?: TrainerWiseSummaryItem | TrainerWiseSummaryItem[];
-      }>("/v1/dashboard/trainer-wise", {
+      }>(ENDPOINTS.dashboard.trainerWise, {
         method: "POST",
         body: JSON.stringify(body),
       });
@@ -282,8 +283,8 @@ export async function getTrainerWiseDashboardAction(payload: TrainerWiseFilterPa
       const message =
         postErr instanceof ApiError
           ? postErr.message
-          : getErr instanceof ApiError
-          ? getErr.message
+          : error instanceof ApiError
+          ? error.message
           : "Failed to load trainer-wise summary.";
       return {
         success: false,
@@ -313,15 +314,15 @@ export async function getAssessmentSummaryDashboardAction(payload: AssessmentSum
 
   const courseIdValue = payload.courseId || payload.coursreId || null;
   const queryParams = new URLSearchParams();
-  if (payload.trainingMode) queryParams.set("trainingMode", payload.trainingMode);
-  if (payload.trainerId) queryParams.set("trainerId", String(payload.trainerId));
-  if (payload.languageId) queryParams.set("languageId", String(payload.languageId));
+  if (payload.trainingMode) {queryParams.set("trainingMode", payload.trainingMode);}
+  if (payload.trainerId) {queryParams.set("trainerId", String(payload.trainerId));}
+  if (payload.languageId) {queryParams.set("languageId", String(payload.languageId));}
   if (courseIdValue) {
     queryParams.set("courseId", String(courseIdValue));
     queryParams.set("coursreId", String(courseIdValue));
   }
-  if (payload.startDate) queryParams.set("startDate", payload.startDate);
-  if (payload.endDate) queryParams.set("endDate", payload.endDate);
+  if (payload.startDate) {queryParams.set("startDate", payload.startDate);}
+  if (payload.endDate) {queryParams.set("endDate", payload.endDate);}
   const queryString = queryParams.toString() ? `?${queryParams.toString()}` : "";
 
   // Attempt 1: Try GET with query parameters
@@ -331,7 +332,7 @@ export async function getAssessmentSummaryDashboardAction(payload: AssessmentSum
       status?: number;
       message?: string;
       data?: { passed: number; failed: number };
-    }>(`/v1/dashboard/assessment-summary${queryString}`, {
+    }>(`${ENDPOINTS.dashboard.assessmentSummary}${queryString}`, {
       method: "GET",
     });
 
@@ -347,7 +348,7 @@ export async function getAssessmentSummaryDashboardAction(payload: AssessmentSum
       },
       message: res?.message || "Assessment summary fetched successfully",
     };
-  } catch (getErr) {
+  } catch (error) {
     // Attempt 2: Fallback to POST
     try {
       const body = {
@@ -365,7 +366,7 @@ export async function getAssessmentSummaryDashboardAction(payload: AssessmentSum
         status?: number;
         message?: string;
         data?: { passed: number; failed: number };
-      }>("/v1/dashboard/assessment-summary", {
+      }>(ENDPOINTS.dashboard.assessmentSummary, {
         method: "POST",
         body: JSON.stringify(body),
       });
@@ -387,8 +388,8 @@ export async function getAssessmentSummaryDashboardAction(payload: AssessmentSum
       const message =
         postErr instanceof ApiError
           ? postErr.message
-          : getErr instanceof ApiError
-          ? getErr.message
+          : error instanceof ApiError
+          ? error.message
           : "Failed to load assessment summary.";
       return {
         success: false,

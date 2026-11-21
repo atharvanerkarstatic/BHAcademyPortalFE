@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useTransition, useMemo } from "react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   Plus,
   RefreshCw,
@@ -10,23 +10,19 @@ import {
   Phone,
   MapPin,
   Building,
-  ShieldCheck,
   List,
   Download,
   FileSpreadsheet,
-  Image as ImageIcon,
   Upload,
-  ArrowUpDown,
   User,
   X,
-  ExternalLink,
 } from "lucide-react";
 
-import { DataTable, type Column } from "@/components/common/data-table";
+import { DataTable } from '@/components/common/data-table';
+import type { Column } from '@/components/common/data-table';
 import { PageHeader } from "@/components/common/page-header";
-import { StatusText } from "@/components/common/status-text";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -40,8 +36,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
 import {
-  getAccountsAction,
   exportAccountsAction,
   importAccountsAction,
   importAccountBhbpAction,
@@ -55,17 +52,31 @@ import type {
 } from "@/features/accounts/types";
 import { cn } from "@/lib/utils";
 
+const PAGE_SIZE = 10;
+
+const EMPTY_PAGE: AccountPageResponse = {
+  content: [],
+  page: 1,
+  size: PAGE_SIZE,
+  totalElements: 0,
+  totalPages: 0,
+  first: true,
+  last: true,
+  hasNext: false,
+  hasPrevious: false,
+};
+
 export default function AccountsPage() {
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
-  const pathname = usePathname();
+  const queryClient = useQueryClient();
 
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = PAGE_SIZE;
 
-  // Active top tab: "list" (matches screenshot 1) | "bulk_bp" | "bulk_users"
+  // Active top tab: "list" | "bulk_bp" | "bulk_users"
   const [activeTab, setActiveTab] = useState<"list" | "bulk_bp" | "bulk_users">("list");
 
   // State for image preview modal
@@ -77,92 +88,62 @@ export default function AccountsPage() {
   const [isBulkUploading, setIsBulkUploading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  const [pageData, setPageData] = useState<AccountPageResponse>({
-    content: [],
-    page: 1,
-    size: pageSize,
-    totalElements: 0,
-    totalPages: 0,
-    first: true,
-    last: true,
-    hasNext: false,
-    hasPrevious: false,
-  });
-
-  const [isPending, startTransition] = useTransition();
-
   const canCreate = can("users.create") || can("accounts.create");
   const canExport = can("users.read") || can("accounts.export");
   const canImport = can("accounts.import") || can("system.all");
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+      setActiveSearch(searchInput.trim());
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const { data: pageData = EMPTY_PAGE, isLoading, refetch } = useQuery({
+    queryKey: queryKeys.accounts.list({ page, size: pageSize, search: activeSearch }),
+    queryFn: ({ signal }) =>
+      portalGet<AccountPageResponse>(
+        "accounts",
+        { page, size: pageSize, search: activeSearch },
+        signal
+      ),
+    placeholderData: keepPreviousData,
+  });
+
+  const isPending = isLoading;
+
   const loadAccounts = (
     targetPage = page,
-    searchTerm = activeSearch,
+    _searchTerm = activeSearch,
     showSuccessToast = false
   ) => {
-    startTransition(async () => {
-      const res = await getAccountsAction({
-        page: targetPage,
-        size: pageSize,
-        search: searchTerm,
-      });
-
-      if (res.success && res.data) {
-        setPageData(res.data);
-        if (showSuccessToast) {
-          success("Accounts refreshed successfully");
-        }
-      } else {
-        toastError(res.error || "Failed to load accounts");
+    setPage(targetPage);
+    void queryClient.invalidateQueries({ queryKey: queryKeys.accounts.all });
+    void refetch().then((result) => {
+      if (result.error) {
+        toastError(result.error.message || "Failed to load accounts");
+      } else if (showSuccessToast) {
+        success("Accounts refreshed successfully");
       }
     });
   };
 
-  // Reset search filter whenever navigating away or returning to this route
-  useEffect(() => {
-    return () => {
-      setSearchInput("");
-      setActiveSearch("");
-      setPage(1);
-    };
-  }, [pathname]);
-
-  // Debounced search: as soon as typing stops, update activeSearch and query API
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchInput !== activeSearch) {
-        setActiveSearch(searchInput);
-        setPage(1);
-        loadAccounts(1, searchInput);
-      }
-    }, 400);
-
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchInput]);
-
-  useEffect(() => {
-    loadAccounts(1, "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
-    loadAccounts(newPage, activeSearch);
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setActiveSearch(searchInput);
+    setActiveSearch(searchInput.trim());
     setPage(1);
-    loadAccounts(1, searchInput);
   };
 
   const handleSearchClear = () => {
     setSearchInput("");
     setActiveSearch("");
     setPage(1);
-    loadAccounts(1, "");
   };
 
   const handleDownloadAccounts = async () => {
@@ -175,7 +156,7 @@ export default function AccountsPage() {
         const link = document.createElement("a");
         link.href = url;
         link.setAttribute("download", res.filename || "accounts_export.csv");
-        document.body.appendChild(link);
+        document.body.append(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
@@ -205,7 +186,7 @@ export default function AccountsPage() {
         const link = document.createElement("a");
         link.href = url;
         link.setAttribute("download", res.filename || `${type}_sample.csv`);
-        document.body.appendChild(link);
+        document.body.append(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
@@ -282,8 +263,8 @@ export default function AccountsPage() {
     }
   };
 
-  const columns: Column<AccountItem>[] = useMemo(() => {
-    const cols: Column<AccountItem>[] = [
+  const columns: Array<Column<AccountItem>> = useMemo(() => {
+    const cols: Array<Column<AccountItem>> = [
       {
         header: "#",
         cell: (r: AccountItem, index?: number) => (
@@ -313,7 +294,6 @@ export default function AccountsPage() {
                 title={profilePhoto ? "Click to enlarge photo" : "No photo available"}
               >
                 {profilePhoto ? (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={profilePhoto}
                     alt={r.name || "User"}
@@ -669,7 +649,6 @@ export default function AccountsPage() {
               </button>
             </div>
             <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center border">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={previewImage.url}
                 alt={previewImage.title}

@@ -19,10 +19,9 @@ import { sanitizeTextInput } from "@/lib/validations";
 export default function EditRolePage({
   params,
 }: {
-  params: Promise<{ id: string }> | { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const unwrappedParams = typeof (params as any)?.then === "function" ? use(params as Promise<{ id: string }>) : (params as { id: string });
-  const roleId = unwrappedParams.id;
+  const { id: roleId } = use(params);
   const router = useRouter();
   const { can } = useAuth();
 
@@ -47,7 +46,7 @@ export default function EditRolePage({
 
   useEffect(() => {
     async function fetchDetail() {
-      if (!roleId) return;
+      if (!roleId) {return;}
       setIsLoading(true);
       const res = await getRoleByIdAction(roleId);
       setIsLoading(false);
@@ -74,7 +73,6 @@ export default function EditRolePage({
       }
     }
     fetchDetail();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roleId]);
 
   const handleReset = () => {

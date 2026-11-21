@@ -1,41 +1,21 @@
-import {
-  ArrowRight,
-  BarChart3,
-  Calendar,
-  ClipboardList,
-  GraduationCap,
-  HelpCircle,
-  Image as ImageIcon,
-  Languages,
-  Layers,
-  LayoutDashboard,
-  Lightbulb,
-  Link2,
-  List,
-  MapPin,
-  Settings,
-  ShieldCheck,
-  Sliders,
-  SquarePlus,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowRight, BarChart3, Calendar, ClipboardList, GraduationCap, HelpCircle, Image as ImageIcon, Languages, Layers, LayoutDashboard, Lightbulb, Link2, List, MapPin, Settings, ShieldCheck, Sliders, SquarePlus, Users } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 export type NavItem = {
   label: string;
   href: string;
   icon: LucideIcon;
-  permission?: string | string[];
+  permission?: string | Array<string>;
 };
 
 export type NavSection = {
   title?: string;
   collapsible?: boolean;
   icon?: LucideIcon;
-  items: NavItem[];
+  items: Array<NavItem>;
 };
 
-export const navSections: NavSection[] = [
+export const navSections: Array<NavSection> = [
   {
     items: [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "dashboard.read" },

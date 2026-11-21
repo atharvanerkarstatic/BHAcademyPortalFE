@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useState, useTransition } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -9,16 +10,12 @@ import {
   Download,
   Edit,
   ExternalLink,
-  FileSpreadsheet,
   Image as ImageIcon,
-  List,
   Loader2,
-  Upload,
   User,
   XCircle,
 } from "lucide-react";
 
-import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -26,9 +23,10 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
 import {
   getAccountByIdAction,
-  getAccountsAction,
   updateAccountAction,
   uploadMediaAction,
 } from "@/features/accounts/action";
@@ -41,15 +39,30 @@ const ALLOWED_IMAGE_EXTS = ["jpg", "jpeg", "png"];
 export default function AccountDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const idOrBhBp = params.id as string;
+  const queryClient = useQueryClient();
+  const idOrBhBp = String(params.id ?? "");
 
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
 
-  const [account, setAccount] = useState<AccountItem | null>(null);
-  const [fetching, setFetching] = useState(true);
+  const { data: account = null, isLoading: fetching } = useQuery({
+    queryKey: queryKeys.accounts.detail(idOrBhBp),
+    queryFn: ({ signal }) =>
+      portalGet<AccountItem>(`accounts/${encodeURIComponent(idOrBhBp)}`, undefined, signal),
+    enabled: Boolean(idOrBhBp),
+  });
 
-  // View mode: "details" (matches screenshot 2) | "edit" (matches screenshot 3)
+  const setAccount = useCallback(
+    (nextAccount: AccountItem | null) => {
+      if (nextAccount) {
+        queryClient.setQueryData(queryKeys.accounts.detail(idOrBhBp), nextAccount);
+        void queryClient.invalidateQueries({ queryKey: queryKeys.accounts.all });
+      }
+    },
+    [idOrBhBp, queryClient]
+  );
+
+  // View mode: "details" | "edit"
   const [isEditing, setIsEditing] = useState(false);
 
   // Edit form state
@@ -65,39 +78,9 @@ export default function AccountDetailPage() {
 
   const canUpdate = can("users.update") || can("accounts.update");
 
-  useEffect(() => {
-    let mounted = true;
-    setFetching(true);
-    setIsEditing(false);
-    setImageFile(null);
-
-    getAccountByIdAction(idOrBhBp)
-      .then((res) => {
-        if (!mounted) return;
-        if (res.success && res.data) {
-          setAccount(res.data);
-          populateForm(res.data);
-        } else {
-          toastError(res.error || "Failed to load account details");
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to load account:", err);
-        toastError("Failed to load account details");
-      })
-      .finally(() => {
-        if (mounted) setFetching(false);
-      });
-
-    return () => {
-      mounted = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idOrBhBp]);
-
   const populateForm = (acc: AccountItem) => {
     setName(acc.name || "");
-    const rawMobile = (acc.mobileNumber || acc.mobile || "").replace(/\D/g, "").slice(0, 10);
+    const rawMobile = (acc.mobileNumber || acc.mobile || "").replaceAll(/\D/g, "").slice(0, 10);
     setMobileNumber(rawMobile);
     setBhBp(acc.bhBp || acc.id || "");
     setEmailId(acc.emailId || acc.email || "");
@@ -143,13 +126,13 @@ export default function AccountDetailPage() {
           } else {
             console.warn("Image upload warning:", uploadRes.error);
           }
-        } catch (err) {
-          console.error("Failed to upload image:", err);
+        } catch (error) {
+          console.error("Failed to upload image:", error);
         }
       }
 
       const finalBhBp = bhBp.trim() || account?.bhBp || idOrBhBp;
-      const cleanedMobile = mobileNumber.replace(/\D/g, "");
+      const cleanedMobile = mobileNumber.replaceAll(/\D/g, "");
 
       if (cleanedMobile && cleanedMobile.length !== 10) {
         toastError("Mobile number must be exactly 10 digits.");
@@ -285,7 +268,6 @@ export default function AccountDetailPage() {
                 {(() => {
                   const avatarSrc = (account.profilePic || account.profileImage || account.image || account.profilePicture) || undefined;
                   return avatarSrc ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       key={avatarSrc}
                       src={avatarSrc}

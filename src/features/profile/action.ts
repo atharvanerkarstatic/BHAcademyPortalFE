@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { ENDPOINTS } from "@/config/endpoints";
 import { apiFetch, ApiError } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth-server";
 import { ALL_AUTH_COOKIES } from "@/lib/auth-cookies";
@@ -39,7 +40,7 @@ export async function getCurrentUserProfile(): Promise<{
 
   try {
     const res = await apiFetch<{ success: boolean; data: UserProfile; message?: string }>(
-      `/v1/users/${encodeURIComponent(user.id)}`
+      ENDPOINTS.users.byId(user.id)
     );
     return {
       success: true,
@@ -68,7 +69,7 @@ export async function updateUserProfileAction(payload: UpdateUserProfilePayload)
 
   try {
     const res = await apiFetch<{ success: boolean; data: UserProfile; message?: string }>(
-      `/v1/users/${encodeURIComponent(user.id)}`,
+      ENDPOINTS.users.byId(user.id),
       {
         method: "PUT",
         body: JSON.stringify(payload),
@@ -100,7 +101,7 @@ export async function changePasswordAction(payload: {
 }> {
   try {
     const res = await apiFetch<{ success: boolean; message: string; data?: unknown }>(
-      "/auth/change-password",
+      ENDPOINTS.auth.changePassword,
       {
         method: "POST",
         body: JSON.stringify(payload),

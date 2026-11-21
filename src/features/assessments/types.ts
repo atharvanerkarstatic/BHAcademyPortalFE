@@ -3,7 +3,7 @@ export interface SendAssessmentLinkPayload {
   languageId: number | string;
   courseId: number | string;
   trainingDate: string;
-  mobileNumbers: string[];
+  mobileNumbers: Array<string>;
 }
 
 export interface AssessmentRecordItem {
@@ -19,7 +19,7 @@ export interface SendAssessmentLinkResponse {
   success: boolean;
   status: number;
   message: string;
-  data: AssessmentRecordItem[];
+  data: Array<AssessmentRecordItem>;
   timestamp?: string;
   error?: string;
 }
@@ -36,7 +36,7 @@ export interface AssessmentLinkItem {
 }
 
 export interface AssessmentLinkPageResponse {
-  content: AssessmentLinkItem[];
+  content: Array<AssessmentLinkItem>;
   pageable?: {
     pageNumber: number;
     pageSize: number;
@@ -66,7 +66,7 @@ export interface AssessmentResultItem {
 }
 
 export interface AssessmentResultPageResponse {
-  content: AssessmentResultItem[];
+  content: Array<AssessmentResultItem>;
   pageable?: {
     pageNumber: number;
     pageSize: number;

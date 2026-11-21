@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ENDPOINTS } from "@/config/endpoints";
 import { apiFetch, ApiError } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth-server";
 import { hasPermission } from "@/lib/auth-jwt";
@@ -8,7 +9,7 @@ import type { CityItem, SaveCityPayload } from "./types";
 
 export async function getCitiesAction(): Promise<{
   success: boolean;
-  data: CityItem[];
+  data: Array<CityItem>;
   message?: string;
   error?: string;
 }> {
@@ -28,8 +29,8 @@ export async function getCitiesAction(): Promise<{
       success: boolean;
       status: number;
       message: string;
-      data: CityItem[];
-    }>("/v1/city");
+      data: Array<CityItem>;
+    }>(ENDPOINTS.cities.list);
 
     return {
       success: true,
@@ -73,7 +74,7 @@ export async function getCityByIdAction(id: number | string): Promise<{
       status: number;
       message: string;
       data: CityItem;
-    }>(`/v1/city/${encodeURIComponent(id)}`);
+    }>(ENDPOINTS.cities.byId(id));
 
     return {
       success: true,
@@ -112,7 +113,7 @@ export async function createCityAction(payload: SaveCityPayload): Promise<{
       status: number;
       message: string;
       data: CityItem;
-    }>("/v1/city", {
+    }>(ENDPOINTS.cities.list, {
       method: "POST",
       body: JSON.stringify(payload),
     });
@@ -158,7 +159,7 @@ export async function updateCityAction(
       status: number;
       message: string;
       data: CityItem;
-    }>(`/v1/city/${encodeURIComponent(id)}`, {
+    }>(ENDPOINTS.cities.byId(id), {
       method: "PUT",
       body: JSON.stringify(payload),
     });
@@ -199,7 +200,7 @@ export async function deleteCityAction(id: number | string): Promise<{
       success: boolean;
       status: number;
       message: string;
-    }>(`/v1/city/${encodeURIComponent(id)}`, {
+    }>(ENDPOINTS.cities.byId(id), {
       method: "DELETE",
     });
 

@@ -19,7 +19,7 @@ export type CategoryItem = {
 };
 
 export type CategoryPageResponse = {
-  content: CategoryItem[];
+  content: Array<CategoryItem>;
   page: number;
   size: number;
   totalElements: number;

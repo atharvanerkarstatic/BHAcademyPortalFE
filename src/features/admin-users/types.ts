@@ -11,7 +11,7 @@ export interface RoleItem {
 }
 
 export interface RolePageResponse {
-  content: RoleItem[];
+  content: Array<RoleItem>;
   page: number;
   size: number;
   totalElements: number;
@@ -35,14 +35,14 @@ export interface AdminUserItem {
   profilePic?: string | null;
   pinCode?: string | null;
   pincode?: string | null;
-  roleCodes?: string[];
-  roles?: {
+  roleCodes?: Array<string>;
+  roles?: Array<{
     id: number;
     code: string;
     name: string;
     systemRole?: boolean;
     active?: boolean;
-  }[];
+  }>;
   failedLoginAttempts?: number;
   lockoutUntil?: string | null;
   passwordChangedAt?: string;
@@ -55,7 +55,7 @@ export interface AdminUserItem {
 }
 
 export interface AdminUserPageResponse {
-  content: AdminUserItem[];
+  content: Array<AdminUserItem>;
   page: number;
   size: number;
   totalElements: number;
@@ -72,7 +72,7 @@ export interface CreateAdminUserPayload {
   email: string;
   password?: string;
   departmentId?: string | null;
-  roleIds: string[];
+  roleIds: Array<string>;
   mobileNumber?: string | null;
   profilePic?: string | null;
   pinCode?: string | null;
@@ -86,7 +86,7 @@ export interface UpdateAdminUserPayload {
   departmentId?: string | null;
   mobileNumber?: string | null;
   profilePic?: string | null;
-  roleIds?: string[];
+  roleIds?: Array<string>;
   pinCode?: string | null;
   pincode?: string | null;
 }

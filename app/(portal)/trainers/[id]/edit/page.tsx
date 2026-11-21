@@ -63,7 +63,7 @@ export default function EditTrainerPage({
     async function loadTrainer() {
       setLoadingInitial(true);
       const res = await getTrainerByIdAction(trainerId);
-      if (!active) return;
+      if (!active) {return;}
 
       if (res.success && res.data) {
         const t = res.data;
@@ -131,7 +131,7 @@ export default function EditTrainerPage({
       return;
     }
 
-    const cleanPincode = pincode.replace(/\D/g, "").slice(0, 6);
+    const cleanPincode = pincode.replaceAll(/\D/g, "").slice(0, 6);
     if (!cleanPincode) {
       toastError("Pincode is required.");
       return;
@@ -142,7 +142,7 @@ export default function EditTrainerPage({
       return;
     }
 
-    const cleanMobile = mobileNumber.replace(/\D/g, "");
+    const cleanMobile = mobileNumber.replaceAll(/\D/g, "");
     if (cleanMobile && cleanMobile.length !== 10) {
       toastError("Mobile number must be exactly 10 digits.");
       return;
@@ -163,8 +163,8 @@ export default function EditTrainerPage({
           } else {
             console.warn("Image upload warning:", uploadRes.error);
           }
-        } catch (err) {
-          console.error("Failed to upload image:", err);
+        } catch (error) {
+          console.error("Failed to upload image:", error);
         }
       }
 
@@ -270,7 +270,7 @@ export default function EditTrainerPage({
                 <Input
                   id="edit-trainer-pincode"
                   value={pincode}
-                  onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onChange={(e) => setPincode(e.target.value.replaceAll(/\D/g, "").slice(0, 6))}
                   placeholder="e.g. 245101"
                   maxLength={6}
                   className="h-9 text-xs font-mono"
@@ -305,10 +305,8 @@ export default function EditTrainerPage({
                 <div className="flex items-center gap-4">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50">
                     {newImagePreview ? (
-                      // eslint-disable-next-line @next/next/no-img-element
                       <img src={newImagePreview} alt="New Preview" className="h-full w-full object-cover" />
                     ) : currentProfilePic ? (
-                      // eslint-disable-next-line @next/next/no-img-element
                       <img src={currentProfilePic} alt="Current Profile" className="h-full w-full object-cover" />
                     ) : (
                       <UserRound className="h-6 w-6 text-slate-400" />

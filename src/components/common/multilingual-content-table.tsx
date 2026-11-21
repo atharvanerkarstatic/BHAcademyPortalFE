@@ -19,7 +19,7 @@ export const TRANSLATION_LANGUAGES = [
 export type TranslationLanguage = (typeof TRANSLATION_LANGUAGES)[number];
 
 export interface MultilingualContentTableProps {
-  languages?: readonly { code: string; name: string }[];
+  languages?: ReadonlyArray<{ code: string; name: string }>;
   names: Record<string, string>;
   levels?: Record<string, string>;
   details: Record<string, string>;

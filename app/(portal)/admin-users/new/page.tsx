@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -12,11 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
 import { uploadMediaAction } from "@/features/accounts/action";
-import {
-  createAdminUserAction,
-  getRolesPicklistAction,
-} from "@/features/admin-users/action";
+import { createAdminUserAction } from "@/features/admin-users/action";
 import type { RoleItem } from "@/features/admin-users/types";
 import { validateImageFile } from "@/lib/validations";
 
@@ -44,37 +44,18 @@ export default function NewAdminUserPage() {
   const [pincode, setPincode] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [selectedRoleId, setSelectedRoleId] = useState<string>("1");
-  const [roles, setRoles] = useState<RoleItem[]>([]);
-  const [loadingRoles, setLoadingRoles] = useState(true);
+
+  const { data: roles = [], isLoading: loadingRoles } = useQuery({
+    queryKey: queryKeys.rolesPicklist,
+    queryFn: ({ signal }) => portalGet<RoleItem[]>("roles", { picklist: "1" }, signal),
+    staleTime: 5 * 60_000,
+  });
 
   const [imageFile, setImageFile] = useState<File | null>(null);
 
   const [isPending, startTransition] = useTransition();
 
   const canCreate = can("users.create") || can("system.all");
-
-  useEffect(() => {
-    handleReset();
-    let mounted = true;
-
-    getRolesPicklistAction().then((res) => {
-      if (!mounted) return;
-      if (res.success && res.data) {
-        setRoles(res.data);
-        if (res.data.length > 0 && !selectedRoleId) {
-          setSelectedRoleId(String(res.data[0].id));
-        }
-      } else {
-        toastError(res.error || "Failed to load roles picklist.");
-      }
-      setLoadingRoles(false);
-    });
-
-    return () => {
-      mounted = false;
-      handleReset();
-    };
-  }, []);
 
   const handleReset = () => {
     setFullName("");
@@ -120,7 +101,7 @@ export default function NewAdminUserPage() {
       return;
     }
 
-    const cleanPincode = pincode.replace(/\D/g, "").slice(0, 6);
+    const cleanPincode = pincode.replaceAll(/\D/g, "").slice(0, 6);
     if (!cleanPincode) {
       toastError("Pincode is required.");
       return;
@@ -136,7 +117,7 @@ export default function NewAdminUserPage() {
       return;
     }
 
-    const cleanMobile = mobileNumber.replace(/\D/g, "");
+    const cleanMobile = mobileNumber.replaceAll(/\D/g, "");
     if (cleanMobile && cleanMobile.length !== 10) {
       toastError("Mobile number must be exactly 10 digits.");
       return;
@@ -312,7 +293,7 @@ export default function NewAdminUserPage() {
                   id="user-pincode"
                   value={pincode}
                   onChange={(e) =>
-                    setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                    setPincode(e.target.value.replaceAll(/\D/g, "").slice(0, 6))
                   }
                   placeholder="6-digit pincode"
                   maxLength={6}
@@ -363,7 +344,7 @@ export default function NewAdminUserPage() {
                   id="user-mobile"
                   value={mobileNumber}
                   onChange={(e) =>
-                    setMobileNumber(e.target.value.replace(/\D/g, "").slice(0, 10))
+                    setMobileNumber(e.target.value.replaceAll(/\D/g, "").slice(0, 10))
                   }
                   placeholder="10-digit mobile number"
                   maxLength={10}

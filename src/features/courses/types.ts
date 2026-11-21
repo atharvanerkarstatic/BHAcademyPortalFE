@@ -21,7 +21,7 @@ export type CourseItem = {
   noOfVideos?: number;
   points?: number;
   status: "ACTIVE" | "INACTIVE" | string;
-  languages?: CourseLanguageItem[];
+  languages?: Array<CourseLanguageItem>;
   // Multilingual courseName
   courseNameAs?: string;
   courseNameBn?: string;
@@ -58,7 +58,7 @@ export type CourseItem = {
 };
 
 export type CoursePageResponse = {
-  content: CourseItem[];
+  content: Array<CourseItem>;
   page: number;
   size: number;
   totalElements: number;

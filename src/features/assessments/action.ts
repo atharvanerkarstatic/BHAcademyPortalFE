@@ -1,14 +1,13 @@
 "use server";
 
+import { ENDPOINTS } from "@/config/endpoints";
 import { apiFetch, ApiError } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth-server";
 import { hasPermission } from "@/lib/auth-jwt";
 import type {
   SendAssessmentLinkPayload,
   SendAssessmentLinkResponse,
-  AssessmentLinkItem,
   AssessmentLinkPageResponse,
-  AssessmentResultItem,
   AssessmentResultPageResponse,
 } from "./types";
 
@@ -42,7 +41,7 @@ export async function sendAssessmentLinkAction(
     };
 
     const res = await apiFetch<SendAssessmentLinkResponse>(
-      "/v1/assessments/send-assessment-link",
+      ENDPOINTS.assessments.sendLink,
       {
         method: "POST",
         body: JSON.stringify(formattedPayload),
@@ -55,23 +54,23 @@ export async function sendAssessmentLinkAction(
       message: res.message || "Assessment records created successfully",
       data: res.data || [],
     };
-  } catch (err: unknown) {
-    console.error("sendAssessmentLinkAction error:", err);
-    if (err instanceof ApiError) {
+  } catch (error: unknown) {
+    console.error("sendAssessmentLinkAction error:", error);
+    if (error instanceof ApiError) {
       return {
         success: false,
-        status: err.status,
-        message: err.message,
+        status: error.status,
+        message: error.message,
         data: [],
-        error: err.message,
+        error: error.message,
       };
     }
     return {
       success: false,
       status: 500,
-      message: err instanceof Error ? err.message : "Failed to send assessment links",
+      message: error instanceof Error ? error.message : "Failed to send assessment links",
       data: [],
-      error: err instanceof Error ? err.message : "An unexpected error occurred",
+      error: error instanceof Error ? error.message : "An unexpected error occurred",
     };
   }
 }
@@ -112,7 +111,7 @@ export async function getAssessmentLinksAction(params: {
       status: number;
       message: string;
       data: AssessmentLinkPageResponse;
-    }>(`/v1/assessments/links${query}`, {
+    }>(`${ENDPOINTS.assessments.links}${query}`, {
       method: "GET",
     });
 
@@ -122,19 +121,19 @@ export async function getAssessmentLinksAction(params: {
       message: res.message,
       data: res.data,
     };
-  } catch (err: unknown) {
-    console.error("getAssessmentLinksAction error:", err);
-    if (err instanceof ApiError) {
+  } catch (error: unknown) {
+    console.error("getAssessmentLinksAction error:", error);
+    if (error instanceof ApiError) {
       return {
         success: false,
-        status: err.status,
-        error: err.message,
+        status: error.status,
+        error: error.message,
       };
     }
     return {
       success: false,
       status: 500,
-      error: err instanceof Error ? err.message : "Failed to fetch assessment links",
+      error: error instanceof Error ? error.message : "Failed to fetch assessment links",
     };
   }
 }
@@ -176,7 +175,7 @@ export async function getAssessmentResultsAction(params: {
       status: number;
       message: string;
       data: AssessmentResultPageResponse;
-    }>(`/v1/assessments/assessment-result${query}`, {
+    }>(`${ENDPOINTS.assessments.results}${query}`, {
       method: "GET",
     });
 
@@ -186,19 +185,19 @@ export async function getAssessmentResultsAction(params: {
       message: res.message,
       data: res.data,
     };
-  } catch (err: unknown) {
-    console.error("getAssessmentResultsAction error:", err);
-    if (err instanceof ApiError) {
+  } catch (error: unknown) {
+    console.error("getAssessmentResultsAction error:", error);
+    if (error instanceof ApiError) {
       return {
         success: false,
-        status: err.status,
-        error: err.message,
+        status: error.status,
+        error: error.message,
       };
     }
     return {
       success: false,
       status: 500,
-      error: err instanceof Error ? err.message : "Failed to fetch assessment results",
+      error: error instanceof Error ? error.message : "Failed to fetch assessment results",
     };
   }
 }

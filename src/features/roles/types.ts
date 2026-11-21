@@ -31,7 +31,7 @@ export interface RoleDetailResponse {
 }
 
 export interface RolePageResponse {
-  content: RoleItem[];
+  content: Array<RoleItem>;
   page: number;
   size: number;
   totalElements: number;
@@ -52,7 +52,7 @@ export interface PermissionItem {
   category: string;
   supportedScopes: string;
   assigned: boolean;
-  availableScopes?: string[];
+  availableScopes?: Array<string>;
   assignedScope?: string | null;
 }
 
@@ -62,7 +62,7 @@ export interface UpdateRolePermissionPayloadItem {
 }
 
 export interface UpdateRolePermissionsPayload {
-  permissions: UpdateRolePermissionPayloadItem[];
+  permissions: Array<UpdateRolePermissionPayloadItem>;
 }
 
 export interface RolePermissionsData {
@@ -70,7 +70,7 @@ export interface RolePermissionsData {
   roleCode: string;
   roleName: string;
   assignedCount: number;
-  permissions: Record<string, PermissionItem[]>;
+  permissions: Record<string, Array<PermissionItem>>;
 }
 
 export interface RolePermissionsResponse {

@@ -1,5 +1,6 @@
 "use server";
 
+import { ENDPOINTS } from "@/config/endpoints";
 import { apiFetch, ApiError } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth-server";
 import { hasPermission } from "@/lib/auth-jwt";
@@ -57,7 +58,7 @@ export async function getRolesAction(params: {
       status: number;
       message: string;
       data: RolePageResponse;
-    }>(`/v1/roles?${queryParams.toString()}`, {
+    }>(`${ENDPOINTS.roles.list}?${queryParams.toString()}`, {
       method: "GET",
     });
 
@@ -67,19 +68,19 @@ export async function getRolesAction(params: {
       message: res.message,
       data: res.data,
     };
-  } catch (err: unknown) {
-    console.error("getRolesAction error:", err);
-    if (err instanceof ApiError) {
+  } catch (error: unknown) {
+    console.error("getRolesAction error:", error);
+    if (error instanceof ApiError) {
       return {
         success: false,
-        status: err.status,
-        error: err.message,
+        status: error.status,
+        error: error.message,
       };
     }
     return {
       success: false,
       status: 500,
-      error: err instanceof Error ? err.message : "Failed to fetch roles",
+      error: error instanceof Error ? error.message : "Failed to fetch roles",
     };
   }
 }
@@ -108,7 +109,7 @@ export async function getRolePermissionsAction(roleId: number | string): Promise
 
   try {
     const res = await apiFetch<RolePermissionsResponse>(
-      `/v1/permissions/roles/${encodeURIComponent(roleId)}`,
+      ENDPOINTS.roles.permissions(roleId),
       {
         method: "GET",
       }
@@ -120,19 +121,19 @@ export async function getRolePermissionsAction(roleId: number | string): Promise
       message: res.message,
       data: res.data,
     };
-  } catch (err: unknown) {
-    console.error("getRolePermissionsAction error:", err);
-    if (err instanceof ApiError) {
+  } catch (error: unknown) {
+    console.error("getRolePermissionsAction error:", error);
+    if (error instanceof ApiError) {
       return {
         success: false,
-        status: err.status,
-        error: err.message,
+        status: error.status,
+        error: error.message,
       };
     }
     return {
       success: false,
       status: 500,
-      error: err instanceof Error ? err.message : "Failed to fetch role permissions",
+      error: error instanceof Error ? error.message : "Failed to fetch role permissions",
     };
   }
 }
@@ -167,7 +168,7 @@ export async function getRoleByIdAction(roleId: number | string): Promise<{
       status: number;
       message: string;
       data: RolePageResponse;
-    }>(`/v1/roles?page=0&size=100&sort=name,asc&search=`, {
+    }>(`${ENDPOINTS.roles.list}?page=0&size=100&sort=name,asc&search=`, {
       method: "GET",
     });
 
@@ -179,14 +180,14 @@ export async function getRoleByIdAction(roleId: number | string): Promise<{
         data: found,
       };
     }
-  } catch (listErr) {
-    console.warn(`GET /v1/roles lookup for role ${roleId} failed:`, listErr);
+  } catch (error) {
+    console.warn(`GET /v1/roles lookup for role ${roleId} failed:`, error);
   }
 
   // Attempt 2: Direct GET /v1/roles/:id (if supported in some environments)
   try {
     const res = await apiFetch<RoleDetailResponse>(
-      `/v1/roles/${encodeURIComponent(roleId)}`,
+      ENDPOINTS.roles.byId(roleId),
       {
         method: "GET",
       }
@@ -200,20 +201,20 @@ export async function getRoleByIdAction(roleId: number | string): Promise<{
         data: res.data,
       };
     }
-  } catch (err: unknown) {
+  } catch (error: unknown) {
     const isMethodNotAllowed =
-      (err instanceof ApiError && (err.status === 405 || err.message?.toLowerCase().includes("not supported"))) ||
-      (err instanceof Error && err.message?.toLowerCase().includes("not supported"));
+      (error instanceof ApiError && (error.status === 405 || error.message?.toLowerCase().includes("not supported"))) ||
+      (error instanceof Error && error.message?.toLowerCase().includes("not supported"));
 
     if (!isMethodNotAllowed) {
-      console.warn(`GET /v1/roles/${roleId} failed:`, err);
+      console.warn(`GET /v1/roles/${roleId} failed:`, error);
     }
   }
 
   // Attempt 3: Fallback to role permissions endpoint GET /v1/permissions/roles/:roleId which has roleName, roleCode
   try {
     const permRes = await apiFetch<RolePermissionsResponse>(
-      `/v1/permissions/roles/${encodeURIComponent(roleId)}`,
+      ENDPOINTS.roles.permissions(roleId),
       {
         method: "GET",
       }
@@ -234,8 +235,8 @@ export async function getRoleByIdAction(roleId: number | string): Promise<{
         },
       };
     }
-  } catch (permErr) {
-    console.warn(`Fallback GET /v1/permissions/roles/${roleId} failed:`, permErr);
+  } catch (error) {
+    console.warn(`Fallback GET /v1/permissions/roles/${roleId} failed:`, error);
   }
 
   return {
@@ -267,7 +268,7 @@ export async function createRoleAction(payload: CreateRolePayload): Promise<{
   }
 
   try {
-    const res = await apiFetch<RoleDetailResponse>("/v1/roles", {
+    const res = await apiFetch<RoleDetailResponse>(ENDPOINTS.roles.list, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -282,19 +283,19 @@ export async function createRoleAction(payload: CreateRolePayload): Promise<{
       message: res.message || "Role created successfully",
       data: res.data,
     };
-  } catch (err: unknown) {
-    console.error("createRoleAction error:", err);
-    if (err instanceof ApiError) {
+  } catch (error: unknown) {
+    console.error("createRoleAction error:", error);
+    if (error instanceof ApiError) {
       return {
         success: false,
-        status: err.status,
-        error: err.message,
+        status: error.status,
+        error: error.message,
       };
     }
     return {
       success: false,
       status: 500,
-      error: err instanceof Error ? err.message : "Failed to create role",
+      error: error instanceof Error ? error.message : "Failed to create role",
     };
   }
 }
@@ -325,7 +326,7 @@ export async function updateRoleAction(
 
   try {
     const res = await apiFetch<RoleDetailResponse>(
-      `/v1/roles/${encodeURIComponent(roleId)}`,
+      ENDPOINTS.roles.byId(roleId),
       {
         method: "PUT",
         headers: {
@@ -339,8 +340,8 @@ export async function updateRoleAction(
     // Refresh current user session tokens in case active role/permissions were affected
     try {
       await refreshUserSessionAction();
-    } catch (refErr) {
-      console.warn("Session auto-refresh after role update:", refErr);
+    } catch (error) {
+      console.warn("Session auto-refresh after role update:", error);
     }
 
     return {
@@ -349,19 +350,19 @@ export async function updateRoleAction(
       message: res.message || "Role updated successfully",
       data: res.data,
     };
-  } catch (err: unknown) {
-    console.error("updateRoleAction error:", err);
-    if (err instanceof ApiError) {
+  } catch (error: unknown) {
+    console.error("updateRoleAction error:", error);
+    if (error instanceof ApiError) {
       return {
         success: false,
-        status: err.status,
-        error: err.message,
+        status: error.status,
+        error: error.message,
       };
     }
     return {
       success: false,
       status: 500,
-      error: err instanceof Error ? err.message : "Failed to update role",
+      error: error instanceof Error ? error.message : "Failed to update role",
     };
   }
 }
@@ -391,7 +392,7 @@ export async function deleteRoleAction(roleId: number | string): Promise<{
       success: boolean;
       status: number;
       message?: string;
-    }>(`/v1/roles/${encodeURIComponent(roleId)}`, {
+    }>(ENDPOINTS.roles.byId(roleId), {
       method: "DELETE",
     });
 
@@ -400,19 +401,19 @@ export async function deleteRoleAction(roleId: number | string): Promise<{
       status: res?.status ?? 200,
       message: res?.message || "Role deleted successfully",
     };
-  } catch (err: unknown) {
-    console.error("deleteRoleAction error:", err);
-    if (err instanceof ApiError) {
+  } catch (error: unknown) {
+    console.error("deleteRoleAction error:", error);
+    if (error instanceof ApiError) {
       return {
         success: false,
-        status: err.status,
-        error: err.message,
+        status: error.status,
+        error: error.message,
       };
     }
     return {
       success: false,
       status: 500,
-      error: err instanceof Error ? err.message : "Failed to delete role",
+      error: error instanceof Error ? error.message : "Failed to delete role",
     };
   }
 }
@@ -444,7 +445,7 @@ export async function updateRolePermissionsAction(
 
   try {
     const res = await apiFetch<RolePermissionsResponse>(
-      `/v1/permissions/roles/${encodeURIComponent(roleId)}`,
+      ENDPOINTS.roles.permissions(roleId),
       {
         method: "PUT",
         headers: {
@@ -458,8 +459,8 @@ export async function updateRolePermissionsAction(
     // Refresh current user session tokens to immediately decode updated auth array
     try {
       await refreshUserSessionAction();
-    } catch (refErr) {
-      console.warn("Session auto-refresh after role permissions update:", refErr);
+    } catch (error) {
+      console.warn("Session auto-refresh after role permissions update:", error);
     }
 
     return {
@@ -468,19 +469,19 @@ export async function updateRolePermissionsAction(
       message: res.message,
       data: res.data,
     };
-  } catch (err: unknown) {
-    console.error("updateRolePermissionsAction error:", err);
-    if (err instanceof ApiError) {
+  } catch (error: unknown) {
+    console.error("updateRolePermissionsAction error:", error);
+    if (error instanceof ApiError) {
       return {
         success: false,
-        status: err.status,
-        error: err.message,
+        status: error.status,
+        error: error.message,
       };
     }
     return {
       success: false,
       status: 500,
-      error: err instanceof Error ? err.message : "Failed to update role permissions",
+      error: error instanceof Error ? error.message : "Failed to update role permissions",
     };
   }
 }

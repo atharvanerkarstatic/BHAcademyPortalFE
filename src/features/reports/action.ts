@@ -1,8 +1,7 @@
 "use server";
 
-import { cookies } from "next/headers";
-import { config } from "@/config/env";
-import { ACCESS_COOKIE } from "@/lib/auth-cookies";
+import { ENDPOINTS } from "@/config/endpoints";
+import { apiFetchText, ApiError } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth-server";
 import { hasPermission } from "@/lib/auth-jwt";
 import { getAllLanguagesAction } from "@/features/languages/action";
@@ -21,62 +20,41 @@ async function fetchCsvReport(pathWithQuery: string, defaultFilename: string): P
   const user = await getCurrentUser();
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
-  if (!hasPermission(userPerms, "audit.read") && !hasPermission(userPerms, "reports.read") && !hasPermission(userPerms, "courses.read") && !hasPermission(userPerms, "system.all")) {
+  if (
+    !hasPermission(userPerms, [
+      "audit.read",
+      "reports.read",
+      "courses.read",
+      "system.all",
+    ])
+  ) {
     return {
       success: false,
       error: "You do not have permission to generate reports.",
     };
   }
 
-  const token = (await cookies()).get(ACCESS_COOKIE)?.value;
-
   try {
-    const res = await fetch(`${config.apiBaseUrl}${pathWithQuery}`, {
-      headers: {
-        accept: "*/*",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      cache: "no-store",
-    });
+    const { text, contentDisposition } = await apiFetchText(pathWithQuery);
 
-    if (!res.ok) {
-      let errMsg = `Failed to generate report (${res.status})`;
-      try {
-        const json = await res.json();
-        if (json?.message) errMsg = json.message;
-        else if (json?.error) errMsg = json.error;
-      } catch {
-        const text = await res.text();
-        if (text) errMsg = text;
-      }
-      console.error(`Export failed for ${pathWithQuery}:`, errMsg);
-      return {
-        success: false,
-        error: errMsg,
-      };
-    }
-
-    const contentDisposition = res.headers.get("content-disposition");
     let filename = defaultFilename;
     if (contentDisposition) {
       const match = contentDisposition.match(/filename\*?=['"]?(?:UTF-\d['"]*)?([^;\r\n"']*)['"]?/i);
-      if (match && match[1]) {
+      if (match?.[1]) {
         filename = decodeURIComponent(match[1]);
       }
     }
 
-    const data = await res.text();
     return {
       success: true,
-      data,
+      data: text,
       filename,
       message: "Report generated successfully",
     };
   } catch (error) {
-    console.error(`Export error for ${pathWithQuery}:`, error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to generate report.",
+      error: error instanceof ApiError || error instanceof Error ? error.message : "Failed to generate report.",
     };
   }
 }
@@ -104,7 +82,10 @@ export async function exportParticipantsResultAction(params: ParticipantsReportP
     endDate: params.endDate ?? "",
   });
 
-  return fetchCsvReport(`/v1/report/participants/export?${query.toString()}`, "participants-result.csv");
+  return fetchCsvReport(
+    `${ENDPOINTS.reports.participantsExport}?${query.toString()}`,
+    "participants-result.csv"
+  );
 }
 
 export type OnDemandVideoReportParams = {
@@ -122,7 +103,10 @@ export async function exportOnDemandVideoAction(params: OnDemandVideoReportParam
     languageId: params.languageId ?? "",
   });
 
-  return fetchCsvReport(`/v1/report/on-demand-video/export?${query.toString()}`, "on-demand-video-pending-assessment.csv");
+  return fetchCsvReport(
+    `${ENDPOINTS.reports.onDemandVideoExport}?${query.toString()}`,
+    "on-demand-video-pending-assessment.csv"
+  );
 }
 
 export type VirtualTrainingDivisionReportParams = {
@@ -142,7 +126,10 @@ export async function exportVirtualTrainingDivisionAction(params: VirtualTrainin
     endDate: params.endDate ?? "",
   });
 
-  return fetchCsvReport(`/v1/report/virtual-training-division/export?${query.toString()}`, "virtual-training-division.csv");
+  return fetchCsvReport(
+    `${ENDPOINTS.reports.virtualTrainingDivisionExport}?${query.toString()}`,
+    "virtual-training-division.csv"
+  );
 }
 
 export type VirtualTrainingRegionReportParams = {
@@ -162,7 +149,10 @@ export async function exportVirtualTrainingRegionAction(params: VirtualTrainingR
     endDate: params.endDate ?? "",
   });
 
-  return fetchCsvReport(`/v1/report/virtual-training-region/export?${query.toString()}`, "virtual-training-region.csv");
+  return fetchCsvReport(
+    `${ENDPOINTS.reports.virtualTrainingRegionExport}?${query.toString()}`,
+    "virtual-training-region.csv"
+  );
 }
 
 export type CourseWiseAssessmentReportParams = {
@@ -191,7 +181,10 @@ export async function exportCourseWiseAssessmentAction(params: CourseWiseAssessm
     endDate: params.endDate ?? "",
   });
 
-  return fetchCsvReport(`/v1/report/module-wise-summary/export?${query.toString()}`, "module-wise-assessment.csv");
+  return fetchCsvReport(
+    `${ENDPOINTS.reports.moduleWiseSummaryExport}?${query.toString()}`,
+    "module-wise-assessment.csv"
+  );
 }
 
 export type TrainerAccessLogsParams = {
@@ -208,7 +201,7 @@ export async function exportTrainerAccessLogsAction(params: TrainerAccessLogsPar
   });
 
   return fetchCsvReport(
-    `/v1/report/trainers-access-log-report/export?${query.toString()}`,
+    `${ENDPOINTS.reports.trainerAccessLogsExport}?${query.toString()}`,
     "trainer-access-logs.csv"
   );
 }
@@ -227,12 +220,19 @@ export async function exportTrainerIpReportAction(params: TrainerIpReportParams)
   });
 
   return fetchCsvReport(
-    `/v1/report/trainers-assessment-ip-report/export?${query.toString()}`,
+    `${ENDPOINTS.reports.trainerIpReportExport}?${query.toString()}`,
     "trainer-ip-report.csv"
   );
 }
 
-export async function getReportFilterOptionsAction() {
+export type ReportFilterOptions = {
+  userEmail: string;
+  languages: Array<{ id: string; name: string }>;
+  courses: Array<{ id: string; name: string }>;
+  trainers: Array<{ id: string; name: string }>;
+};
+
+export async function getReportFilterOptionsAction(): Promise<ReportFilterOptions> {
   const user = await getCurrentUser();
   const [langRes, coursesRes, trainersRes] = await Promise.all([
     getAllLanguagesAction(),
@@ -244,29 +244,32 @@ export async function getReportFilterOptionsAction() {
     userEmail: user?.email || "satyam.pattnaik@stetig.in",
     languages:
       langRes.success && Array.isArray(langRes.data)
-        ? langRes.data.map((l: any, idx: number) => {
-            const id = l.languageId ?? l.id ?? String(idx + 1);
+        ? langRes.data.map((lang, idx) => {
+            const id = lang.languageId ?? String(idx + 1);
             return {
               id: String(id),
-              name: l.language || l.languageCode || `Language ${id}`,
+              name: lang.language || lang.languageCode || `Language ${id}`,
             };
           })
         : [],
     courses:
       coursesRes.success && coursesRes.data?.content
-        ? coursesRes.data.content.map((c: any, idx: number) => {
-            const id = c.id ?? c.courseId ?? String(idx + 1);
+        ? coursesRes.data.content.map((course, idx) => {
+            const id = course.id ?? String(idx + 1);
             return {
               id: String(id),
-              name: c.courseName || `Course #${id}`,
+              name: course.courseName || `Course #${id}`,
             };
           })
         : [],
     trainers:
       trainersRes.success && trainersRes.data?.content
-        ? trainersRes.data.content.map((t: any, idx: number) => {
-            const id = t.id ?? String(idx + 1);
-            const name = [t.firstName, t.lastName].filter(Boolean).join(" ") || t.email || `Trainer #${id}`;
+        ? trainersRes.data.content.map((trainer, idx) => {
+            const id = trainer.id ?? String(idx + 1);
+            const name =
+              [trainer.firstName, trainer.lastName].filter(Boolean).join(" ") ||
+              trainer.email ||
+              `Trainer #${id}`;
             return {
               id: String(id),
               name,

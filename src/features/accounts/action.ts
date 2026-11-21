@@ -1,6 +1,7 @@
 "use server";
 
-import { apiFetch, ApiError } from "@/lib/api";
+import { ENDPOINTS } from "@/config/endpoints";
+import { apiFetch, apiFetchText, ApiError } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth-server";
 import { hasPermission } from "@/lib/auth-jwt";
 import type {
@@ -8,7 +9,6 @@ import type {
   AccountPageResponse,
   ApiResponse,
   BulkImportResponse,
-  BulkImportError,
 } from "./types";
 
 export type GetAccountsParams = {
@@ -58,7 +58,7 @@ export async function getAccountsAction(params: GetAccountsParams = {}) {
 
   try {
     const res = await apiFetch<ApiResponse<AccountPageResponse>>(
-      `/v1/accounts?${searchParams.toString()}`
+      `${ENDPOINTS.accounts.list}?${searchParams.toString()}`
     );
 
     return {
@@ -101,7 +101,7 @@ export async function getAccountByIdAction(idOrBhBp: string) {
 
   try {
     // Try /v1/account/{id} first
-    const res = await apiFetch<ApiResponse<AccountItem>>(`/v1/account/${encodeURIComponent(idOrBhBp)}`);
+    const res = await apiFetch<ApiResponse<AccountItem>>(ENDPOINTS.accounts.byIdSingular(idOrBhBp));
     if (res && res.data) {
       return {
         success: true,
@@ -109,10 +109,10 @@ export async function getAccountByIdAction(idOrBhBp: string) {
         message: res.message,
       };
     }
-  } catch (error) {
+  } catch {
     // If /v1/account/{id} returned 404 or failed, try /v1/accounts/{id}
     try {
-      const altRes = await apiFetch<ApiResponse<AccountItem>>(`/v1/accounts/${encodeURIComponent(idOrBhBp)}`);
+      const altRes = await apiFetch<ApiResponse<AccountItem>>(ENDPOINTS.accounts.byIdPlural(idOrBhBp));
       if (altRes && altRes.data) {
         return {
           success: true,
@@ -164,7 +164,7 @@ export async function getAccountByIdAction(idOrBhBp: string) {
       success: false,
       error: "Account details not found.",
     };
-  } catch (err) {
+  } catch {
     return {
       success: false,
       error: "Failed to load account details.",
@@ -179,7 +179,7 @@ export async function uploadMediaAction(formData: FormData) {
       formData.set("path", `profile_image_${Date.now()}`);
     }
 
-    const res = await apiFetch<ApiResponse<string>>("/v1/upload", {
+    const res = await apiFetch<ApiResponse<string>>(ENDPOINTS.accounts.upload, {
       method: "POST",
       body: formData,
     });
@@ -213,7 +213,7 @@ export async function createAccountAction(payload: FormData | Record<string, unk
 
   try {
     const isFormData = payload instanceof FormData;
-    const res = await apiFetch<ApiResponse<AccountItem>>("/v1/account", {
+    const res = await apiFetch<ApiResponse<AccountItem>>(ENDPOINTS.accounts.create, {
       method: "POST",
       body: isFormData ? payload : JSON.stringify(payload),
     });
@@ -251,7 +251,7 @@ export async function updateAccountAction(
   try {
     const isFormData = payload instanceof FormData;
     const res = await apiFetch<ApiResponse<AccountItem>>(
-      `/v1/account/${encodeURIComponent(idOrBhBp)}`,
+      ENDPOINTS.accounts.byIdSingular(idOrBhBp),
       {
         method: "PUT",
         body: isFormData ? payload : JSON.stringify(payload),
@@ -286,34 +286,14 @@ export async function exportAccountsAction() {
   }
 
   try {
-    const { cookies } = await import("next/headers");
-    const { ACCESS_COOKIE } = await import("@/lib/auth-cookies");
-    const { config } = await import("@/config/env");
-
-    const token = (await cookies()).get(ACCESS_COOKIE)?.value;
-
-    const res = await fetch(`${config.apiBaseUrl}/v1/accounts/export`, {
-      method: "GET",
-      headers: {
-        Accept: "*/*",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      throw new Error(`Export failed with status: ${res.status}`);
-    }
-
-    const csvContent = await res.text();
+    const { text } = await apiFetchText(ENDPOINTS.accounts.export);
 
     return {
       success: true,
-      data: csvContent,
+      data: text,
       filename: `accounts_export_${new Date().toISOString().slice(0, 10)}.csv`,
     };
   } catch (error) {
-    console.error("Failed to export accounts:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to export accounts",
@@ -333,7 +313,7 @@ export async function importAccountsAction(formData: FormData) {
   }
 
   try {
-    const res = await apiFetch<ApiResponse<BulkImportResponse>>("/v1/accounts/import", {
+    const res = await apiFetch<ApiResponse<BulkImportResponse>>(ENDPOINTS.accounts.import, {
       method: "POST",
       body: formData,
     });
@@ -366,7 +346,7 @@ export async function importAccountBhbpAction(formData: FormData) {
   }
 
   try {
-    const res = await apiFetch<ApiResponse<BulkImportResponse>>("/v1/accounts/import-bhbp", {
+    const res = await apiFetch<ApiResponse<BulkImportResponse>>(ENDPOINTS.accounts.importBhbp, {
       method: "POST",
       body: formData,
     });
@@ -395,26 +375,7 @@ export type SampleImportType =
 
 export async function getSampleImportAction(type: SampleImportType) {
   try {
-    const { cookies } = await import("next/headers");
-    const { ACCESS_COOKIE } = await import("@/lib/auth-cookies");
-    const { config } = await import("@/config/env");
-
-    const token = (await cookies()).get(ACCESS_COOKIE)?.value;
-
-    const res = await fetch(`${config.apiBaseUrl}/v1/import/sample/${type}`, {
-      method: "GET",
-      headers: {
-        Accept: "*/*",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      throw new Error(`Failed to fetch sample file: ${res.status}`);
-    }
-
-    const content = await res.text();
+    const { text } = await apiFetchText(ENDPOINTS.accounts.sampleImport(type));
     const filenameMap: Record<SampleImportType, string> = {
       ACCOUNTS: "accounts_sample.csv",
       ACCOUNT_BHBP: "account_bhbp_sample.csv",
@@ -425,11 +386,10 @@ export async function getSampleImportAction(type: SampleImportType) {
 
     return {
       success: true,
-      data: content,
+      data: text,
       filename: filenameMap[type] || `${type.toLowerCase()}_sample.csv`,
     };
   } catch (error) {
-    console.error(`Failed to fetch sample for ${type}:`, error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to download sample file.",

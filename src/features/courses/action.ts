@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiFetch, ApiError } from "@/lib/api";
+import { ENDPOINTS } from "@/config/endpoints";
+import { apiFetch, apiFetchText, ApiError } from "@/lib/api";
+import { createEmptyPage } from "@/lib/type-guards";
 
 import { getCurrentUser } from "@/lib/auth-server";
 import { hasPermission } from "@/lib/auth-jwt";
@@ -29,17 +31,7 @@ export async function getCoursesAction(params: GetCoursesParams = {}) {
     return {
       success: false,
       error: "You do not have permission to view courses.",
-      data: {
-        content: [],
-        page: 1,
-        size: params.size ?? 10,
-        totalElements: 0,
-        totalPages: 0,
-        first: true,
-        last: true,
-        hasNext: false,
-        hasPrevious: false,
-      } as CoursePageResponse,
+      data: createEmptyPage<CourseItem>(params.size ?? 10) satisfies CoursePageResponse,
     };
   }
 
@@ -62,7 +54,7 @@ export async function getCoursesAction(params: GetCoursesParams = {}) {
 
   try {
     const res = await apiFetch<ApiResponse<CoursePageResponse>>(
-      `/v1/courses?${searchParams.toString()}`
+      `${ENDPOINTS.courses.list}?${searchParams.toString()}`
     );
 
     return {
@@ -71,23 +63,12 @@ export async function getCoursesAction(params: GetCoursesParams = {}) {
       message: res.message,
     };
   } catch (error) {
-    console.error("Failed to fetch courses:", error);
     const message =
       error instanceof ApiError ? error.message : "Failed to load courses. Please try again.";
     return {
       success: false,
       error: message,
-      data: {
-        content: [],
-        page: 1,
-        size,
-        totalElements: 0,
-        totalPages: 0,
-        first: true,
-        last: true,
-        hasNext: false,
-        hasPrevious: false,
-      } as CoursePageResponse,
+      data: createEmptyPage<CourseItem>(size) satisfies CoursePageResponse,
     };
   }
 }
@@ -100,13 +81,13 @@ export async function getCategoryCoursesAction(categoryId: string | number) {
     return {
       success: false,
       error: "You do not have permission to view courses.",
-      data: [] as CourseItem[],
+      data: [] as Array<CourseItem>,
     };
   }
 
   try {
-    const res = await apiFetch<ApiResponse<CourseItem[]>>(
-      `/v1/category/courses/${encodeURIComponent(String(categoryId))}`
+    const res = await apiFetch<ApiResponse<Array<CourseItem>>>(
+      ENDPOINTS.courses.byCategory(categoryId)
     );
 
     return {
@@ -121,7 +102,7 @@ export async function getCategoryCoursesAction(categoryId: string | number) {
     return {
       success: false,
       error: message,
-      data: [] as CourseItem[],
+      data: [] as Array<CourseItem>,
     };
   }
 }
@@ -138,7 +119,7 @@ export async function getCourseByIdAction(id: number | string) {
   }
 
   try {
-    const res = await apiFetch<ApiResponse<CourseItem>>(`/v1/courses/${id}`);
+    const res = await apiFetch<ApiResponse<CourseItem>>(ENDPOINTS.courses.byId(id));
     return {
       success: true,
       data: res.data,
@@ -167,7 +148,7 @@ export async function createCourseAction(payload: CreateCoursePayload) {
   }
 
   try {
-    const res = await apiFetch<ApiResponse<CourseItem>>("/v1/courses", {
+    const res = await apiFetch<ApiResponse<CourseItem>>(ENDPOINTS.courses.list, {
       method: "POST",
       body: JSON.stringify(payload),
     });
@@ -203,7 +184,7 @@ export async function updateCourseAction(id: number | string, payload: UpdateCou
   }
 
   try {
-    const res = await apiFetch<ApiResponse<CourseItem>>(`/v1/courses/${id}`, {
+    const res = await apiFetch<ApiResponse<CourseItem>>(ENDPOINTS.courses.byId(id), {
       method: "PUT",
       body: JSON.stringify(payload),
     });
@@ -239,7 +220,7 @@ export async function toggleCourseStatusAction(id: number | string) {
   }
 
   try {
-    const res = await apiFetch<ApiResponse<string>>(`/v1/courses/${id}/toggle-status`, {
+    const res = await apiFetch<ApiResponse<string>>(ENDPOINTS.courses.toggleStatus(id), {
       method: "PATCH",
     });
 
@@ -274,7 +255,7 @@ export async function deleteCourseAction(id: number | string) {
   }
 
   try {
-    const res = await apiFetch<ApiResponse<void>>(`/v1/courses/${id}`, {
+    const res = await apiFetch<ApiResponse<void>>(ENDPOINTS.courses.byId(id), {
       method: "DELETE",
     });
 
@@ -302,7 +283,7 @@ export async function getCourseTranslationByLanguageAction(
 ) {
   try {
     const res = await apiFetch<ApiResponse<CourseItem>>(
-      `/v1/courses/${courseId}/language/${encodeURIComponent(langCode)}`
+      ENDPOINTS.courses.translationByLang(courseId, langCode)
     );
 
     return {
@@ -363,7 +344,7 @@ export async function updateCourseTranslationAction(
     };
 
     const res = await apiFetch<ApiResponse<CourseItem>>(
-      `/v1/courses/${courseId}/translations`,
+      ENDPOINTS.courses.translations(courseId),
       {
         method: "PUT",
         body: JSON.stringify(requestBody),
@@ -403,34 +384,14 @@ export async function exportCoursesAction() {
   }
 
   try {
-    const { cookies } = await import("next/headers");
-    const { ACCESS_COOKIE } = await import("@/lib/auth-cookies");
-    const { config } = await import("@/config/env");
-
-    const token = (await cookies()).get(ACCESS_COOKIE)?.value;
-
-    const res = await fetch(`${config.apiBaseUrl}/v1/courses/export`, {
-      method: "GET",
-      headers: {
-        Accept: "*/*",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      throw new Error(`Export failed with status: ${res.status}`);
-    }
-
-    const csvContent = await res.text();
+    const { text } = await apiFetchText(ENDPOINTS.courses.export);
 
     return {
       success: true,
-      data: csvContent,
+      data: text,
       filename: `courses_export_${new Date().toISOString().slice(0, 10)}.csv`,
     };
   } catch (error) {
-    console.error("Failed to export courses:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to export courses.",
@@ -460,7 +421,7 @@ export async function getCourseVideosAction(params: {
   languageId?: number | string;
 }) {
   try {
-    const res = await apiFetch<ApiResponse<CourseVideoItem[]>>("/v1/course/videos", {
+    const res = await apiFetch<ApiResponse<Array<CourseVideoItem>>>(ENDPOINTS.courses.videosPost, {
       method: "POST",
       body: JSON.stringify({
         courseId: Number(params.courseId) || params.courseId,
@@ -495,7 +456,7 @@ export type CourseImportResponse = {
   totalRows: number;
   successCount: number;
   failureCount: number;
-  errors?: CourseImportError[];
+  errors?: Array<CourseImportError>;
 };
 
 export async function importCourseTranslationsAction(
@@ -514,7 +475,7 @@ export async function importCourseTranslationsAction(
 
   try {
     const res = await apiFetch<ApiResponse<CourseImportResponse>>(
-      `/v1/courses/${encodeURIComponent(courseIdentifier)}/import/language`,
+      ENDPOINTS.courses.importTranslations(courseIdentifier),
       {
         method: "POST",
         body: formData,
@@ -566,7 +527,7 @@ export async function importCourseVideosAction(
 
   try {
     const res = await apiFetch<ApiResponse<CourseImportResponse>>(
-      `/v1/course/${encodeURIComponent(courseIdentifier)}/videos/import`,
+      ENDPOINTS.courses.importVideos(courseIdentifier),
       {
         method: "POST",
         body: formData,
@@ -615,8 +576,8 @@ export async function getCourseVideosByLangAction(
   languageCode: string
 ) {
   try {
-    const res = await apiFetch<ApiResponse<CourseVideoItem[]>>(
-      `/v1/courses/${encodeURIComponent(courseId)}/languages/${encodeURIComponent(languageCode)}/videos`,
+    const res = await apiFetch<ApiResponse<Array<CourseVideoItem>>>(
+      ENDPOINTS.courses.videosByLang(courseId, languageCode),
       {
         method: "GET",
       }
@@ -632,7 +593,7 @@ export async function getCourseVideosByLangAction(
     return {
       success: false,
       error: error instanceof ApiError ? error.message : "Failed to load course videos.",
-      data: [] as CourseVideoItem[],
+      data: [] as Array<CourseVideoItem>,
     };
   }
 }
@@ -644,7 +605,7 @@ export async function createCourseVideoAction(
 ) {
   try {
     const res = await apiFetch<ApiResponse<CourseVideoItem>>(
-      `/v1/courses/${encodeURIComponent(courseId)}/language/${encodeURIComponent(languageCode)}/videos`,
+      ENDPOINTS.courses.createVideoByLang(courseId, languageCode),
       {
         method: "POST",
         body: JSON.stringify(payload),
@@ -674,7 +635,7 @@ export async function updateSingleVideoAction(
 ) {
   try {
     const res = await apiFetch<ApiResponse<CourseVideoItem>>(
-      `/v1/courses/${encodeURIComponent(courseId)}/languages/${encodeURIComponent(languageCode)}/video/${encodeURIComponent(videoId)}`,
+      ENDPOINTS.courses.updateVideoByLang(courseId, languageCode, videoId),
       {
         method: "PUT",
         body: JSON.stringify(payload),
@@ -705,7 +666,7 @@ export async function deleteCourseVideoAction(
 ) {
   try {
     const res = await apiFetch<ApiResponse<void>>(
-      `/v1/video/${encodeURIComponent(videoId)}`,
+      ENDPOINTS.courses.deleteVideo(videoId),
       {
         method: "DELETE",
       }
@@ -794,8 +755,8 @@ export async function getCourseQuizzesAction(
 ) {
   try {
     const query = quizType ? `?quizType=${encodeURIComponent(quizType)}` : "";
-    const res = await apiFetch<ApiResponse<CourseQuizItem[]>>(
-      `/v1/courses/${encodeURIComponent(courseId)}/languages/${encodeURIComponent(languageCode)}/quizzes${query}`,
+    const res = await apiFetch<ApiResponse<Array<CourseQuizItem>>>(
+      `${ENDPOINTS.courses.quizzesByLang(courseId, languageCode)}${query}`,
       {
         method: "GET",
       }
@@ -811,7 +772,7 @@ export async function getCourseQuizzesAction(
     return {
       success: false,
       error: error instanceof ApiError ? error.message : "Failed to load course quizzes.",
-      data: [] as CourseQuizItem[],
+      data: [] as Array<CourseQuizItem>,
     };
   }
 }
@@ -819,7 +780,7 @@ export async function getCourseQuizzesAction(
 export async function createQuizAction(payload: CreateQuizPayload) {
   try {
     const res = await apiFetch<ApiResponse<CourseQuizItem>>(
-      `/v1/quiz`,
+      ENDPOINTS.courses.quizCreate,
       {
         method: "POST",
         body: JSON.stringify(payload),
@@ -849,7 +810,7 @@ export async function updateQuizAction(
 ) {
   try {
     const res = await apiFetch<ApiResponse<CourseQuizItem>>(
-      `/v1/quiz/${encodeURIComponent(quizId)}`,
+      ENDPOINTS.courses.quizUpdate(quizId),
       {
         method: "PUT",
         body: JSON.stringify(payload),
@@ -879,7 +840,7 @@ export async function deleteQuizAction(
 ) {
   try {
     const res = await apiFetch<ApiResponse<void>>(
-      `/v1/quizzes/${encodeURIComponent(quizId)}`,
+      ENDPOINTS.courses.quizDelete(quizId),
       {
         method: "DELETE",
       }
@@ -923,7 +884,7 @@ export async function importCourseQuizzesAction(
 
   try {
     const res = await apiFetch<ApiResponse<CourseImportResponse>>(
-      `/v1/courses/${encodeURIComponent(courseIdentifier)}/quiz/import`,
+      ENDPOINTS.courses.importQuizzes(courseIdentifier),
       {
         method: "POST",
         body: formData,

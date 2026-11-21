@@ -1,74 +1,38 @@
 "use client";
 
-import { useEffect, useState, useTransition, useMemo } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { RefreshCw, Search, CheckCircle2, XCircle, BarChart3 } from "lucide-react";
 
-import { DataTable, type Column } from "@/components/common/data-table";
+import { DataTable } from '@/components/common/data-table';
+import type { Column } from '@/components/common/data-table';
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { getAssessmentResultsAction } from "@/features/assessments/action";
-import type { AssessmentResultItem } from "@/features/assessments/types";
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
+import type {
+  AssessmentResultItem,
+  AssessmentResultPageResponse,
+} from "@/features/assessments/types";
+
+const PAGE_SIZE = 10;
+
+const EMPTY_PAGE = {
+  content: [] as Array<AssessmentResultItem>,
+  totalElements: 0,
+  totalPages: 0,
+};
 
 export default function AssessmentResultsPage() {
   const { success, error: toastError } = useToast();
-  const pathname = usePathname();
 
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
   const [page, setPage] = useState(1);
-  const pageSize = 10;
-
-  const [pageData, setPageData] = useState<{
-    content: AssessmentResultItem[];
-    totalElements: number;
-    totalPages: number;
-  }>({
-    content: [],
-    totalElements: 0,
-    totalPages: 0,
-  });
-
-  const [isPending, startTransition] = useTransition();
-
-  const loadAssessmentResults = (
-    targetPage = page,
-    searchTerm = activeSearch,
-    showSuccessToast = false
-  ) => {
-    startTransition(async () => {
-      const res = await getAssessmentResultsAction({
-        page: targetPage,
-        size: pageSize,
-        search: searchTerm,
-      });
-
-      if (res.success && res.data) {
-        setPageData({
-          content: res.data.content || [],
-          totalElements: res.data.totalElements || 0,
-          totalPages: res.data.totalPages || 0,
-        });
-        if (showSuccessToast) {
-          success("Assessment results refreshed successfully");
-        }
-      } else {
-        toastError(res.error || "Failed to load assessment results");
-      }
-    });
-  };
-
-  // Reset search filter whenever navigating away or returning to this route
-  useEffect(() => {
-    return () => {
-      setSearchInput("");
-      setActiveSearch("");
-      setPage(1);
-    };
-  }, [pathname]);
+  const pageSize = PAGE_SIZE;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -79,10 +43,41 @@ export default function AssessmentResultsPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  useEffect(() => {
-    loadAssessmentResults(page, activeSearch);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, activeSearch]);
+  const { data: queryData, isLoading, refetch } = useQuery({
+    queryKey: queryKeys.assessments.results({ page, size: pageSize, search: activeSearch }),
+    queryFn: ({ signal }) =>
+      portalGet<AssessmentResultPageResponse>(
+        "assessments/results",
+        { page, size: pageSize, search: activeSearch },
+        signal
+      ),
+    placeholderData: keepPreviousData,
+  });
+
+  const pageData = queryData
+    ? {
+        content: queryData.content || [],
+        totalElements: queryData.totalElements || 0,
+        totalPages: queryData.totalPages || 0,
+      }
+    : EMPTY_PAGE;
+
+  const isPending = isLoading;
+
+  const loadAssessmentResults = (
+    targetPage = page,
+    _searchTerm = activeSearch,
+    showSuccessToast = false
+  ) => {
+    setPage(targetPage);
+    void refetch().then((result) => {
+      if (result.error) {
+        toastError(result.error.message || "Failed to load assessment results");
+      } else if (showSuccessToast) {
+        success("Assessment results refreshed successfully");
+      }
+    });
+  };
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
@@ -100,8 +95,8 @@ export default function AssessmentResultsPage() {
     setActiveSearch("");
   };
 
-  const columns: Column<AssessmentResultItem>[] = useMemo(() => {
-    const cols: Column<AssessmentResultItem>[] = [
+  const columns: Array<Column<AssessmentResultItem>> = useMemo(() => {
+    const cols: Array<Column<AssessmentResultItem>> = [
       {
         header: "ID",
         cell: (r) => (

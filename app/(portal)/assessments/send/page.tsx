@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
-  Calendar,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -14,16 +14,17 @@ import {
   Plus,
   Send,
   Trash2,
-  UserCheck,
   X,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { getReportFilterOptionsAction } from "@/features/reports/action";
+import type { ReportFilterOptions } from "@/features/reports/action";
 import { sendAssessmentLinkAction } from "@/features/assessments/action";
 import type { AssessmentRecordItem } from "@/features/assessments/types";
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
 import {
   isValidMobileNumber,
   sanitizeMobileNumber,
@@ -32,11 +33,16 @@ import {
 export default function SendAssessmentLinkPage() {
   const { error: toastError, success: toastSuccess } = useToast();
 
-  // Dropdown options
-  const [trainers, setTrainers] = useState<{ id: string; name: string }[]>([]);
-  const [courses, setCourses] = useState<{ id: string; name: string }[]>([]);
-  const [languages, setLanguages] = useState<{ id: string; name: string }[]>([]);
-  const [loadingOptions, setLoadingOptions] = useState(true);
+  // Shared reference dropdown cache
+  const { data: filterOptions, isLoading: loadingOptions } = useQuery({
+    queryKey: queryKeys.reportFilters,
+    queryFn: ({ signal }) => portalGet<ReportFilterOptions>("report-filters", undefined, signal),
+    staleTime: 5 * 60_000,
+  });
+
+  const trainers = filterOptions?.trainers ?? [];
+  const courses = filterOptions?.courses ?? [];
+  const languages = filterOptions?.languages ?? [];
 
   // Form states
   const [trainerId, setTrainerId] = useState("");
@@ -48,13 +54,13 @@ export default function SendAssessmentLinkPage() {
   });
 
   // Mobile numbers array
-  const [mobileNumbers, setMobileNumbers] = useState<string[]>([""]);
+  const [mobileNumbers, setMobileNumbers] = useState<Array<string>>([""]);
 
   // Filter container collapse state matching ReportPageLayout
   const [filterCollapsed, setFilterCollapsed] = useState(false);
 
   // Results state
-  const [createdRecords, setCreatedRecords] = useState<AssessmentRecordItem[]>([]);
+  const [createdRecords, setCreatedRecords] = useState<Array<AssessmentRecordItem>>([]);
   const [statusBanner, setStatusBanner] = useState<{
     show: boolean;
     message: string;
@@ -66,27 +72,6 @@ export default function SendAssessmentLinkPage() {
   });
 
   const [isPending, startTransition] = useTransition();
-
-  useEffect(() => {
-    let mounted = true;
-    getReportFilterOptionsAction()
-      .then((res) => {
-        if (!mounted) return;
-        if (res.trainers) setTrainers(res.trainers);
-        if (res.courses) setCourses(res.courses);
-        if (res.languages) setLanguages(res.languages);
-      })
-      .catch((err) => {
-        console.error("Failed to load options for Send Assessment:", err);
-      })
-      .finally(() => {
-        if (mounted) setLoadingOptions(false);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   const handleMobileChange = (index: number, val: string) => {
     const sanitized = sanitizeMobileNumber(val);

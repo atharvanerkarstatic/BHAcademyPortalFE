@@ -11,21 +11,21 @@ export interface TrainerItem {
   profilePic?: string;
   pinCode?: string | null;
   pincode?: string | null;
-  roleCodes?: string[];
-  roles?: {
+  roleCodes?: Array<string>;
+  roles?: Array<{
     id: number;
     code: string;
     name: string;
     systemRole?: boolean;
     active?: boolean;
-  }[];
+  }>;
   lastLoginAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 }
 
 export interface TrainerPageResponse {
-  content: TrainerItem[];
+  content: Array<TrainerItem>;
   page: number;
   size: number;
   totalElements: number;

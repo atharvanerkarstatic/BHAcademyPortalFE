@@ -91,13 +91,13 @@ function EditFaqContent() {
   }, []);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) {return;}
 
     let mounted = true;
     (async () => {
       setFetching(true);
       const res = await getFaqByIdAction(id);
-      if (!mounted) return;
+      if (!mounted) {return;}
 
       if (res.success && res.data) {
         populateFromItem(res.data);
@@ -129,13 +129,13 @@ function EditFaqContent() {
 
     const sanitizedQuestions: Record<string, string> = {};
     for (const [key, val] of Object.entries(questions)) {
-      if (!val) continue;
+      if (!val) {continue;}
       sanitizedQuestions[key] = sanitizeTextInput(val, 500);
     }
 
     const sanitizedAnswers: Record<string, string> = {};
     for (const [key, val] of Object.entries(answers)) {
-      if (!val) continue;
+      if (!val) {continue;}
       sanitizedAnswers[key] = sanitizeTextInput(val, 5000);
     }
 

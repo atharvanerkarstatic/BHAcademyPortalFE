@@ -1,78 +1,39 @@
 "use client";
 
-import { useEffect, useState, useTransition, useMemo } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Plus, RefreshCw, Search } from "lucide-react";
 
-import { DataTable, type Column } from "@/components/common/data-table";
+import { DataTable } from '@/components/common/data-table';
+import type { Column } from '@/components/common/data-table';
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
-import { getAssessmentLinksAction } from "@/features/assessments/action";
-import type { AssessmentLinkItem } from "@/features/assessments/types";
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
+import type { AssessmentLinkItem, AssessmentLinkPageResponse } from "@/features/assessments/types";
+
+const PAGE_SIZE = 10;
+
+const EMPTY_PAGE = {
+  content: [] as Array<AssessmentLinkItem>,
+  totalElements: 0,
+  totalPages: 0,
+};
 
 export default function AssessmentLinksPage() {
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
-  const pathname = usePathname();
 
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
   const [page, setPage] = useState(1);
-  const pageSize = 10;
-
-  const [pageData, setPageData] = useState<{
-    content: AssessmentLinkItem[];
-    totalElements: number;
-    totalPages: number;
-  }>({
-    content: [],
-    totalElements: 0,
-    totalPages: 0,
-  });
-
-  const [isPending, startTransition] = useTransition();
+  const pageSize = PAGE_SIZE;
 
   const canCreate = can("courses.create") || can("courses.read");
-
-  const loadAssessmentLinks = (
-    targetPage = page,
-    searchTerm = activeSearch,
-    showSuccessToast = false
-  ) => {
-    startTransition(async () => {
-      const res = await getAssessmentLinksAction({
-        page: targetPage,
-        size: pageSize,
-        search: searchTerm,
-      });
-
-      if (res.success && res.data) {
-        setPageData({
-          content: res.data.content || [],
-          totalElements: res.data.totalElements || 0,
-          totalPages: res.data.totalPages || 0,
-        });
-        if (showSuccessToast) {
-          success("Assessment links refreshed successfully");
-        }
-      } else {
-        toastError(res.error || "Failed to load assessment links");
-      }
-    });
-  };
-
-  // Reset search filter whenever navigating away or returning to this route
-  useEffect(() => {
-    return () => {
-      setSearchInput("");
-      setActiveSearch("");
-      setPage(1);
-    };
-  }, [pathname]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -83,10 +44,41 @@ export default function AssessmentLinksPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  useEffect(() => {
-    loadAssessmentLinks(page, activeSearch);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, activeSearch]);
+  const { data: queryData, isLoading, refetch } = useQuery({
+    queryKey: queryKeys.assessments.links({ page, size: pageSize, search: activeSearch }),
+    queryFn: ({ signal }) =>
+      portalGet<AssessmentLinkPageResponse>(
+        "assessments/links",
+        { page, size: pageSize, search: activeSearch },
+        signal
+      ),
+    placeholderData: keepPreviousData,
+  });
+
+  const pageData = queryData
+    ? {
+        content: queryData.content || [],
+        totalElements: queryData.totalElements || 0,
+        totalPages: queryData.totalPages || 0,
+      }
+    : EMPTY_PAGE;
+
+  const isPending = isLoading;
+
+  const loadAssessmentLinks = (
+    targetPage = page,
+    _searchTerm = activeSearch,
+    showSuccessToast = false
+  ) => {
+    setPage(targetPage);
+    void refetch().then((result) => {
+      if (result.error) {
+        toastError(result.error.message || "Failed to load assessment links");
+      } else if (showSuccessToast) {
+        success("Assessment links refreshed successfully");
+      }
+    });
+  };
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
@@ -104,8 +96,8 @@ export default function AssessmentLinksPage() {
     setActiveSearch("");
   };
 
-  const columns: Column<AssessmentLinkItem>[] = useMemo(() => {
-    const cols: Column<AssessmentLinkItem>[] = [
+  const columns: Array<Column<AssessmentLinkItem>> = useMemo(() => {
+    const cols: Array<Column<AssessmentLinkItem>> = [
       {
         header: "ID",
         cell: (r) => (
@@ -156,7 +148,7 @@ export default function AssessmentLinksPage() {
       {
         header: "Link ID",
         cell: (r) => {
-          if (!r.linkId) return <span className="text-xs text-slate-400">—</span>;
+          if (!r.linkId) {return <span className="text-xs text-slate-400">—</span>;}
           return (
             <span className="font-mono text-xs text-slate-600 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200 truncate max-w-[120px] inline-block">
               {r.linkId}

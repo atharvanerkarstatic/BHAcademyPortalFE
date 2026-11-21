@@ -1,10 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
-import { apiFetch, ApiError } from "@/lib/api";
-import { config } from "@/config/env";
-import { ACCESS_COOKIE } from "@/lib/auth-cookies";
+import { ENDPOINTS } from "@/config/endpoints";
+import { apiFetch, apiFetchText, ApiError } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth-server";
 import { hasPermission } from "@/lib/auth-jwt";
 import type { RolePageResponse } from "@/features/roles/types";
@@ -65,7 +63,7 @@ export async function getTrainersAction(params: GetTrainersParams = {}) {
       status: number;
       message: string;
       data: TrainerPageResponse;
-    }>(`/v1/users?${searchParams.toString()}`);
+    }>(`${ENDPOINTS.users.list}?${searchParams.toString()}`);
 
     return {
       success: true,
@@ -111,7 +109,7 @@ export async function getTrainerByIdAction(id: number | string) {
       status: number;
       message: string;
       data: TrainerItem;
-    }>(`/v1/users/${id}`);
+    }>(ENDPOINTS.users.byId(id));
 
     return {
       success: true,
@@ -151,7 +149,7 @@ export async function createTrainerAction(payload: CreateTrainerPayload) {
       success: boolean;
       message: string;
       data: RolePageResponse;
-    }>(`/v1/roles?${query.toString()}`);
+    }>(`${ENDPOINTS.roles.list}?${query.toString()}`);
 
     if (!rolesRes.success) {
       return {
@@ -164,7 +162,7 @@ export async function createTrainerAction(payload: CreateTrainerPayload) {
       (role) => role.code === "TRAINER" && role.isActive === true
     );
 
-    if (!trainerRole || trainerRole.id == null) {
+    if (!trainerRole || trainerRole.id === null || trainerRole.id === undefined) {
       return {
         success: false,
         error: "Trainer role not found. Contact your administrator.",
@@ -188,7 +186,7 @@ export async function createTrainerAction(payload: CreateTrainerPayload) {
       status: number;
       message: string;
       data: TrainerItem;
-    }>("/v1/users", {
+    }>(ENDPOINTS.users.list, {
       method: "POST",
       body: JSON.stringify(body),
     });
@@ -238,7 +236,7 @@ export async function updateTrainerAction(id: number | string, payload: UpdateTr
       status: number;
       message: string;
       data: TrainerItem;
-    }>(`/v1/users/${id}`, {
+    }>(ENDPOINTS.users.byId(id), {
       method: "PUT",
       body: JSON.stringify(body),
     });
@@ -282,7 +280,7 @@ export async function updateTrainerStatusAction(
       status: number;
       message: string;
       data?: unknown;
-    }>(`/v1/users/${id}/status`, {
+    }>(ENDPOINTS.users.status(id), {
       method: "PATCH",
       body: JSON.stringify({ status }),
     });
@@ -321,7 +319,7 @@ export async function deleteTrainerAction(id: number | string) {
       success: boolean;
       status: number;
       message: string;
-    }>(`/v1/users/${id}`, {
+    }>(ENDPOINTS.users.byId(id), {
       method: "DELETE",
     });
 
@@ -354,31 +352,15 @@ export async function exportTrainersAction() {
   }
 
   try {
-    const token = (await cookies()).get(ACCESS_COOKIE)?.value;
-
-    const res = await fetch(`${config.apiBaseUrl}/v1/export/TRAINER`, {
-      method: "GET",
-      headers: {
-        Accept: "text/csv",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      throw new Error(`Export failed with status: ${res.status}`);
-    }
-
-    const csvContent = await res.text();
+    const { text } = await apiFetchText(ENDPOINTS.users.exportTrainers, {}, "text/csv");
 
     return {
       success: true,
-      data: csvContent,
+      data: text,
       filename: `trainers_export_${new Date().toISOString().slice(0, 10)}.csv`,
       message: "Trainers exported successfully",
     };
   } catch (error) {
-    console.error("Failed to export trainers:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to export trainers.",

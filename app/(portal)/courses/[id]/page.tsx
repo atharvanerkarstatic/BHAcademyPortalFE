@@ -1,31 +1,27 @@
 "use client";
 
-import { useEffect, useState, useTransition, useRef } from "react";
-import { useParams, useRouter, usePathname } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useState, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
   AlertTriangle,
   Check,
-  CheckCircle2,
   ChevronDown,
   Download,
   Edit,
   ExternalLink,
   GripVertical,
   ImageIcon,
-  Languages,
   List,
   Loader2,
   Pencil,
   Plus,
-  Star,
   Trash2,
-  Video,
   XCircle,
 } from "lucide-react";
 
-import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -44,35 +40,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
-import {
-  getCourseByIdAction,
-  deleteCourseAction,
-  getCourseVideosAction,
-  getCourseVideosByLangAction,
-  createCourseVideoAction,
-  updateSingleVideoAction,
-  deleteCourseVideoAction,
-  getCourseQuizzesAction,
-  createQuizAction,
-  updateQuizAction,
-  deleteQuizAction,
-  getCourseTranslationByLanguageAction,
-  updateCourseTranslationAction,
-  importCourseTranslationsAction,
-  importCourseVideosAction,
-  importCourseQuizzesAction,
-  type CourseVideoItem,
-  type CourseQuizItem,
-  type CreateQuizPayload,
-  type CourseImportResponse,
-} from "@/features/courses/action";
+import { getCourseByIdAction, deleteCourseAction, getCourseVideosAction, getCourseVideosByLangAction, createCourseVideoAction, updateSingleVideoAction, deleteCourseVideoAction, getCourseQuizzesAction, createQuizAction, updateQuizAction, deleteQuizAction, getCourseTranslationByLanguageAction, updateCourseTranslationAction, importCourseTranslationsAction, importCourseVideosAction, importCourseQuizzesAction } from '@/features/courses/action';
+import type { CourseVideoItem, CourseQuizItem, CreateQuizPayload, CourseImportResponse } from '@/features/courses/action';
 import { uploadMediaAction, getSampleImportAction } from "@/features/accounts/action";
 import { validateImageFile } from "@/lib/validations";
 import { LanguageSelect } from "@/features/languages/components/language-select";
-import { getAllLanguagesAction } from "@/features/languages/action";
 import type { LanguageItem } from "@/features/languages/types";
 import type { CourseItem } from "@/features/courses/types";
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
+import { useCourseWorkspaceStore } from "@/stores/course-workspace-store";
 
 // Course Language row definition
 type CourseLangRow = {
@@ -114,36 +92,53 @@ const LANGUAGES_META: Array<{
 export default function CourseDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const pathname = usePathname();
-  const id = params.id as string;
+  const queryClient = useQueryClient();
+  const id = String(params.id ?? "");
 
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
 
-  const [course, setCourse] = useState<CourseItem | null>(null);
-  const [fetching, setFetching] = useState(true);
+  // Workspace navigation & language selection (Zustand)
+  const viewMode = useCourseWorkspaceStore((state) => state.viewMode);
+  const setViewMode = useCourseWorkspaceStore((state) => state.setViewMode);
+  const activeDetailsTab = useCourseWorkspaceStore((state) => state.activeDetailsTab);
+  const setActiveDetailsTab = useCourseWorkspaceStore((state) => state.setActiveDetailsTab);
+  const questionnaireSubTab = useCourseWorkspaceStore((state) => state.questionnaireSubTab);
+  const setQuestionnaireSubTab = useCourseWorkspaceStore((state) => state.setQuestionnaireSubTab);
+  const selectedLangId = useCourseWorkspaceStore((state) => state.selectedLangId);
+  const setSelectedLangId = useCourseWorkspaceStore((state) => state.setSelectedLangId);
+  const selectedLangName = useCourseWorkspaceStore((state) => state.selectedLangName);
+  const setSelectedLangName = useCourseWorkspaceStore((state) => state.setSelectedLangName);
+  const selectedLangCode = useCourseWorkspaceStore((state) => state.selectedLangCode);
+  const setSelectedLangCode = useCourseWorkspaceStore((state) => state.setSelectedLangCode);
+  const portalToggles = useCourseWorkspaceStore((state) => state.portalToggles);
+  const setPortalToggles = useCourseWorkspaceStore((state) => state.setPortalToggles);
+  const trainingToggles = useCourseWorkspaceStore((state) => state.trainingToggles);
+  const setTrainingToggles = useCourseWorkspaceStore((state) => state.setTrainingToggles);
+  const resetWorkspace = useCourseWorkspaceStore((state) => state.resetWorkspace);
 
-  // Main Page View Mode:
-  // - "details" (Course Details sidebar + 4 top tabs: Course Languages, Upload Translations, Upload Videos, Upload Questions)
-  // - "translation_form" (Course Details & Course Translation tabs, Translations for <Lang> form)
-  // - "videos_view" (Course Details & Course Videos tabs, Videos table + Add Video form)
-  // - "questionnaire_view" (Course Details & Course Questionnaire & Interactive Questionnaire tabs + Questions table + Add Question form)
-  const [viewMode, setViewMode] = useState<"details" | "translation_form" | "videos_view" | "questionnaire_view">("details");
+  // Server state via React Query
+  const { data: allBackendLanguages = [] } = useQuery({
+    queryKey: queryKeys.allLanguages,
+    queryFn: ({ signal }) => portalGet<Array<LanguageItem>>("languages", { all: "1" }, signal),
+    staleTime: 10 * 60_000,
+  });
 
-  // Top tab in "details" mode
-  const [activeDetailsTab, setActiveDetailsTab] = useState<"languages" | "translations" | "videos" | "questions">("languages");
+  const { data: course = null, isLoading: fetching } = useQuery({
+    queryKey: queryKeys.courses.detail(id),
+    queryFn: ({ signal }) =>
+      portalGet<CourseItem>(`courses/${encodeURIComponent(id)}`, undefined, signal),
+    enabled: Boolean(id),
+  });
 
-  // Available languages list from backend to resolve real backend numeric language IDs
-  const [allBackendLanguages, setAllBackendLanguages] = useState<LanguageItem[]>([]);
-
-  // Selected language for sub-views
-  const [selectedLangId, setSelectedLangId] = useState<string>("LANG_01");
-  const [selectedLangName, setSelectedLangName] = useState<string>("English");
-  const [selectedLangCode, setSelectedLangCode] = useState<string>("en");
-
-  // Per-row interactive toggles for Portal and Training (ready for future backend toggle endpoints)
-  const [portalToggles, setPortalToggles] = useState<Record<number, boolean>>({});
-  const [trainingToggles, setTrainingToggles] = useState<Record<number, boolean>>({});
+  const setCourse = useCallback(
+    (nextCourse: CourseItem | null) => {
+      if (nextCourse) {
+        queryClient.setQueryData(queryKeys.courses.detail(id), nextCourse);
+      }
+    },
+    [id, queryClient]
+  );
 
   // Translation Form State
   const [currentTransData, setCurrentTransData] = useState<Partial<CourseItem> | null>(null);
@@ -154,9 +149,31 @@ export default function CourseDetailPage() {
   const [isLoadingTrans, setIsLoadingTrans] = useState(false);
   const [isSavingTrans, setIsSavingTrans] = useState(false);
 
-  // Videos List State
-  const [videosList, setVideosList] = useState<CourseVideoItem[]>([]);
-  const [loadingVideos, setLoadingVideos] = useState(false);
+  const langCodeKey = selectedLangCode || "en";
+
+  const {
+    data: videosList = [],
+    isFetching: loadingVideos,
+  } = useQuery({
+    queryKey: queryKeys.courses.videos(id, langCodeKey),
+    queryFn: ({ signal }) =>
+      portalGet<Array<CourseVideoItem>>(
+        `courses/${encodeURIComponent(id)}/videos`,
+        { lang: langCodeKey },
+        signal
+      ),
+    enabled: Boolean(course) && (viewMode === "videos_view" || viewMode === "questionnaire_view"),
+  });
+
+  const setVideosList = useCallback(
+    (updater: Array<CourseVideoItem> | ((prev: Array<CourseVideoItem>) => Array<CourseVideoItem>)) => {
+      queryClient.setQueryData<Array<CourseVideoItem>>(
+        queryKeys.courses.videos(id, langCodeKey),
+        (prev = []) => (typeof updater === "function" ? updater(prev) : updater)
+      );
+    },
+    [id, langCodeKey, queryClient]
+  );
 
   // Add/Edit Video Form State
   const [editingVideoId, setEditingVideoId] = useState<number | string | null>(null);
@@ -171,12 +188,31 @@ export default function CourseDetailPage() {
   const [videoStatus, setVideoStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
   const [isSavingVideo, setIsSavingVideo] = useState(false);
 
-  // Questionnaire active subtab: "standard" | "interactive"
-  const [questionnaireSubTab, setQuestionnaireSubTab] = useState<"standard" | "interactive">("standard");
+  // Real backend quiz queries
+  const {
+    data: quizzesList = [],
+    isFetching: loadingQuizzes,
+  } = useQuery({
+    queryKey: queryKeys.courses.quizzes(id, langCodeKey, "standard"),
+    queryFn: ({ signal }) =>
+      portalGet<Array<CourseQuizItem>>(
+        `courses/${encodeURIComponent(id)}/quizzes`,
+        { lang: langCodeKey },
+        signal
+      ),
+    enabled: Boolean(course) && viewMode === "questionnaire_view",
+  });
 
-  // Real backend quiz state
-  const [quizzesList, setQuizzesList] = useState<CourseQuizItem[]>([]);
-  const [loadingQuizzes, setLoadingQuizzes] = useState(false);
+  const setQuizzesList = useCallback(
+    (updater: Array<CourseQuizItem> | ((prev: Array<CourseQuizItem>) => Array<CourseQuizItem>)) => {
+      queryClient.setQueryData<Array<CourseQuizItem>>(
+        queryKeys.courses.quizzes(id, langCodeKey, "standard"),
+        (prev = []) => (typeof updater === "function" ? updater(prev) : updater)
+      );
+    },
+    [id, langCodeKey, queryClient]
+  );
+
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
   const [editingQuizId, setEditingQuizId] = useState<number | string | null>(null);
 
@@ -190,17 +226,21 @@ export default function CourseDetailPage() {
   const [quizNameInput, setQuizNameInput] = useState("");
   const [quizPointsInput, setQuizPointsInput] = useState<number>(10);
   const [quizVideoIdInput, setQuizVideoIdInput] = useState<string>("");
-  const [questionsList, setQuestionsList] = useState<Array<{
-    sNo: number;
-    question: string;
-    options: string[];
-    correctIndex: number;
-    status: boolean;
-  }>>([]);
 
-  // Interactive Questionnaire State (Matches newly attached screenshot)
-  const [interactiveQuizzesList, setInteractiveQuizzesList] = useState<CourseQuizItem[]>([]);
-  const [loadingInteractiveQuizzes, setLoadingInteractiveQuizzes] = useState(false);
+  // Interactive Questionnaire State
+  const {
+    data: interactiveQuizzesList = [],
+    isFetching: loadingInteractiveQuizzes,
+  } = useQuery({
+    queryKey: queryKeys.courses.quizzes(id, langCodeKey, "interactive"),
+    queryFn: ({ signal }) =>
+      portalGet<Array<CourseQuizItem>>(
+        `courses/${encodeURIComponent(id)}/quizzes`,
+        { lang: langCodeKey, quizType: "interactive" },
+        signal
+      ),
+    enabled: Boolean(course) && viewMode === "questionnaire_view",
+  });
   const [editingInteractiveQuizId, setEditingInteractiveQuizId] = useState<number | string | null>(null);
   const [isSavingInteractiveQuiz, setIsSavingInteractiveQuiz] = useState(false);
 
@@ -364,174 +404,43 @@ export default function CourseDetailPage() {
   const canUpdate = can("courses.update");
   const canDelete = can("courses.delete");
 
-  // Listen for browser navigation (popstate/pageshow) and route cleanup so no cached tabs persist
+  // Reset workspace when unmounting or changing course ID
   useEffect(() => {
-    const handleReset = () => {
-      setViewMode("details");
-      setActiveDetailsTab("languages");
-      setQuestionnaireSubTab("standard");
-      resetUploadQuestionsForm();
-      resetUploadTranslationsForm();
-      resetUploadVideosForm();
-      resetTranslationForm();
-      resetQuestionForm();
-      resetVideoForm();
-    };
-
-    window.addEventListener("popstate", handleReset);
-    window.addEventListener("pageshow", handleReset);
     return () => {
-      window.removeEventListener("popstate", handleReset);
-      window.removeEventListener("pageshow", handleReset);
-      handleReset();
+      resetWorkspace();
     };
-  }, []);
+  }, [id, resetWorkspace]);
 
-  useEffect(() => {
-    let mounted = true;
-    setFetching(true);
-    setViewMode("details");
-    setActiveDetailsTab("languages");
-    setQuestionnaireSubTab("standard");
-    resetVideoForm();
-
-    Promise.all([getAllLanguagesAction(), getCourseByIdAction(id)])
-      .then(([langRes, courseRes]) => {
-        if (!mounted) return;
-
-        let langsList: LanguageItem[] = [];
-        if (langRes.success && langRes.data) {
-          langsList = langRes.data;
-          setAllBackendLanguages(langsList);
-        }
-
-        if (courseRes.success && courseRes.data) {
-          const courseData = courseRes.data;
-          setCourse(courseData);
-
-          // Populate default uploadCourseId
-          const initialCourseCode = courseData.courseLevel || String(courseData.id || id);
-          setUploadCourseId(initialCourseCode);
-          setUploadVideosCourseId(initialCourseCode);
-          setUploadQuestionsCourseId(initialCourseCode);
-
-          // Resolve English backend language ID
-          const enLang = langsList.find(
-            (l) =>
-              (l.languageCode && l.languageCode.toLowerCase() === "en") ||
-              (l.language && l.language.toLowerCase() === "english")
-          );
-          if (enLang?.languageId) {
-            setSelectedLangId(String(enLang.languageId));
-          }
-
-          // Initialize toggles from course
-          const initialPortal: Record<number, boolean> = {};
-          const initialTraining: Record<number, boolean> = {};
-          LANGUAGES_META.forEach((m) => {
-            // English is active, others default per API/item
-            initialPortal[m.num] = m.code === "en" ? courseData.status === "ACTIVE" : false;
-            initialTraining[m.num] = m.code === "en";
-          });
-          setPortalToggles(initialPortal);
-          setTrainingToggles(initialTraining);
-        } else {
-          toastError(courseRes.error || "Failed to load course details.");
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to load course detail:", err);
-        toastError("Failed to load course details.");
-      })
-      .finally(() => {
-        if (mounted) setFetching(false);
-      });
-
-    return () => {
-      mounted = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  // Fetch videos whenever entering videos view or changing language
+  // Refetch helpers backed by React Query cache invalidation
   const fetchVideosForCurrentView = async () => {
-    if (!course) return;
-    setLoadingVideos(true);
-    try {
-      const code = selectedLangCode || "en";
-      const res = await getCourseVideosByLangAction(course.id, code);
-      if (res.success && res.data) {
-        setVideosList(res.data);
-      } else {
-        // Fallback to post endpoint if language endpoint returns error
-        const fallback = await getCourseVideosAction({ courseId: course.id, languageId: selectedLangId });
-        if (fallback.success && fallback.data) {
-          setVideosList(fallback.data);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to fetch videos:", err);
-    } finally {
-      setLoadingVideos(false);
+    if (!course) {
+      return;
     }
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.courses.videos(id, langCodeKey),
+    });
   };
 
-  useEffect(() => {
-    if (viewMode === "videos_view" && course) {
-      fetchVideosForCurrentView();
-    }
-  }, [viewMode, selectedLangId, selectedLangCode, course]);
-
-  // Fetch quizzes whenever entering questionnaire view or changing language
   const fetchQuizzesForCurrentView = async () => {
-    if (!course) return;
-    setLoadingQuizzes(true);
-    try {
-      const code = selectedLangCode || "en";
-      const res = await getCourseQuizzesAction(course.id, code);
-      if (res.success && res.data) {
-        setQuizzesList(res.data);
-      } else {
-        setQuizzesList([]);
-      }
-    } catch (err) {
-      console.error("Failed to fetch quizzes:", err);
-      setQuizzesList([]);
-    } finally {
-      setLoadingQuizzes(false);
+    if (!course) {
+      return;
     }
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.courses.quizzes(id, langCodeKey, "standard"),
+    });
   };
 
-  // Fetch interactive quizzes
   const fetchInteractiveQuizzesForCurrentView = async () => {
-    if (!course) return;
-    setLoadingInteractiveQuizzes(true);
-    try {
-      const code = selectedLangCode || "en";
-      const res = await getCourseQuizzesAction(course.id, code, "interactive");
-      if (res.success && res.data) {
-        setInteractiveQuizzesList(res.data);
-      } else {
-        setInteractiveQuizzesList([]);
-      }
-    } catch (err) {
-      console.error("Failed to fetch interactive quizzes:", err);
-      setInteractiveQuizzesList([]);
-    } finally {
-      setLoadingInteractiveQuizzes(false);
+    if (!course) {
+      return;
     }
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.courses.quizzes(id, langCodeKey, "interactive"),
+    });
   };
-
-  useEffect(() => {
-    if (viewMode === "questionnaire_view" && course) {
-      fetchQuizzesForCurrentView();
-      fetchInteractiveQuizzesForCurrentView();
-      fetchVideosForCurrentView();
-    }
-  }, [viewMode, selectedLangId, selectedLangCode, course]);
 
   const confirmDelete = async () => {
-    if (!course) return;
+    if (!course) {return;}
     setIsDeleting(true);
 
     const res = await deleteCourseAction(course.id);
@@ -571,8 +480,8 @@ export default function CourseDetailPage() {
         setTransDuration(course?.duration || "");
         setTransCourseLevel((course?.courseLevel as string) || "BEGINNER");
       }
-    } catch (err) {
-      console.error("Failed to load translation:", err);
+    } catch (error) {
+      console.error("Failed to load translation:", error);
     } finally {
       setIsLoadingTrans(false);
     }
@@ -608,7 +517,7 @@ export default function CourseDetailPage() {
 
   const handleSaveTranslation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!course) return;
+    if (!course) {return;}
 
     if (!transCourseName.trim()) {
       toastError("Course Name is required");
@@ -651,7 +560,7 @@ export default function CourseDetailPage() {
 
   const handleAddVideo = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!course) return;
+    if (!course) {return;}
     if (!videoTitle.trim()) {
       toastError("Video Title is required");
       return;
@@ -699,8 +608,8 @@ export default function CourseDetailPage() {
           toastError(res.error || "Failed to add video.");
         }
       }
-    } catch (err) {
-      console.error("Error saving video:", err);
+    } catch (error) {
+      console.error("Error saving video:", error);
       toastError("An unexpected error occurred while saving the video.");
     } finally {
       setIsSavingVideo(false);
@@ -732,15 +641,15 @@ export default function CourseDetailPage() {
       } else {
         toastError(res.error || "Failed to delete video");
       }
-    } catch (err) {
-      console.error("Failed to delete video:", err);
+    } catch (error) {
+      console.error("Failed to delete video:", error);
       toastError("An error occurred while deleting the video");
     }
   };
 
   const handleAddQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!course) return;
+    if (!course) {return;}
 
     if (!questionText.trim()) {
       toastError("Question is required");
@@ -846,8 +755,8 @@ export default function CourseDetailPage() {
           toastError(res.error || "Failed to create question");
         }
       }
-    } catch (err) {
-      console.error("Failed to save quiz question:", err);
+    } catch (error) {
+      console.error("Failed to save quiz question:", error);
       toastError("An unexpected error occurred while saving question");
     } finally {
       setIsSavingQuiz(false);
@@ -874,8 +783,8 @@ export default function CourseDetailPage() {
       } else {
         toastError(res.error || "Failed to delete quiz question");
       }
-    } catch (err) {
-      console.error("Failed to delete quiz question:", err);
+    } catch (error) {
+      console.error("Failed to delete quiz question:", error);
       toastError("An error occurred while deleting the quiz question");
     } 
   };
@@ -897,8 +806,8 @@ export default function CourseDetailPage() {
         toastError(res.error || "Failed to upload image");
         return null;
       }
-    } catch (err) {
-      console.error("Image upload exception:", err);
+    } catch (error) {
+      console.error("Image upload exception:", error);
       toastError("Failed to upload image file");
       return null;
     }
@@ -906,7 +815,7 @@ export default function CourseDetailPage() {
 
   const handleSaveInteractiveQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!course) return;
+    if (!course) {return;}
 
     if (!interactiveQuestionText.trim()) {
       toastError("Question text is required");
@@ -932,7 +841,7 @@ export default function CourseDetailPage() {
             m.languageId === selectedLangId ||
             m.code.toLowerCase() === selectedLangCode.toLowerCase()
         );
-        if (matchedLang) numericLangId = matchedLang.num;
+        if (matchedLang) {numericLangId = matchedLang.num;}
       }
     }
 
@@ -1067,8 +976,8 @@ export default function CourseDetailPage() {
           toastError(res.error || "Failed to create interactive question");
         }
       }
-    } catch (err) {
-      console.error("Interactive quiz save error:", err);
+    } catch (error) {
+      console.error("Interactive quiz save error:", error);
       toastError("Failed to save interactive question");
     } finally {
       setIsSavingInteractiveQuiz(false);
@@ -1288,7 +1197,7 @@ export default function CourseDetailPage() {
   }
 
   // Build rows with translation existence check and videoCount from API
-  const languageRows: CourseLangRow[] = LANGUAGES_META.map((meta) => {
+  const languageRows: Array<CourseLangRow> = LANGUAGES_META.map((meta) => {
     const isEn = meta.code === "en";
     const nameKey = isEn ? "courseName" : (`courseName${meta.code}` as keyof CourseItem);
     const translatedName = course[nameKey] as string | undefined;
@@ -1383,7 +1292,6 @@ export default function CourseDetailPage() {
               {/* Course Image Preview */}
               <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center">
                 {course.imageUrl && course.imageUrl.startsWith("http") ? (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={course.imageUrl}
                     alt={course.courseName}
@@ -2371,7 +2279,7 @@ export default function CourseDetailPage() {
                       type="number"
                       value={videoPoints}
                       min="0"
-                      onChange={(e) => setVideoPoints(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      onChange={(e) => setVideoPoints(Math.max(0, Number.parseInt(e.target.value, 10) || 0))}
                       placeholder="10"
                       className="h-9 text-xs"
                     />
@@ -2607,7 +2515,7 @@ export default function CourseDetailPage() {
                                   type="button"
                                   onClick={() => {
                                     const qId = q.quizId ?? q.id;
-                                    if (!qId) return;
+                                    if (!qId) {return;}
                                     setEditingQuizId(qId);
                                     setQuestionText(q.question || "");
                                     setOpt1(q.answer1 || "");
@@ -2639,7 +2547,7 @@ export default function CourseDetailPage() {
                                   type="button"
                                   onClick={() => {
                                     const qId = q.quizId ?? q.id;
-                                    if (qId) handleDeleteQuiz(qId);
+                                    if (qId) {handleDeleteQuiz(qId);}
                                   }}
                                   className="text-xs text-rose-600 hover:underline font-medium"
                                 >
@@ -2717,7 +2625,6 @@ export default function CourseDetailPage() {
                                   <p className="font-medium text-slate-900 leading-snug">{iq.question}</p>
                                   {iq.questionImageUrl && (
                                     <div className="flex items-center gap-2 pt-1">
-                                      {/* eslint-disable-next-line @next/next/no-img-element */}
                                       <img
                                         src={iq.questionImageUrl}
                                         alt="Question Media"
@@ -2742,11 +2649,14 @@ export default function CourseDetailPage() {
                                     { key: "answer2", val: iq.answer2, url: iq.answer2Url },
                                     { key: "answer3", val: iq.answer3, url: iq.answer3Url },
                                     { key: "answer4", val: iq.answer4, url: iq.answer4Url },
-                                  ]
-                                    .filter((opt) => opt.val || opt.url)
-                                    .map((opt, oIdx) => (
+                                  ].reduce<Array<React.ReactNode>>((acc, opt) => {
+                                    if (!opt.val && !opt.url) {
+                                      return acc;
+                                    }
+                                    const oIdx = acc.length;
+                                    acc.push(
                                       <div
-                                        key={oIdx}
+                                        key={opt.key}
                                         className={cn(
                                           "flex items-center gap-2 text-[11px]",
                                           isCorrect(opt.key) ? "font-semibold text-emerald-700" : "text-slate-600"
@@ -2755,7 +2665,6 @@ export default function CourseDetailPage() {
                                         <span>{oIdx + 1}.</span>
                                         {opt.url ? (
                                           <div className="flex items-center gap-1.5">
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
                                             <img
                                               src={opt.url}
                                               alt={opt.val || `Option ${oIdx + 1}`}
@@ -2770,7 +2679,9 @@ export default function CourseDetailPage() {
                                           <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
                                         )}
                                       </div>
-                                    ))}
+                                    );
+                                    return acc;
+                                  }, [])}
                                 </div>
                               </td>
                               <td className="py-2.5 px-3 text-center font-mono font-medium text-emerald-700 uppercase">
@@ -2794,7 +2705,7 @@ export default function CourseDetailPage() {
                                   type="button"
                                   onClick={() => {
                                     const qId = iq.quizId ?? iq.id;
-                                    if (!qId) return;
+                                    if (!qId) {return;}
                                     setEditingInteractiveQuizId(qId);
                                     setInteractiveQuestionText(iq.question || "");
                                     setInteractiveAfterVideo(iq.videoId ? String(iq.videoId) : "");
@@ -2818,11 +2729,11 @@ export default function CourseDetailPage() {
                                     }
 
                                     const cAns = String(iq.correctAnswer || "").toLowerCase();
-                                    if (cAns === "answer1") setInteractiveRightAnswer(1);
-                                    else if (cAns === "answer2") setInteractiveRightAnswer(2);
-                                    else if (cAns === "answer3") setInteractiveRightAnswer(3);
-                                    else if (cAns === "answer4") setInteractiveRightAnswer(4);
-                                    else setInteractiveRightAnswer(1);
+                                    if (cAns === "answer1") {setInteractiveRightAnswer(1);}
+                                    else if (cAns === "answer2") {setInteractiveRightAnswer(2);}
+                                    else if (cAns === "answer3") {setInteractiveRightAnswer(3);}
+                                    else if (cAns === "answer4") {setInteractiveRightAnswer(4);}
+                                    else {setInteractiveRightAnswer(1);}
 
                                     success(`Loaded interactive question for editing`);
                                   }}
@@ -3088,7 +2999,6 @@ export default function CourseDetailPage() {
                               />
                               {(opt.file || opt.url) && (
                                 <div className="h-9 w-12 rounded border border-slate-200 overflow-hidden shrink-0">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
                                     src={opt.file ? URL.createObjectURL(opt.file) : opt.url}
                                     alt={opt.label}
@@ -3142,7 +3052,6 @@ export default function CourseDetailPage() {
                           />
                           {(patternImageFile || patternImageUrl) && (
                             <div className="h-9 w-12 rounded border border-slate-200 overflow-hidden shrink-0">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={patternImageFile ? URL.createObjectURL(patternImageFile) : patternImageUrl}
                                 alt="Pattern"

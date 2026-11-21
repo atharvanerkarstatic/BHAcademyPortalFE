@@ -1,21 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { ReportPageLayout, type ReportFilterState } from "@/features/reports/components/report-page-layout";
+import { ReportPageLayout } from '@/features/reports/components/report-page-layout';
+import type { ReportFilterState } from '@/features/reports/components/report-page-layout';
 import { exportCourseWiseAssessmentAction } from "@/features/reports/action";
 import { getModuleWiseDashboardAction } from "@/features/dashboard/action";
 import type { ModuleWiseSummaryItem } from "@/features/dashboard/types";
-import {
-  CollapsibleChartCard,
-  GroupedBarChart,
-  AssessmentSummaryTable,
-  type ChartDataPoint,
-} from "@/features/reports/components/dashboard-charts";
+import { CollapsibleChartCard, GroupedBarChart, AssessmentSummaryTable } from '@/features/reports/components/dashboard-charts';
+import type { ChartDataPoint } from '@/features/reports/components/dashboard-charts';
 import { useToast } from "@/components/ui/toast";
 
 export default function ModuleWiseSummaryReportPage() {
   const { error: toastError, success: toastSuccess } = useToast();
-  const [reportData, setReportData] = useState<ModuleWiseSummaryItem[]>([]);
+  const [reportData, setReportData] = useState<Array<ModuleWiseSummaryItem>>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchDashboardData = async (filters: ReportFilterState, showToast = false) => {
@@ -42,7 +39,7 @@ export default function ModuleWiseSummaryReportPage() {
     setLoading(false);
   };
 
-  const chartData: ChartDataPoint[] = reportData.map((item) => ({
+  const chartData: Array<ChartDataPoint> = reportData.map((item) => ({
     label: item.moduleName,
     passed: Number(item.passed) || 0,
     failed: Number(item.failed) || 0,

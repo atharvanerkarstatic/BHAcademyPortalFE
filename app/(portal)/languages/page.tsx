@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useTransition, useMemo } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Plus, RefreshCw, Pencil, Trash2, Search } from "lucide-react";
 
-import { DataTable, type Column } from "@/components/common/data-table";
+import { DataTable } from '@/components/common/data-table';
+import type { Column } from '@/components/common/data-table';
 import { PageHeader } from "@/components/common/page-header";
 import { StatusText } from "@/components/common/status-text";
 import { Button } from "@/components/ui/button";
@@ -21,87 +22,92 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/toast";
-import { getLanguagesAction, deleteLanguageAction } from "@/features/languages/action";
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
+import { deleteLanguageAction } from "@/features/languages/action";
 import type { LanguageItem, LanguagePageResponse } from "@/features/languages/types";
+
+const PAGE_SIZE = 10;
+
+const EMPTY_PAGE: LanguagePageResponse = {
+  content: [],
+  page: 1,
+  size: PAGE_SIZE,
+  totalElements: 0,
+  totalPages: 0,
+  first: true,
+  last: true,
+  hasNext: false,
+  hasPrevious: false,
+};
 
 export default function LanguagesPage() {
   const { success, error: toastError } = useToast();
-  const pathname = usePathname();
+  const queryClient = useQueryClient();
+
   const [search, setSearch] = useState("");
-
-  // Reset search filter whenever navigating away or returning to this route
-  useEffect(() => {
-    return () => {
-      setSearch("");
-      setPage(1);
-    };
-  }, [pathname]);
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = PAGE_SIZE;
+  const [languageToDelete, setLanguageToDelete] = useState<LanguageItem | null>(null);
 
-  const [pageData, setPageData] = useState<LanguagePageResponse>({
-    content: [],
-    page: 1,
-    size: pageSize,
-    totalElements: 0,
-    totalPages: 0,
-    first: true,
-    last: true,
-    hasNext: false,
-    hasPrevious: false,
+  const { data: pageData = EMPTY_PAGE, isLoading, refetch } = useQuery({
+    queryKey: queryKeys.languages.list({ page, size: pageSize }),
+    queryFn: ({ signal }) =>
+      portalGet<LanguagePageResponse>("languages", { page, size: pageSize }, signal),
+    placeholderData: keepPreviousData,
   });
 
-  const [isPending, startTransition] = useTransition();
-
-  // Delete modal state
-  const [languageToDelete, setLanguageToDelete] = useState<LanguageItem | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const isPending = isLoading;
 
   const loadLanguages = (targetPage = page, showSuccessToast = false) => {
-    startTransition(async () => {
-      const res = await getLanguagesAction({
-        page: targetPage,
-        size: pageSize,
-      });
-      if (res.success && res.data) {
-        setPageData(res.data);
-        if (showSuccessToast) {
-          success("Languages refreshed successfully");
-        }
-      } else {
-        toastError(res.error || "Failed to load languages");
+    setPage(targetPage);
+    void refetch().then((result) => {
+      if (result.error) {
+        toastError(result.error.message || "Failed to load languages");
+      } else if (showSuccessToast) {
+        success("Languages refreshed successfully");
       }
     });
   };
-
-  useEffect(() => {
-    loadLanguages(page);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
   };
 
-  const confirmDelete = async () => {
-    if (!languageToDelete) return;
-    setIsDeleting(true);
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteLanguageAction(id),
+    onSuccess: async (res) => {
+      setLanguageToDelete(null);
+      if (res.success) {
+        success(res.message || "Language deleted successfully");
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.languages.all }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.allLanguages }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.reportFilters }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all }),
+        ]);
+      } else {
+        toastError(res.error || "Failed to delete language");
+      }
+    },
+    onError: () => {
+      setLanguageToDelete(null);
+      toastError("Failed to delete language");
+    },
+  });
 
-    const res = await deleteLanguageAction(languageToDelete.languageId);
-    setIsDeleting(false);
-    setLanguageToDelete(null);
+  const isDeleting = deleteMutation.isPending;
 
-    if (res.success) {
-      success(res.message || "Language deleted successfully");
-      loadLanguages(page);
-    } else {
-      toastError(res.error || "Failed to delete language");
+  const confirmDelete = () => {
+    if (!languageToDelete) {
+      return;
     }
+    deleteMutation.mutate(languageToDelete.languageId);
   };
 
   // Live client-side search filtering on current fetched items (same as FAQ page)
   const filteredData = useMemo(() => {
-    if (!search.trim()) return pageData.content;
+    if (!search.trim()) {return pageData.content;}
     const query = search.toLowerCase();
     return pageData.content.filter(
       (item) =>
@@ -112,7 +118,7 @@ export default function LanguagesPage() {
     );
   }, [pageData.content, search]);
 
-  const columns: Column<LanguageItem>[] = useMemo(() => {
+  const columns: Array<Column<LanguageItem>> = useMemo(() => {
     return [
       {
         header: "Language ID",

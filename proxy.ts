@@ -1,14 +1,9 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 import { refreshTokens } from "@/lib/auth-api";
-import {
-  ACCESS_COOKIE,
-  ALL_AUTH_COOKIES,
-  AUTH_UPDATED_COOKIE,
-  REFRESH_COOKIE,
-  buildAuthCookies,
-  type TokenResponse,
-} from "@/lib/auth-cookies";
+import { ACCESS_COOKIE, ALL_AUTH_COOKIES, AUTH_UPDATED_COOKIE, REFRESH_COOKIE, buildAuthCookies } from '@/lib/auth-cookies';
+import type { TokenResponse } from '@/lib/auth-cookies';
 import { extractAuthUser } from "@/lib/auth-jwt";
 import {
   getFirstAccessibleRoute,
@@ -21,7 +16,7 @@ export async function proxy(request: NextRequest) {
   const isPublicAuthPage = pathname === "/login" || pathname === "/forgot-password";
   const isAccessDeniedPage = pathname === "/access-denied";
 
-  if (pathname.startsWith("/api/auth/")) return NextResponse.next();
+  if (pathname.startsWith("/api/auth/")) {return NextResponse.next();}
 
   let accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
   const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
@@ -63,9 +58,9 @@ export async function proxy(request: NextRequest) {
   let response: NextResponse;
 
   if (!isLoggedIn) {
-    if (isPublicAuthPage) response = NextResponse.next();
-    else if (isApi) response = NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    else response = NextResponse.redirect(new URL("/login", request.url));
+    if (isPublicAuthPage) {response = NextResponse.next();}
+    else if (isApi) {response = NextResponse.json({ message: "Unauthorized" }, { status: 401 });}
+    else {response = NextResponse.redirect(new URL("/login", request.url));}
   } else {
     // Authenticated user permissions
     const userPerms = currentUser ? [...currentUser.roles, ...currentUser.permissions] : [];
@@ -117,10 +112,10 @@ export async function proxy(request: NextRequest) {
   }
 
   if (fresh) {
-    for (const c of buildAuthCookies(fresh)) response.cookies.set(c.name, c.value, c.options);
+    for (const c of buildAuthCookies(fresh)) {response.cookies.set(c.name, c.value, c.options);}
   }
   if (sessionExpired) {
-    for (const name of ALL_AUTH_COOKIES) response.cookies.delete(name);
+    for (const name of ALL_AUTH_COOKIES) {response.cookies.delete(name);}
   }
 
   return response;

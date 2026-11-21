@@ -1,37 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ReportPageLayout, type ReportFilterState } from "@/features/reports/components/report-page-layout";
+import { ReportPageLayout } from '@/features/reports/components/report-page-layout';
+import type { ReportFilterState } from '@/features/reports/components/report-page-layout';
 import { exportTrainerIpReportAction } from "@/features/reports/action";
-import { DataTable, type Column } from "@/components/common/data-table";
-import { parseCsv } from "@/lib/csv-parser";
+import { DataTable } from '@/components/common/data-table';
+import type { Column } from '@/components/common/data-table';
+import { parseCsv } from '@/lib/csv-parser';
+import type { CsvRow } from '@/lib/csv-parser';
 import { useToast } from "@/components/ui/toast";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
-export interface TrainerIpReportRow {
-  "User ID": string;
-  "Participant Name": string;
-  Mobile: string;
-  "Course ID": string;
-  "Course Name": string;
-  "Language ID": string;
-  "Trainer ID": string;
-  "Trainer Name": string;
-  "Assessment Link ID": string;
-  "Total Questions": string;
-  "Right Answers": string;
-  "Assessment Result": string;
-  "Assessment Date": string;
-  "Assessment IP": string;
-  "Assessment User Agent": string;
-  "Training Date": string;
-  [key: string]: string;
-}
-
 export default function TrainerIpReportPage() {
   const { error: toastError, success: toastSuccess } = useToast();
-  const [rows, setRows] = useState<TrainerIpReportRow[]>([]);
+  const [rows, setRows] = useState<Array<CsvRow>>([]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -45,7 +28,7 @@ export default function TrainerIpReportPage() {
     });
 
     if (res.success) {
-      const parsed = parseCsv<TrainerIpReportRow>(res.data ?? "");
+      const parsed = parseCsv(res.data ?? "");
       setRows(parsed);
       setHasLoaded(true);
       setPage(1);
@@ -58,7 +41,9 @@ export default function TrainerIpReportPage() {
   };
 
   const filteredRows = useMemo(() => {
-    if (!search.trim()) return rows;
+    if (!search.trim()) {
+      return rows;
+    }
     const q = search.toLowerCase();
     return rows.filter((r) =>
       Object.values(r).some((val) => String(val).toLowerCase().includes(q))
@@ -70,7 +55,7 @@ export default function TrainerIpReportPage() {
     return filteredRows.slice(start, start + pageSize);
   }, [filteredRows, page, pageSize]);
 
-  const columns: Column<TrainerIpReportRow>[] = useMemo(
+  const columns: Array<Column<CsvRow>> = useMemo(
     () => [
       {
         header: "#",

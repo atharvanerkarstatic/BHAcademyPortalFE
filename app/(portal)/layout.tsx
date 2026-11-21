@@ -1,10 +1,12 @@
-import { Suspense, type ReactNode } from "react";
+import { Suspense } from 'react';
+import type { ReactNode } from 'react';
 import { redirect } from "next/navigation";
 
 import { PortalShell } from "@/components/layout/portal-shell";
 import { UserName } from "@/components/layout/user-name";
 import { AuthProvider } from "@/lib/auth-context";
 import { getCurrentUser } from "@/lib/auth-server";
+import { QueryProvider } from "@/lib/query-provider";
 import { getFirstAccessibleRoute } from "@/lib/route-permissions";
 
 // Dynamic session-dependent portal layout
@@ -25,16 +27,18 @@ export default async function PortalLayout({ children }: { children: ReactNode }
   }
 
   return (
-    <AuthProvider initialUser={user}>
-      <PortalShell
-        user={
-          <Suspense fallback="…">
-            <UserName fallback={user?.email} />
-          </Suspense>
-        }
-      >
-        <Suspense fallback={null}>{children}</Suspense>
-      </PortalShell>
-    </AuthProvider>
+    <QueryProvider>
+      <AuthProvider initialUser={user}>
+        <PortalShell
+          user={
+            <Suspense fallback="…">
+              <UserName fallback={user?.email} />
+            </Suspense>
+          }
+        >
+          <Suspense fallback={null}>{children}</Suspense>
+        </PortalShell>
+      </AuthProvider>
+    </QueryProvider>
   );
 }

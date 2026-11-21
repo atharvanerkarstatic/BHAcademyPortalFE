@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Eye, EyeOff, Loader2, Lock, UserRound } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Loader2, UserRound } from "lucide-react";
 
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,7 @@ export default function EditAdminUserPage({
   const [currentProfilePic, setCurrentProfilePic] = useState<string | null>(null);
 
   const [selectedRoleId, setSelectedRoleId] = useState<string>("");
-  const [roles, setRoles] = useState<RoleItem[]>([]);
+  const [roles, setRoles] = useState<Array<RoleItem>>([]);
   const [loadingRoles, setLoadingRoles] = useState(true);
 
   const [newImageFile, setNewImageFile] = useState<File | null>(null);
@@ -93,7 +93,7 @@ export default function EditAdminUserPage({
         getRolesPicklistAction(),
       ]);
 
-      if (!active) return;
+      if (!active) {return;}
 
       if (rolesRes.success && rolesRes.data) {
         setRoles(rolesRes.data);
@@ -113,7 +113,7 @@ export default function EditAdminUserPage({
           setSelectedRoleId(String(u.roles[0].id));
         } else if (u.roleCodes && u.roleCodes.length > 0 && rolesRes.data) {
           const matched = rolesRes.data.find((r) => r.code === u.roleCodes?.[0]);
-          if (matched) setSelectedRoleId(String(matched.id));
+          if (matched) {setSelectedRoleId(String(matched.id));}
         }
       } else {
         toastError(userRes.error || "Failed to load user details");
@@ -170,7 +170,7 @@ export default function EditAdminUserPage({
       return;
     }
 
-    const cleanPincode = pincode.replace(/\D/g, "").slice(0, 6);
+    const cleanPincode = pincode.replaceAll(/\D/g, "").slice(0, 6);
     if (!cleanPincode) {
       toastError("Pincode is required.");
       return;
@@ -204,8 +204,8 @@ export default function EditAdminUserPage({
             toastError(uploadRes.error || "Failed to upload image. Please try again.");
             return;
           }
-        } catch (err) {
-          console.error("Image upload exception:", err);
+        } catch (error) {
+          console.error("Image upload exception:", error);
           toastError("An error occurred during image upload");
           return;
         }
@@ -408,7 +408,7 @@ export default function EditAdminUserPage({
                   id="edit-pincode"
                   value={pincode}
                   onChange={(e) =>
-                    setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                    setPincode(e.target.value.replaceAll(/\D/g, "").slice(0, 6))
                   }
                   placeholder="6-digit pincode"
                   maxLength={6}
@@ -430,7 +430,6 @@ export default function EditAdminUserPage({
                 {currentProfilePic && (
                   <div className="flex items-center gap-2">
                     <div className="h-10 w-10 overflow-hidden rounded-full border border-slate-200">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={currentProfilePic}
                         alt="Current Profile"

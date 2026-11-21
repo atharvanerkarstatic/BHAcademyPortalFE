@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, ShieldCheck, Check, Search } from "lucide-react";
+import { ArrowLeft, Loader2, ShieldCheck, Search } from "lucide-react";
 
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ export default function RolePermissionsPage() {
     async function loadData() {
       setLoading(true);
       const res = await getRolePermissionsAction(roleId);
-      if (!mounted) return;
+      if (!mounted) {return;}
 
       if (res.success && res.data) {
         setRoleData(res.data);
@@ -81,7 +81,7 @@ export default function RolePermissionsPage() {
     }));
   };
 
-  const toggleCategory = (categoryPermissions: PermissionItem[], assignAll: boolean) => {
+  const toggleCategory = (categoryPermissions: Array<PermissionItem>, assignAll: boolean) => {
     setPermissionStates((prev) => {
       const next = { ...prev };
       categoryPermissions.forEach((p) => {
@@ -93,11 +93,11 @@ export default function RolePermissionsPage() {
 
   // Filter modules based on search
   const filteredModules = useMemo(() => {
-    if (!roleData?.permissions) return {};
+    if (!roleData?.permissions) {return {};}
     const filter = searchFilter.trim().toLowerCase();
-    if (!filter) return roleData.permissions;
+    if (!filter) {return roleData.permissions;}
 
-    const result: Record<string, PermissionItem[]> = {};
+    const result: Record<string, Array<PermissionItem>> = {};
     for (const [moduleName, perms] of Object.entries(roleData.permissions)) {
       const matching = perms.filter(
         (p) =>
@@ -266,7 +266,7 @@ export default function RolePermissionsPage() {
                       <div className="flex items-center justify-between bg-slate-100/70 px-4 py-2.5 border-b border-slate-200">
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-xs text-slate-800 tracking-wide uppercase">
-                            {moduleName.replace(/_/g, " ")}
+                            {moduleName.replaceAll('_', " ")}
                           </span>
                           <span className="text-[11px] text-slate-500 font-mono">
                             ({perms.filter((p) => permissionStates[p.permissionId]).length}/{perms.length})

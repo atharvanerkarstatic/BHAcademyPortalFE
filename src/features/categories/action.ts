@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ENDPOINTS } from "@/config/endpoints";
 import { apiFetch, ApiError } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth-server";
 import { hasPermission } from "@/lib/auth-jwt";
@@ -19,7 +20,7 @@ export type GetCategoriesParams = {
   status?: "ACTIVE" | "INACTIVE" | string | null;
 };
 
-function sanitizePayload<T extends CreateCategoryPayload | UpdateCategoryPayload>(payload: T): T {
+function sanitizePayload<T extends CreateCategoryPayload  >(payload: T): T {
   const sanitized: Record<string, unknown> = {
     category: payload.category.trim(),
     displayOrder: typeof payload.displayOrder === "number" ? payload.displayOrder : 0,
@@ -29,7 +30,7 @@ function sanitizePayload<T extends CreateCategoryPayload | UpdateCategoryPayload
 
   // Clean imageUrl: trim whitespace and newlines, or omit if empty
   if (typeof payload.imageUrl === "string") {
-    const cleaned = payload.imageUrl.replace(/[\r\n\t]/g, "").trim();
+    const cleaned = payload.imageUrl.replaceAll(/[\r\n\t]/g, "").trim();
     if (cleaned) {
       sanitized.imageUrl = cleaned;
     }
@@ -99,7 +100,9 @@ export async function getCategoriesAction(params: GetCategoriesParams = {}) {
   }
 
   try {
-    const res = await apiFetch<ApiResponse<CategoryPageResponse>>(`/v1/category?${query.toString()}`);
+    const res = await apiFetch<ApiResponse<CategoryPageResponse>>(
+      `${ENDPOINTS.categories.list}?${query.toString()}`
+    );
     return {
       success: true,
       data: res.data,
@@ -140,7 +143,9 @@ export async function getCategoryByIdAction(id: string) {
 
   try {
     // Note: /v1/category/{id} is removed on backend; fetch from the category list endpoint
-    const listRes = await apiFetch<ApiResponse<CategoryPageResponse>>("/v1/category?page=0&size=200");
+    const listRes = await apiFetch<ApiResponse<CategoryPageResponse>>(
+      `${ENDPOINTS.categories.list}?page=0&size=200`
+    );
     const found = listRes?.data?.content?.find((item) => String(item.categoryId) === String(id));
     if (found) {
       return {
@@ -178,7 +183,7 @@ export async function createCategoryAction(payload: CreateCategoryPayload) {
   const cleanPayload = sanitizePayload(payload);
 
   try {
-    const res = await apiFetch<ApiResponse<CategoryItem>>("/v1/category", {
+    const res = await apiFetch<ApiResponse<CategoryItem>>(ENDPOINTS.categories.list, {
       method: "POST",
       body: JSON.stringify(cleanPayload),
     });
@@ -215,7 +220,7 @@ export async function updateCategoryAction(id: string, payload: UpdateCategoryPa
   const cleanPayload = sanitizePayload(payload);
 
   try {
-    const res = await apiFetch<ApiResponse<CategoryItem>>(`/v1/category/${id}`, {
+    const res = await apiFetch<ApiResponse<CategoryItem>>(ENDPOINTS.categories.byId(id), {
       method: "PUT",
       body: JSON.stringify(cleanPayload),
     });
@@ -250,7 +255,7 @@ export async function deleteCategoryAction(id: string) {
   }
 
   try {
-    const res = await apiFetch<ApiResponse<void>>(`/v1/category/${id}`, {
+    const res = await apiFetch<ApiResponse<void>>(ENDPOINTS.categories.byId(id), {
       method: "DELETE",
     });
 

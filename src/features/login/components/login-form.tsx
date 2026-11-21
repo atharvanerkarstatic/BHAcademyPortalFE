@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import Image from "next/image";
 import Link from "next/link";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
@@ -17,13 +18,8 @@ export default function LoginForm({ ip }: { ip: ReactNode }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Clear inputs and reset state on mount, unmount, and page visibility / back-forward cache
+  // Clear inputs on browser back-forward cache restore
   useEffect(() => {
-    setEmail("");
-    setPassword("");
-    setShowPassword(false);
-    setLoading(false);
-
     const handleReset = () => {
       setEmail("");
       setPassword("");
@@ -37,8 +33,6 @@ export default function LoginForm({ ip }: { ip: ReactNode }) {
     return () => {
       window.removeEventListener("pageshow", handleReset);
       window.removeEventListener("popstate", handleReset);
-      setEmail("");
-      setPassword("");
     };
   }, []);
 
@@ -72,20 +66,20 @@ export default function LoginForm({ ip }: { ip: ReactNode }) {
       } else if (result && result.success) {
         toastSuccess(result.message ?? "Logged in successfully");
       }
-    } catch (err: unknown) {
+    } catch (error: unknown) {
       if (
-        (err &&
-          typeof err === "object" &&
-          "digest" in err &&
-          typeof (err as Record<string, unknown>).digest === "string" &&
-          String((err as Record<string, unknown>).digest).includes("NEXT_REDIRECT")) ||
-        (err &&
-          typeof err === "object" &&
-          "message" in err &&
-          typeof (err as Record<string, unknown>).message === "string" &&
-          String((err as Record<string, unknown>).message).includes("NEXT_REDIRECT"))
+        (error &&
+          typeof error === "object" &&
+          "digest" in error &&
+          typeof (error as Record<string, unknown>).digest === "string" &&
+          String((error as Record<string, unknown>).digest).includes("NEXT_REDIRECT")) ||
+        (error &&
+          typeof error === "object" &&
+          "message" in error &&
+          typeof (error as Record<string, unknown>).message === "string" &&
+          String((error as Record<string, unknown>).message).includes("NEXT_REDIRECT"))
       ) {
-        throw err;
+        throw error;
       }
       toastError("Something went wrong. Please check your network and try again.");
       setLoading(false);

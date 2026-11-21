@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -40,23 +40,14 @@ export default function NewRolePage() {
     router.back();
   };
 
-  useEffect(() => {
-    handleReset();
-    return () => {
-      setName("");
-      setCode("");
-      setDescription("");
-    };
-  }, []);
-
   // Auto-generate code slug if not manually customized
   const handleNameChange = (val: string) => {
     setName(val);
     const autoCode = val
       .toUpperCase()
       .trim()
-      .replace(/[^A-Z0-9]+/g, "_");
-    if (!code || code === name.toUpperCase().trim().replace(/[^A-Z0-9]+/g, "_")) {
+      .replaceAll(/[^A-Z0-9]+/g, "_");
+    if (!code || code === name.toUpperCase().trim().replaceAll(/[^A-Z0-9]+/g, "_")) {
       setCode(autoCode);
     }
   };
@@ -70,7 +61,7 @@ export default function NewRolePage() {
       return;
     }
 
-    const cleanCode = code.trim().toUpperCase().replace(/[^A-Z0-9_]+/g, "_");
+    const cleanCode = code.trim().toUpperCase().replaceAll(/[^A-Z0-9_]+/g, "_");
     if (!cleanCode) {
       toastError("Role Code is required.");
       return;
@@ -163,7 +154,7 @@ export default function NewRolePage() {
                 <Input
                   id="role-code"
                   value={code}
-                  onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_]+/g, "_"))}
+                  onChange={(e) => setCode(e.target.value.toUpperCase().replaceAll(/[^A-Z0-9_]+/g, "_"))}
                   placeholder="e.g. PROJECT_MANAGER_2"
                   maxLength={100}
                   className="h-9 text-xs font-mono uppercase"

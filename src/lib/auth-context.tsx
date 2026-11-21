@@ -1,43 +1,59 @@
 "use client";
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+
+import type { UserProfile } from "@/features/profile/action";
 import { AUTH_PERMS_COOKIE, AUTH_UPDATED_COOKIE } from "@/lib/auth-cookies";
-import { hasPermission, type AuthUser } from "@/lib/auth-jwt";
-import { getCurrentUserProfile, type UserProfile } from "@/features/profile/action";
-import { useToast } from "@/components/ui/toast";
+import { hasPermission } from '@/lib/auth-jwt';
+import type { AuthUser } from '@/lib/auth-jwt';
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
+import { getStringProp, isRecord } from "@/lib/type-guards";
+import { useToastStore } from "@/stores/toast-store";
 
 type AuthContextType = {
   user: AuthUser | null;
   profile: UserProfile | null;
-  permissions: string[];
-  roles: string[];
-  can: (permissionOrRole: string | string[]) => boolean;
+  permissions: Array<string>;
+  roles: Array<string>;
+  can: (permissionOrRole: string | Array<string>) => boolean;
   hasRole: (role: string) => boolean;
   isSuperAdmin: boolean;
   refreshProfile: () => Promise<void>;
   syncAuthFromCookies: () => void;
 };
 
-const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 function readUserFromCookie(): AuthUser | null {
-  if (typeof document === "undefined") return null;
+  if (typeof document === "undefined") {
+    return null;
+  }
 
   const match = document.cookie
     .split("; ")
     .find((row) => row.startsWith(`${AUTH_PERMS_COOKIE}=`));
 
-  if (!match) return null;
+  if (!match) {
+    return null;
+  }
 
   try {
-    const raw = decodeURIComponent(match.split("=")[1]);
-    const parsed = JSON.parse(raw);
-    const authList: string[] = Array.isArray(parsed.auth) ? parsed.auth : [];
+    const raw = decodeURIComponent(match.slice(AUTH_PERMS_COOKIE.length + 1));
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) {
+      return null;
+    }
+
+    const authList = Array.isArray(parsed.auth)
+      ? parsed.auth.filter((item): item is string => typeof item === "string")
+      : [];
 
     return {
-      id: parsed.id,
-      email: parsed.email || "",
+      id: getStringProp(parsed, "id"),
+      email: getStringProp(parsed, "email") ?? "",
       permissions: authList.filter((item) => !item.startsWith("ROLE_")),
       roles: authList.filter((item) => item.startsWith("ROLE_")),
     };
@@ -50,45 +66,50 @@ export function AuthProvider({
   children,
   initialUser,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   initialUser?: AuthUser | null;
 }) {
-  const router = useRouter();
-  const { info: toastInfo } = useToast();
-  const [user, setUser] = React.useState<AuthUser | null>(() => initialUser ?? readUserFromCookie());
-  const [profile, setProfile] = React.useState<UserProfile | null>(null);
+  const queryClient = useQueryClient();
+  const [user, setUser] = useState<AuthUser | null>(() => initialUser ?? readUserFromCookie());
+
+  const { data: profile = null } = useQuery({
+    queryKey: queryKeys.profile,
+    queryFn: ({ signal }) => portalGet<UserProfile>("profile", undefined, signal),
+    enabled: Boolean(user?.id),
+    staleTime: 5 * 60_000,
+    retry: 1,
+  });
 
   // Synchronize user state immediately from user_perms cookie
-  const syncAuthFromCookies = React.useCallback(() => {
+  const syncAuthFromCookies = useCallback(() => {
     const freshUser = readUserFromCookie();
-    if (!freshUser) return;
+    if (!freshUser) {
+      return;
+    }
 
     setUser((prev) => {
-      // Check if permissions/roles or user actually changed
       const prevPerms = prev ? [...prev.roles, ...prev.permissions].sort().join(",") : "";
       const freshPerms = [...freshUser.roles, ...freshUser.permissions].sort().join(",");
-      if (prev?.id === freshUser.id && prev?.email === freshUser.email && prevPerms === freshPerms) {
+      if (
+        prev?.id === freshUser.id &&
+        prev?.email === freshUser.email &&
+        prevPerms === freshPerms
+      ) {
         return prev;
       }
       return freshUser;
     });
   }, []);
 
-  // Function to fetch or re-fetch profile details using the existing user-details API
-  const refreshProfile = React.useCallback(async () => {
-    try {
-      const res = await getCurrentUserProfile();
-      if (res.success && res.data) {
-        setProfile(res.data);
-      }
-    } catch (err) {
-      console.error("Failed to load user profile in AuthProvider:", err);
-    }
-  }, []);
+  const refreshProfile = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.profile });
+  }, [queryClient]);
 
   // Check for auth_updated cookie to display "Your access has been updated." toast
-  React.useEffect(() => {
-    if (typeof document === "undefined") return;
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
 
     const checkUpdatedFlag = () => {
       const match = document.cookie
@@ -96,31 +117,24 @@ export function AuthProvider({
         .find((row) => row.startsWith(`${AUTH_UPDATED_COOKIE}=`));
 
       if (match) {
-        // Clear the cookie immediately to prevent duplicate toast notifications
         document.cookie = `${AUTH_UPDATED_COOKIE}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
         syncAuthFromCookies();
-        toastInfo("Your access has been updated.");
+        useToastStore.getState().info("Your access has been updated.");
       }
     };
 
-    checkUpdatedFlag();
     const interval = setInterval(checkUpdatedFlag, 1000);
     return () => clearInterval(interval);
-  }, [syncAuthFromCookies, toastInfo]);
+  }, [syncAuthFromCookies]);
 
-  // Sync on mount, window focus, visibility change, and periodically
-  React.useEffect(() => {
-    syncAuthFromCookies();
-    refreshProfile();
-
+  // Sync on window focus, visibility change, and periodically
+  useEffect(() => {
     const handleSync = () => {
       syncAuthFromCookies();
     };
 
     window.addEventListener("focus", handleSync);
     document.addEventListener("visibilitychange", handleSync);
-
-    // Periodic check every 5 seconds to catch token refresh from background actions
     const interval = setInterval(syncAuthFromCookies, 5000);
 
     return () => {
@@ -128,53 +142,55 @@ export function AuthProvider({
       document.removeEventListener("visibilitychange", handleSync);
       clearInterval(interval);
     };
-  }, [syncAuthFromCookies, refreshProfile]);
+  }, [syncAuthFromCookies]);
 
-  const allAuth = React.useMemo(() => {
-    if (!user) return [];
+  const allAuth = useMemo(() => {
+    if (!user) {
+      return [];
+    }
     return [...user.roles, ...user.permissions];
   }, [user]);
 
-  const isSuperAdmin = React.useMemo(() => {
-    return allAuth.includes("system.all") || allAuth.includes("ROLE_ADMINISTRATOR");
-  }, [allAuth]);
-
-  const can = React.useCallback(
-    (permissionOrRole: string | string[]) => {
-      return hasPermission(allAuth, permissionOrRole);
-    },
+  const isSuperAdmin = useMemo(
+    () => allAuth.includes("system.all") || allAuth.includes("ROLE_ADMINISTRATOR"),
     [allAuth]
   );
 
-  const hasRole = React.useCallback(
+  const can = useCallback(
+    (permissionOrRole: string | Array<string>) => hasPermission(allAuth, permissionOrRole),
+    [allAuth]
+  );
+
+  const hasRole = useCallback(
     (role: string) => {
-      if (isSuperAdmin) return true;
+      if (isSuperAdmin) {
+        return true;
+      }
       return user?.roles.includes(role) ?? false;
     },
     [isSuperAdmin, user]
   );
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        profile,
-        permissions: user?.permissions ?? [],
-        roles: user?.roles ?? [],
-        can,
-        hasRole,
-        isSuperAdmin,
-        refreshProfile,
-        syncAuthFromCookies,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo<AuthContextType>(
+    () => ({
+      user,
+      profile,
+      permissions: user?.permissions ?? [],
+      roles: user?.roles ?? [],
+      can,
+      hasRole,
+      isSuperAdmin,
+      refreshProfile,
+      syncAuthFromCookies,
+    }),
+    [user, profile, can, hasRole, isSuperAdmin, refreshProfile, syncAuthFromCookies]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
-  const context = React.useContext(AuthContext);
+  const context = useContext(AuthContext);
   if (!context) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
@@ -189,9 +205,9 @@ export function Can({
   children,
   fallback = null,
 }: {
-  perform: string | string[];
-  children: React.ReactNode;
-  fallback?: React.ReactNode;
+  perform: string | Array<string>;
+  children: ReactNode;
+  fallback?: ReactNode;
 }) {
   const { can } = useAuth();
   if (can(perform)) {

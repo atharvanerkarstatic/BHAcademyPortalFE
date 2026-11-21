@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { ArrowLeft, Loader2, MapPin, Languages } from "lucide-react";
 
 import { PageHeader } from "@/components/common/page-header";
@@ -58,13 +57,13 @@ export default function EditCityPage() {
   };
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) {return;}
 
     let mounted = true;
     (async () => {
       setFetching(true);
       const res = await getCityByIdAction(id);
-      if (!mounted) return;
+      if (!mounted) {return;}
 
       if (res.success && res.data) {
         const item = res.data;
@@ -80,8 +79,8 @@ export default function EditCityPage() {
         for (const lang of TRANSLATION_LANGUAGES) {
           const cKey = `city${lang.code}` as keyof CityItem;
           const sKey = `state${lang.code}` as keyof CityItem;
-          if (item[cKey]) cTrans[`city${lang.code}`] = String(item[cKey]);
-          if (item[sKey]) sTrans[`state${lang.code}`] = String(item[sKey]);
+          if (item[cKey]) {cTrans[`city${lang.code}`] = String(item[cKey]);}
+          if (item[sKey]) {sTrans[`state${lang.code}`] = String(item[sKey]);}
         }
 
         setCityTranslations(cTrans);

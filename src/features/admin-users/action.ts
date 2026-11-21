@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ENDPOINTS } from "@/config/endpoints";
 import { apiFetch, ApiError } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth-server";
 import { hasPermission } from "@/lib/auth-jwt";
@@ -62,7 +63,7 @@ export async function getAdminUsersAction(params: GetAdminUsersParams = {}) {
       status: number;
       message: string;
       data: AdminUserPageResponse;
-    }>(`/v1/users?${searchParams.toString()}`);
+    }>(`${ENDPOINTS.users.list}?${searchParams.toString()}`);
 
     return {
       success: true,
@@ -97,7 +98,7 @@ export async function getAdminUserByIdAction(id: string | number) {
       status: number;
       message: string;
       data: AdminUserItem;
-    }>(`/v1/users/${id}`);
+    }>(ENDPOINTS.users.byId(id));
 
     return {
       success: true,
@@ -143,7 +144,7 @@ export async function createAdminUserAction(payload: CreateAdminUserPayload) {
       status: number;
       message: string;
       data: AdminUserItem;
-    }>("/v1/users", {
+    }>(ENDPOINTS.users.list, {
       method: "POST",
       body: JSON.stringify(body),
     });
@@ -198,7 +199,7 @@ export async function updateAdminUserAction(
       status: number;
       message: string;
       data: AdminUserItem;
-    }>(`/v1/users/${id}`, {
+    }>(ENDPOINTS.users.byId(id), {
       method: "PUT",
       body: JSON.stringify(body),
     });
@@ -242,7 +243,7 @@ export async function resetUserPasswordAction(
       status: number;
       message: string;
       data?: { message?: string };
-    }>(`/v1/users/${id}/reset-password`, {
+    }>(ENDPOINTS.users.resetPassword(id), {
       method: "POST",
       body: JSON.stringify({ newPassword }),
     });
@@ -282,7 +283,7 @@ export async function updateAdminUserStatusAction(
       status: number;
       message: string;
       data: AdminUserItem;
-    }>(`/v1/users/${id}/status`, {
+    }>(ENDPOINTS.users.status(id), {
       method: "PATCH",
       body: JSON.stringify({ status }),
     });
@@ -322,7 +323,7 @@ export async function deleteAdminUserAction(id: string | number) {
       success: boolean;
       status: number;
       message: string;
-    }>(`/v1/users/${id}`, {
+    }>(ENDPOINTS.users.byId(id), {
       method: "DELETE",
     });
 
@@ -346,7 +347,7 @@ export async function deleteAdminUserAction(id: string | number) {
 
 export async function getRolesPicklistAction(): Promise<{
   success: boolean;
-  data: RoleItem[];
+  data: Array<RoleItem>;
   error?: string;
 }> {
   try {
@@ -355,7 +356,7 @@ export async function getRolesPicklistAction(): Promise<{
       status: number;
       message: string;
       data: RolePageResponse;
-    }>("/v1/roles?page=0&size=100&sort=name,asc&search=");
+    }>(`${ENDPOINTS.roles.list}?page=0&size=100&sort=name,asc&search=`);
 
     return {
       success: true,

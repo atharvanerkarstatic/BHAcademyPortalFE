@@ -2,10 +2,11 @@
 
 ## Commands
 
-- Use `npm ci` to install from the tracked `package-lock.json`.
-- Run `npm run dev` for development; run `npm run build` before `npm start` for production.
-- Run `npm run lint`; scope it with `npm run lint -- 'app/(portal)/categories/page.tsx'`.
-- Run `npx next typegen` before `npx tsc --noEmit` so generated route types exist.
+- Prefer `bun` over `npm` for package management and running scripts (update `bun.lock` with `bun install`).
+- Use `bun install --frozen-lockfile` for reproducible installs from `bun.lock`.
+- Run `bun run dev` for development; run `bun run build` before `bun run start` for production.
+- Run `bun run lint` (`oxlint` with `@cloudflare/oxlint-config`); scope it with `bun run lint -- 'app/(portal)/categories/page.tsx'`.
+- Run `bunx next typegen` before `bunx tsc --noEmit` so generated route types exist.
 - There is no test runner or test script configured.
 
 ## App and API boundaries

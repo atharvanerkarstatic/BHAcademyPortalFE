@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useState, useTransition, useMemo } from "react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Plus, RefreshCw, Search, ShieldCheck, Key } from "lucide-react";
+import { Plus, RefreshCw, Search, Key } from "lucide-react";
 
-import { DataTable, type Column } from "@/components/common/data-table";
+import { DataTable } from '@/components/common/data-table';
+import type { Column } from '@/components/common/data-table';
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,32 +24,33 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { getRolesAction, deleteRoleAction } from "@/features/roles/action";
+import { deleteRoleAction } from "@/features/roles/action";
 import type { RoleItem, RolePageResponse } from "@/features/roles/types";
+
+const PAGE_SIZE = 10;
+
+const EMPTY_PAGE: RolePageResponse = {
+  content: [],
+  page: 1,
+  size: PAGE_SIZE,
+  totalElements: 0,
+  totalPages: 0,
+  first: true,
+  last: true,
+  hasNext: false,
+  hasPrevious: false,
+};
 
 export default function RolesPage() {
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
-  const pathname = usePathname();
+  const queryClient = useQueryClient();
 
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = PAGE_SIZE;
 
-  const [pageData, setPageData] = useState<RolePageResponse>({
-    content: [],
-    page: 1,
-    size: pageSize,
-    totalElements: 0,
-    totalPages: 0,
-    first: true,
-    last: true,
-    hasNext: false,
-    hasPrevious: false,
-  });
-
-  const [isPending, startTransition] = useTransition();
   const [roleToDelete, setRoleToDelete] = useState<RoleItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -55,78 +59,62 @@ export default function RolesPage() {
   const canDelete = can("roles.delete") || can("system.all");
   const canViewPermissions = can("roles.read") || can("system.all");
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+      setActiveSearch(searchInput.trim());
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const { data: pageData = EMPTY_PAGE, isLoading, refetch } = useQuery({
+    queryKey: queryKeys.roles.list({ page, size: pageSize, search: activeSearch }),
+    queryFn: ({ signal }) =>
+      portalGet<RolePageResponse>(
+        "roles",
+        { page, size: pageSize, search: activeSearch },
+        signal
+      ),
+    placeholderData: keepPreviousData,
+  });
+
+  const isPending = isLoading;
+
   const loadRoles = (
     targetPage = page,
-    searchTerm = activeSearch,
+    _searchTerm = activeSearch,
     showSuccessToast = false
   ) => {
-    startTransition(async () => {
-      const res = await getRolesAction({
-        page: targetPage,
-        size: pageSize,
-        search: searchTerm,
-      });
-
-      if (res.success && res.data) {
-        setPageData(res.data);
-        if (showSuccessToast) {
-          success("Roles refreshed successfully");
-        }
-      } else {
-        toastError(res.error || "Failed to load roles");
+    setPage(targetPage);
+    void queryClient.invalidateQueries({ queryKey: queryKeys.roles.all });
+    void refetch().then((result) => {
+      if (result.error) {
+        toastError(result.error.message || "Failed to load roles");
+      } else if (showSuccessToast) {
+        success("Roles refreshed successfully");
       }
     });
   };
 
-  // Reset search filter whenever navigating away or returning to this route
-  useEffect(() => {
-    return () => {
-      setSearchInput("");
-      setActiveSearch("");
-      setPage(1);
-    };
-  }, [pathname]);
-
-  // Debounced search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchInput !== activeSearch) {
-        setActiveSearch(searchInput);
-        setPage(1);
-        loadRoles(1, searchInput);
-      }
-    }, 400);
-
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchInput]);
-
-  useEffect(() => {
-    loadRoles(1, "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
-    loadRoles(newPage, activeSearch);
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setActiveSearch(searchInput);
+    setActiveSearch(searchInput.trim());
     setPage(1);
-    loadRoles(1, searchInput);
   };
 
   const handleSearchClear = () => {
     setSearchInput("");
     setActiveSearch("");
     setPage(1);
-    loadRoles(1, "");
   };
 
-  const columns: Column<RoleItem>[] = useMemo(() => {
-    const cols: Column<RoleItem>[] = [
+  const columns: Array<Column<RoleItem>> = useMemo(() => {
+    const cols: Array<Column<RoleItem>> = [
       {
         header: "#",
         cell: (r: RoleItem, index?: number) => (
@@ -326,7 +314,7 @@ export default function RolesPage() {
             <AlertDialogAction
               onClick={async (e) => {
                 e.preventDefault();
-                if (!roleToDelete) return;
+                if (!roleToDelete) {return;}
                 setIsDeleting(true);
                 const res = await deleteRoleAction(roleToDelete.id);
                 setIsDeleting(false);

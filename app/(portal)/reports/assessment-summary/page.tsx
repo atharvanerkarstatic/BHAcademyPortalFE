@@ -1,15 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ReportPageLayout, type ReportFilterState } from "@/features/reports/components/report-page-layout";
+import { ReportPageLayout } from '@/features/reports/components/report-page-layout';
+import type { ReportFilterState } from '@/features/reports/components/report-page-layout';
 import { getAssessmentSummaryDashboardAction } from "@/features/dashboard/action";
 import type { AssessmentSummaryData } from "@/features/dashboard/types";
-import {
-  CollapsibleChartCard,
-  DonutPieChart,
-  GroupedBarChart,
-  type ChartDataPoint,
-} from "@/features/reports/components/dashboard-charts";
+import { CollapsibleChartCard, DonutPieChart, GroupedBarChart } from '@/features/reports/components/dashboard-charts';
+import type { ChartDataPoint } from '@/features/reports/components/dashboard-charts';
 import { useToast } from "@/components/ui/toast";
 
 export default function AssessmentSummaryReportPage() {
@@ -44,8 +41,10 @@ export default function AssessmentSummaryReportPage() {
   const total = summaryData.total ?? (summaryData.passed + summaryData.failed);
 
   // Data for the bottom Monthly / Total Assessments Results Summary bar chart
-  const currentMonthName = new Date().toLocaleString("en-US", { month: "long", year: "numeric" });
-  const barChartData: ChartDataPoint[] = [
+  const [currentMonthName] = useState(() =>
+    new Date().toLocaleString("en-US", { month: "long", year: "numeric" })
+  );
+  const barChartData: Array<ChartDataPoint> = [
     {
       label: currentMonthName,
       passed: summaryData.passed,

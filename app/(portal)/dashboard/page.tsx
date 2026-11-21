@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   CheckCircle2,
   GraduationCap,
@@ -10,13 +10,15 @@ import {
   RefreshCw,
   Users,
 } from "lucide-react";
+import { useState } from "react";
 
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { StatCard } from "@/features/dashboard/components/stat-card";
-import { getDashboardDataAction, getDivisionsAction } from "@/features/dashboard/action";
 import type { DashboardData } from "@/features/dashboard/types";
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
 const CYAN = "bg-[#17a2b8] text-white";
@@ -27,58 +29,43 @@ const RED = "bg-[#dc3545] text-white";
 
 export default function DashboardPage() {
   const { error: toastError, success: toastSuccess } = useToast();
-  const [data, setData] = useState<DashboardData>({});
-  const [divisions, setDivisions] = useState<string[]>([]);
-  const [selectedDivision, setSelectedDivision] = useState<string>("");
-  const [isPending, startTransition] = useTransition();
-  const [loadingDivisions, setLoadingDivisions] = useState(true);
+  const [selectedDivision, setSelectedDivision] = useState("");
 
-  // Load divisions list
-  useEffect(() => {
-    let mounted = true;
-    async function fetchDivisions() {
-      const res = await getDivisionsAction();
-      if (!mounted) return;
-      if (res.success && Array.isArray(res.data)) {
-        setDivisions(res.data);
-      } else if (res.error) {
-        toastError(res.error);
-      }
-      setLoadingDivisions(false);
+  const { data: divisions = [], isLoading: loadingDivisions } = useQuery({
+    queryKey: queryKeys.divisions,
+    queryFn: ({ signal }) => portalGet<Array<string>>("divisions", undefined, signal),
+    staleTime: 10 * 60_000,
+  });
+
+  const {
+    data = {},
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.dashboard.byDivision(selectedDivision),
+    queryFn: ({ signal }) =>
+      portalGet<DashboardData>(
+        "dashboard",
+        { division: selectedDivision || "" },
+        signal
+      ),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+  });
+
+  const handleRefresh = async () => {
+    const result = await refetch();
+    if (result.error) {
+      toastError(result.error.message || "Failed to load dashboard data.");
+    } else {
+      toastSuccess(
+        selectedDivision
+          ? `Dashboard updated for ${selectedDivision}`
+          : "Dashboard updated with latest data"
+      );
     }
-    fetchDivisions();
-    return () => {
-      mounted = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const loadData = (division: string, showToast = false) => {
-    startTransition(async () => {
-      const res = await getDashboardDataAction(division || null);
-      if (res.success) {
-        setData(res.data);
-        if (showToast) {
-          toastSuccess(
-            division ? `Dashboard updated for ${division}` : "Dashboard updated with latest data"
-          );
-        }
-      } else if (res.error) {
-        toastError(res.error);
-      }
-    });
   };
 
-  useEffect(() => {
-    loadData(selectedDivision);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDivision]);
-
-  const handleSelectDivision = (division: string) => {
-    setSelectedDivision(division);
-  };
-
-  // Compute total assessments taken
   const assessmentTakenTrainer =
     typeof data.assessmentTakenTrainer === "number" ? data.assessmentTakenTrainer : 0;
   const assessmentTakenSelf =
@@ -88,15 +75,13 @@ export default function DashboardPage() {
       ? data.assessmentTakenTotal
       : assessmentTakenTrainer + assessmentTakenSelf;
 
-  // Active trainers
   const activeTrainers =
     typeof data.activeTrainers === "number"
       ? data.activeTrainers
       : typeof data.trainers === "number"
-      ? data.trainers
-      : 0;
+        ? data.trainers
+        : 0;
 
-  // Cards layout with single Assessment card
   const stats = [
     { label: "USERS/PARTICIPANTS", href: "/accounts", icon: Users, color: CYAN, value: data.users },
     { label: "ACTIVE TRAINERS", href: "/trainers", icon: GraduationCap, color: BLUE, value: activeTrainers },
@@ -120,11 +105,11 @@ export default function DashboardPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => loadData(selectedDivision, true)}
-            disabled={isPending}
+            onClick={handleRefresh}
+            disabled={isFetching}
             className="gap-1.5 text-slate-600 bg-white uppercase text-xs font-semibold tracking-wider"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
             REFRESH DATA
           </Button>
         </div>
@@ -134,8 +119,8 @@ export default function DashboardPage() {
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <button
           type="button"
-          onClick={() => handleSelectDivision("")}
-          disabled={isPending}
+          onClick={() => setSelectedDivision("")}
+          disabled={isFetching}
           className={cn(
             "min-w-28 rounded-md border-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 shadow-xs cursor-pointer select-none",
             selectedDivision === ""
@@ -152,8 +137,8 @@ export default function DashboardPage() {
             <button
               key={div}
               type="button"
-              onClick={() => handleSelectDivision(div)}
-              disabled={isPending}
+              onClick={() => setSelectedDivision(div)}
+              disabled={isFetching}
               className={cn(
                 "min-w-28 rounded-md border-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 shadow-xs cursor-pointer select-none",
                 isSelected
@@ -166,9 +151,11 @@ export default function DashboardPage() {
           );
         })}
 
-        {loadingDivisions && (
-          <span className="text-xs uppercase font-medium text-slate-400 italic">LOADING DIVISIONS…</span>
-        )}
+        {loadingDivisions ? (
+          <span className="text-xs uppercase font-medium text-slate-400 italic">
+            LOADING DIVISIONS…
+          </span>
+        ) : null}
       </div>
 
       {/* Stats Cards Grid */}

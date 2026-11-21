@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Layers, Languages, Loader2, X } from "lucide-react";
+import { ArrowLeft, Languages, Loader2, X } from "lucide-react";
 
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -70,20 +70,13 @@ export default function NewCategoryPage() {
     setFormKey(Date.now());
   };
 
-  useEffect(() => {
-    resetForm();
-    return () => {
-      resetForm();
-    };
-  }, []);
-
   const handleBack = () => {
     resetForm();
     router.back();
   };
 
   const handleImageUpload = async (file: File | null) => {
-    if (!file) return;
+    if (!file) {return;}
 
     const check = validateImageFile(file);
     if (!check.valid) {
@@ -104,8 +97,8 @@ export default function NewCategoryPage() {
       } else {
         toastError(res.error || "Failed to upload image. Please try again.");
       }
-    } catch (err) {
-      console.error("Category image upload failed:", err);
+    } catch (error) {
+      console.error("Category image upload failed:", error);
       toastError("Failed to upload image file. Please try again.");
     } finally {
       setIsUploadingImage(false);
@@ -134,7 +127,7 @@ export default function NewCategoryPage() {
 
     const sanitizedTranslations: Record<string, string> = {};
     for (const [key, val] of Object.entries(translations)) {
-      if (!val) continue;
+      if (!val) {continue;}
       sanitizedTranslations[key] = sanitizeTextInput(val, 255);
     }
 
@@ -228,7 +221,7 @@ export default function NewCategoryPage() {
                     disabled={isUploadingImage || isPending}
                     onChange={(e) => {
                       const file = e.target.files?.[0] || null;
-                      if (file) handleImageUpload(file);
+                      if (file) {handleImageUpload(file);}
                     }}
                     className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
                   />
@@ -247,13 +240,12 @@ export default function NewCategoryPage() {
                 {imageUrl && (
                   <div className="flex items-center gap-3 p-2 rounded-lg border border-slate-200 bg-slate-50/70 w-fit">
                     <div className="h-14 w-20 shrink-0 overflow-hidden rounded border border-slate-200 bg-white">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={imageUrl}
                         alt="Category Preview"
                         className="h-full w-full object-cover"
                         onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).style.display = "none";
+                          (e.currentTarget).style.display = "none";
                         }}
                       />
                     </div>

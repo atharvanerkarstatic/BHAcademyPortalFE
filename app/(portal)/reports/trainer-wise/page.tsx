@@ -1,20 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { ReportPageLayout, type ReportFilterState } from "@/features/reports/components/report-page-layout";
+import { ReportPageLayout } from '@/features/reports/components/report-page-layout';
+import type { ReportFilterState } from '@/features/reports/components/report-page-layout';
 import { getTrainerWiseDashboardAction } from "@/features/dashboard/action";
 import type { TrainerWiseSummaryItem } from "@/features/dashboard/types";
-import {
-  CollapsibleChartCard,
-  GroupedBarChart,
-  AssessmentSummaryTable,
-  type ChartDataPoint,
-} from "@/features/reports/components/dashboard-charts";
+import { CollapsibleChartCard, GroupedBarChart, AssessmentSummaryTable } from '@/features/reports/components/dashboard-charts';
+import type { ChartDataPoint } from '@/features/reports/components/dashboard-charts';
 import { useToast } from "@/components/ui/toast";
 
 export default function TrainerWiseSummaryReportPage() {
   const { error: toastError, success: toastSuccess } = useToast();
-  const [reportData, setReportData] = useState<TrainerWiseSummaryItem[]>([]);
+  const [reportData, setReportData] = useState<Array<TrainerWiseSummaryItem>>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchDashboardData = async (filters: ReportFilterState, showToast = false) => {
@@ -40,7 +37,7 @@ export default function TrainerWiseSummaryReportPage() {
     setLoading(false);
   };
 
-  const chartData: ChartDataPoint[] = reportData.map((item) => ({
+  const chartData: Array<ChartDataPoint> = reportData.map((item) => ({
     label: item.trainerName || "Unknown",
     passed: Number(item.passed) || 0,
     failed: Number(item.failed) || 0,

@@ -89,7 +89,7 @@ export default function EditCoursePage() {
     (async () => {
       setFetching(true);
       const res = await getCourseByIdAction(id);
-      if (!mounted) return;
+      if (!mounted) {return;}
 
       if (res.success && res.data) {
         const item: CourseItem = res.data;
@@ -158,7 +158,7 @@ export default function EditCoursePage() {
   };
 
   const handleImageUpload = async (file: File | null) => {
-    if (!file) return;
+    if (!file) {return;}
 
     const check = validateImageFile(file);
     if (!check.valid) {
@@ -179,8 +179,8 @@ export default function EditCoursePage() {
       } else {
         toastError(res.error || "Failed to upload image. Please try again.");
       }
-    } catch (err) {
-      console.error("Course image upload failed:", err);
+    } catch (error) {
+      console.error("Course image upload failed:", error);
       toastError("Failed to upload image file. Please try again.");
     } finally {
       setIsUploadingImage(false);
@@ -215,19 +215,19 @@ export default function EditCoursePage() {
 
     const sanitizedNames: Record<string, string> = {};
     for (const [key, val] of Object.entries(names)) {
-      if (!val) continue;
+      if (!val) {continue;}
       sanitizedNames[key] = sanitizeTextInput(val, 255);
     }
 
     const sanitizedLevels: Record<string, string> = {};
     for (const [key, val] of Object.entries(levels)) {
-      if (!val) continue;
+      if (!val) {continue;}
       sanitizedLevels[key] = sanitizeTextInput(val, 100);
     }
 
     const sanitizedDetails: Record<string, string> = {};
     for (const [key, val] of Object.entries(details)) {
-      if (!val) continue;
+      if (!val) {continue;}
       sanitizedDetails[key] = sanitizeTextInput(val, 5000);
     }
 
@@ -484,7 +484,7 @@ export default function EditCoursePage() {
                     disabled={isUploadingImage || isPending}
                     onChange={(e) => {
                       const file = e.target.files?.[0] || null;
-                      if (file) handleImageUpload(file);
+                      if (file) {handleImageUpload(file);}
                     }}
                     className="h-9 text-xs file:bg-slate-100 file:border-0 file:rounded file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200"
                   />
@@ -503,13 +503,12 @@ export default function EditCoursePage() {
                 {imageUrl && (
                   <div className="flex items-center gap-3 p-2 rounded-lg border border-slate-200 bg-slate-50/70 w-fit">
                     <div className="h-14 w-20 shrink-0 overflow-hidden rounded border border-slate-200 bg-white">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={imageUrl}
                         alt="Course Preview"
                         className="h-full w-full object-cover"
                         onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).style.display = "none";
+                          (e.currentTarget).style.display = "none";
                         }}
                       />
                     </div>

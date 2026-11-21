@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useTransition, useMemo } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Plus, RefreshCw, Pencil, Trash2, Search, MapPin } from "lucide-react";
+import { Plus, RefreshCw, Pencil, Trash2, Search } from "lucide-react";
 
-import { DataTable, type Column } from "@/components/common/data-table";
+import { DataTable } from '@/components/common/data-table';
+import type { Column } from '@/components/common/data-table';
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,76 +22,76 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
-import { getCitiesAction, deleteCityAction } from "@/features/cities/action";
+import { portalGet } from "@/lib/portal-client";
+import { queryKeys } from "@/lib/query-keys";
+import { deleteCityAction } from "@/features/cities/action";
 import type { CityItem } from "@/features/cities/types";
 
 export default function CitiesPage() {
   const { can } = useAuth();
   const { success, error: toastError } = useToast();
-  const pathname = usePathname();
+  const queryClient = useQueryClient();
 
-  const [cities, setCities] = useState<CityItem[]>([]);
   const [search, setSearch] = useState("");
-
-  // Reset search filter whenever navigating away or returning to this route
-  useEffect(() => {
-    return () => {
-      setSearch("");
-      setPage(1);
-    };
-  }, [pathname]);
   const [page, setPage] = useState(1);
   const pageSize = 15;
-
-  const [isPending, startTransition] = useTransition();
-
-  // Delete modal state
   const [cityToDelete, setCityToDelete] = useState<CityItem | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
-  // Permission flags
   const canCreate = can("pincode.create") || can("system.all");
   const canUpdate = can("pincode.update") || can("system.all");
   const canDelete = can("pincode.delete") || can("system.all");
 
+  const { data: cities = [], isLoading, refetch } = useQuery({
+    queryKey: queryKeys.cities.list(),
+    queryFn: ({ signal }) => portalGet<Array<CityItem>>("cities", undefined, signal),
+    staleTime: 2 * 60_000,
+  });
+
+  const isPending = isLoading;
+
   const loadCities = (showSuccessToast = false) => {
-    startTransition(async () => {
-      const res = await getCitiesAction();
-      if (res.success && res.data) {
-        setCities(res.data);
-        if (showSuccessToast) {
-          success(res.message || "Cities refreshed successfully");
-        }
-      } else {
-        toastError(res.error || "Failed to load cities");
+    void refetch().then((result) => {
+      if (result.error) {
+        toastError(result.error.message || "Failed to load cities");
+      } else if (showSuccessToast) {
+        success("Cities refreshed successfully");
       }
     });
   };
 
-  useEffect(() => {
-    loadCities();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteCityAction(id),
+    onSuccess: async (res) => {
+      setCityToDelete(null);
+      if (res.success) {
+        success(res.message || "PinCode record deleted successfully");
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.cities.all }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.divisions }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all }),
+        ]);
+      } else {
+        toastError(res.error || "Failed to delete city");
+      }
+    },
+    onError: () => {
+      setCityToDelete(null);
+      toastError("Failed to delete city");
+    },
+  });
 
-  const confirmDelete = async () => {
-    if (!cityToDelete) return;
-    setIsDeleting(true);
+  const isDeleting = deleteMutation.isPending;
 
-    const res = await deleteCityAction(cityToDelete.id);
-    setIsDeleting(false);
-    setCityToDelete(null);
-
-    if (res.success) {
-      success(res.message || "PinCode record deleted successfully");
-      loadCities();
-    } else {
-      toastError(res.error || "Failed to delete city");
+  const confirmDelete = () => {
+    if (!cityToDelete) {
+      return;
     }
+    deleteMutation.mutate(cityToDelete.id);
   };
 
   // Live real-time search filtering as user types (same as FAQ)
   const filteredData = useMemo(() => {
-    if (!search.trim()) return cities;
+    if (!search.trim()) {return cities;}
     const query = search.toLowerCase();
     return cities.filter(
       (item) =>
@@ -110,8 +111,8 @@ export default function CitiesPage() {
     return filteredData.slice(startIndex, startIndex + pageSize);
   }, [filteredData, page, pageSize]);
 
-  const columns: Column<CityItem>[] = useMemo(() => {
-    const cols: Column<CityItem>[] = [
+  const columns: Array<Column<CityItem>> = useMemo(() => {
+    const cols: Array<Column<CityItem>> = [
       { header: "ID", cell: (r) => r.id, className: "w-16 font-mono text-xs" },
       {
         header: "Pincode",

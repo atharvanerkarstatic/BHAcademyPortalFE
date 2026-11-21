@@ -101,10 +101,8 @@ export default function ForgotPasswordForm() {
     setLoading(false);
   };
 
-  // Ensure fresh state on mount, unmount, and page visibility / back navigation
+  // Reset on browser back-forward cache restore
   useEffect(() => {
-    resetEntireFlow();
-
     const handlePageShow = () => {
       resetEntireFlow();
     };
@@ -156,7 +154,7 @@ export default function ForgotPasswordForm() {
 
   // 2. Resend OTP
   const handleResendOtp = async () => {
-    if (timerSeconds > 0) return;
+    if (timerSeconds > 0) {return;}
 
     setLoading(true);
     try {
@@ -192,7 +190,7 @@ export default function ForgotPasswordForm() {
         toastSuccess(res.message);
         clearOtpTimer();
         setResetToken(res.resetToken);
-        if (res.maskedMobile) setMaskedMobile(res.maskedMobile);
+        if (res.maskedMobile) {setMaskedMobile(res.maskedMobile);}
         setStep("PASSWORD");
       } else {
         toastError(res.error || res.message || "Failed to verify OTP.");
@@ -395,7 +393,7 @@ export default function ForgotPasswordForm() {
                 maxLength={6}
                 required
                 value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                onChange={(e) => setOtp(e.target.value.replaceAll(/\D/g, ""))}
                 className="h-11 rounded-l-none bg-slate-50 tracking-widest text-center font-mono text-lg font-semibold"
               />
             </div>

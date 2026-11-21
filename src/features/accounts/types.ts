@@ -32,7 +32,7 @@ export type AccountItem = {
   profilePic?: string | null;
   profileImage?: string | null;
   profilePicture?: string | null;
-  assessmentResults?: AssessmentResultItem[];
+  assessmentResults?: Array<AssessmentResultItem>;
 };
 
 export type CreateAccountPayload = {
@@ -56,7 +56,7 @@ export type UpdateAccountPayload = {
 };
 
 export type AccountPageResponse = {
-  content: AccountItem[];
+  content: Array<AccountItem>;
   page: number;
   size: number;
   totalElements: number;
@@ -88,5 +88,5 @@ export type BulkImportResponse = {
   totalRows: number;
   successCount: number;
   failureCount: number;
-  errors?: BulkImportError[];
+  errors?: Array<BulkImportError>;
 };

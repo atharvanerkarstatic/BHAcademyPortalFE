@@ -31,7 +31,7 @@ export type FaqItem = {
 };
 
 export type FaqPageResponse = {
-  content: FaqItem[];
+  content: Array<FaqItem>;
   page: number;
   size: number;
   totalElements: number;

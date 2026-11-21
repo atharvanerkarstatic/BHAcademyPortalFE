@@ -2,7 +2,7 @@ import { hasPermission } from "./auth-jwt";
 
 export type RoutePermissionRule = {
   pattern: RegExp;
-  permission?: string | string[];
+  permission?: string | Array<string>;
   href: string;
 };
 
@@ -11,7 +11,7 @@ export type RoutePermissionRule = {
  * - href: Target canonical path for this route (used for finding the first accessible route)
  * - permission: Required permission(s) - if undefined, requires at least some app permission
  */
-export const ROUTE_PERMISSIONS: RoutePermissionRule[] = [
+export const ROUTE_PERMISSIONS: Array<RoutePermissionRule> = [
   // Dashboard
   { pattern: /^\/dashboard(\/.*)?$/, permission: "dashboard.read", href: "/dashboard" },
 
@@ -83,7 +83,7 @@ export const ROUTE_PERMISSIONS: RoutePermissionRule[] = [
 /**
  * Ordered list of candidate landing routes when resolving the first available page
  */
-export const CANDIDATE_LANDING_ROUTES: { href: string; permission?: string | string[] }[] = [
+export const CANDIDATE_LANDING_ROUTES: Array<{ href: string; permission?: string | Array<string> }> = [
   { href: "/dashboard", permission: "dashboard.read" },
   { href: "/courses", permission: "courses.read" },
   { href: "/categories", permission: "categories.read" },
@@ -107,7 +107,7 @@ export const CANDIDATE_LANDING_ROUTES: { href: string; permission?: string | str
  * - Otherwise, finds the first route the user is authorized to access.
  * - If user has zero authorized pages, returns null.
  */
-export function getFirstAccessibleRoute(userPermissionsOrRoles: string[]): string | null {
+export function getFirstAccessibleRoute(userPermissionsOrRoles: Array<string>): string | null {
   if (!userPermissionsOrRoles || userPermissionsOrRoles.length === 0) {
     return null;
   }
@@ -129,7 +129,7 @@ export function getFirstAccessibleRoute(userPermissionsOrRoles: string[]): strin
 /**
  * Checks if a specific path is allowed for the user's permissions
  */
-export function isRouteAllowed(pathname: string, userPermissionsOrRoles: string[]): boolean {
+export function isRouteAllowed(pathname: string, userPermissionsOrRoles: Array<string>): boolean {
   // Common personal utility pages always accessible to authenticated users
   if (
     pathname === "/access-denied" ||
@@ -142,7 +142,7 @@ export function isRouteAllowed(pathname: string, userPermissionsOrRoles: string[
   // Find the most specific rule that matches
   for (const rule of ROUTE_PERMISSIONS) {
     if (rule.pattern.test(pathname)) {
-      if (!rule.permission) return true;
+      if (!rule.permission) {return true;}
       return hasPermission(userPermissionsOrRoles, rule.permission);
     }
   }

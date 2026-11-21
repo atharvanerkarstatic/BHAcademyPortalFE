@@ -13,7 +13,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { validateImageFile } from "@/lib/validations";
 import { uploadMediaAction } from "@/features/accounts/action";
-import { getCurrentUserProfile, updateUserProfileAction, type UserProfile } from "@/features/profile/action";
+import { getCurrentUserProfile, updateUserProfileAction } from '@/features/profile/action';
+import type { UserProfile } from '@/features/profile/action';
 import { useAuth } from "@/lib/auth-context";
 
 export default function EditProfilePage() {
@@ -38,7 +39,7 @@ export default function EditProfilePage() {
     (async () => {
       setFetching(true);
       const res = await getCurrentUserProfile();
-      if (!mounted) return;
+      if (!mounted) {return;}
 
       if (res.success && res.data) {
         setSavedProfile(res.data);
@@ -281,7 +282,7 @@ export default function EditProfilePage() {
                     <Input
                       id="prof-mobile"
                       value={mobileNumber}
-                      onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                      onChange={(e) => setMobileNumber(e.target.value.replaceAll(/\D/g, "").slice(0, 10))}
                       placeholder="10-digit mobile number"
                       className="h-9 text-xs font-mono"
                       maxLength={10}
