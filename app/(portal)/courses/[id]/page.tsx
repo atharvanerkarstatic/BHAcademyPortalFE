@@ -69,6 +69,7 @@ import {
 import { uploadMediaAction, getSampleImportAction } from "@/features/accounts/action";
 import { validateImageFile } from "@/lib/validations";
 import { LanguageSelect } from "@/features/languages/components/language-select";
+import { LanguageReferenceDialog } from "@/features/languages/components/language-reference-dialog";
 import { getAllLanguagesAction } from "@/features/languages/action";
 import type { LanguageItem } from "@/features/languages/types";
 import type { CourseItem } from "@/features/courses/types";
@@ -332,6 +333,7 @@ export default function CourseDetailPage() {
   const [importDialogTitle, setImportDialogTitle] = useState("Import Validation Issues");
   const [importDialogDesc, setImportDialogDesc] = useState("Some rows in your file could not be processed due to validation or mapping issues.");
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
+  const [langRefDialogOpen, setLangRefDialogOpen] = useState(false);
 
   const handleDownloadCourseSample = async (type: "COURSE_TRANSLATIONS" | "COURSE_VIDEOS" | "QUIZ") => {
     setDownloadingSample(type);
@@ -1673,19 +1675,31 @@ export default function CourseDetailPage() {
                       <p className="text-slate-700">
                         Upload a CSV / Excel file with course translations for the selected language.
                       </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={downloadingSample === "COURSE_TRANSLATIONS"}
-                        onClick={() => handleDownloadCourseSample("COURSE_TRANSLATIONS")}
-                        className="h-7 text-xs font-medium gap-1.5 border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
-                      >
-                        <Download className="h-3 w-3" />
-                        {downloadingSample === "COURSE_TRANSLATIONS"
-                          ? "Downloading…"
-                          : "Download Sample File"}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setLangRefDialogOpen(true)}
+                          className="h-7 text-xs font-medium gap-1.5 border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                        >
+                          <Languages className="h-3 w-3 text-blue-600" />
+                          View Language Codes & IDs
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={downloadingSample === "COURSE_TRANSLATIONS"}
+                          onClick={() => handleDownloadCourseSample("COURSE_TRANSLATIONS")}
+                          className="h-7 text-xs font-medium gap-1.5 border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
+                        >
+                          <Download className="h-3 w-3" />
+                          {downloadingSample === "COURSE_TRANSLATIONS"
+                            ? "Downloading…"
+                            : "Download Sample File"}
+                        </Button>
+                      </div>
                     </div>
                     <p className="text-[11px] text-slate-500">
                       <span className="font-semibold text-slate-800">Columns in Sample File:</span>{" "}
@@ -1765,19 +1779,31 @@ export default function CourseDetailPage() {
                       <p className="text-slate-700">
                         Upload a file with video links and metadata for this course.
                       </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={downloadingSample === "COURSE_VIDEOS"}
-                        onClick={() => handleDownloadCourseSample("COURSE_VIDEOS")}
-                        className="h-7 text-xs font-medium gap-1.5 border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
-                      >
-                        <Download className="h-3 w-3" />
-                        {downloadingSample === "COURSE_VIDEOS"
-                          ? "Downloading…"
-                          : "Download Sample File"}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setLangRefDialogOpen(true)}
+                          className="h-7 text-xs font-medium gap-1.5 border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                        >
+                          <Languages className="h-3 w-3 text-blue-600" />
+                          View Language Codes & IDs
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={downloadingSample === "COURSE_VIDEOS"}
+                          onClick={() => handleDownloadCourseSample("COURSE_VIDEOS")}
+                          className="h-7 text-xs font-medium gap-1.5 border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
+                        >
+                          <Download className="h-3 w-3" />
+                          {downloadingSample === "COURSE_VIDEOS"
+                            ? "Downloading…"
+                            : "Download Sample File"}
+                        </Button>
+                      </div>
                     </div>
                     <p className="text-[11px] text-slate-500">
                       <span className="font-semibold text-slate-800">Columns in Sample File:</span>{" "}
@@ -1857,19 +1883,31 @@ export default function CourseDetailPage() {
                       <p className="text-slate-700">
                         Upload a file with quiz questions and answer options for this course.
                       </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={downloadingSample === "QUIZ"}
-                        onClick={() => handleDownloadCourseSample("QUIZ")}
-                        className="h-7 text-xs font-medium gap-1.5 border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
-                      >
-                        <Download className="h-3 w-3" />
-                        {downloadingSample === "QUIZ"
-                          ? "Downloading…"
-                          : "Download Sample File"}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setLangRefDialogOpen(true)}
+                          className="h-7 text-xs font-medium gap-1.5 border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                        >
+                          <Languages className="h-3 w-3 text-blue-600" />
+                          View Language Codes & IDs
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={downloadingSample === "QUIZ"}
+                          onClick={() => handleDownloadCourseSample("QUIZ")}
+                          className="h-7 text-xs font-medium gap-1.5 border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
+                        >
+                          <Download className="h-3 w-3" />
+                          {downloadingSample === "QUIZ"
+                            ? "Downloading…"
+                            : "Download Sample File"}
+                        </Button>
+                      </div>
                     </div>
                     {/* <p className="text-[11px] text-slate-500">
                       <span className="font-semibold text-slate-800">Columns in Sample File:</span>{" "}
@@ -3333,6 +3371,12 @@ export default function CourseDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Language Reference Dialog for Bulk Uploads */}
+      <LanguageReferenceDialog
+        open={langRefDialogOpen}
+        onOpenChange={setLangRefDialogOpen}
+      />
     </div>
   );
 }
