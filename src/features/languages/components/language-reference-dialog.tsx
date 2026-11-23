@@ -43,6 +43,19 @@ export function LanguageReferenceDialog({
 
   const [isPending, startTransition] = useTransition();
 
+  const resetDialogState = useCallback(() => {
+    setSearchInput("");
+    setActiveSearch("");
+    setPage(1);
+  }, []);
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      resetDialogState();
+    }
+    onOpenChange(isOpen);
+  };
+
   const loadLanguages = useCallback((targetPage: number, search: string) => {
     startTransition(async () => {
       const res = await getLanguagesAction({
@@ -57,11 +70,14 @@ export function LanguageReferenceDialog({
     });
   }, [pageSize]);
 
+  // When dialog is opened or page/search changes, load languages
   useEffect(() => {
     if (open) {
       loadLanguages(page, activeSearch);
+    } else {
+      resetDialogState();
     }
-  }, [open, page, activeSearch, loadLanguages]);
+  }, [open, page, activeSearch, loadLanguages, resetDialogState]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,7 +120,7 @@ export function LanguageReferenceDialog({
   ];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent size="lg" className="max-h-[90vh] flex flex-col p-6 overflow-hidden">
         <DialogHeader className="border-b pb-3">
           <DialogTitle className="text-base font-bold text-slate-900">

@@ -1299,15 +1299,22 @@ export default function CourseDetailPage() {
     const hasTranslation = Boolean(translatedName && translatedName.trim().length > 0) || isEn;
 
     // Check if course has a matching item in its languages array from API
-    const apiLang = course.languages?.find(
-      (l) =>
-        l.languageId === meta.languageId ||
-        l.language.toLowerCase() === meta.language.toLowerCase() ||
-        (meta.code && l.languageCode?.toLowerCase() === meta.code.toLowerCase())
-    );
+    const apiLang = course.languages?.find((l) => {
+      const lCode = l.languageCode?.trim().toLowerCase();
+      const mCode = meta.code?.trim().toLowerCase();
+      if (lCode && mCode && lCode === mCode) return true;
 
-    const videosCount = apiLang?.videoCount ?? 0;
-    const questionsCount = apiLang?.questionCount ?? 0;
+      const lName = l.language?.trim().toLowerCase();
+      const mName = meta.language?.trim().toLowerCase();
+      if (lName && mName && lName === mName) return true;
+
+      if (l.languageId && meta.languageId && String(l.languageId) === String(meta.languageId)) return true;
+
+      return false;
+    });
+
+    const videosCount = Number(apiLang?.videoCount ?? 0);
+    const questionsCount = Number(apiLang?.questionCount ?? 0);
 
     return {
       num: meta.num,
@@ -1648,7 +1655,7 @@ export default function CourseDetailPage() {
                                 onClick={() => handleOpenQuestionnaire(row)}
                                 className="text-xs text-blue-600 hover:underline font-medium"
                               >
-                                {row.questionsCount} Questions
+                                {row.questionsCount} {row.questionsCount === 1 ? "Question" : "Questions"}
                               </button>
                             ) : (
                               <button
