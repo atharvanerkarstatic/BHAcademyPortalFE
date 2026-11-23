@@ -8,6 +8,7 @@ import { ArrowLeft, Eye, EyeOff, Loader2, Lock, UserRound } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
@@ -53,6 +54,7 @@ export default function EditAdminUserPage({
   const [email, setEmail] = useState("");
   const [pincode, setPincode] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
+  const [adFlag, setAdFlag] = useState(false);
   const [currentProfilePic, setCurrentProfilePic] = useState<string | null>(null);
 
   const [selectedRoleId, setSelectedRoleId] = useState<string>("");
@@ -107,6 +109,7 @@ export default function EditAdminUserPage({
         setEmail(u.email || "");
         setPincode(u.pinCode || u.pincode || "");
         setMobileNumber(u.mobileNumber || "");
+        setAdFlag(Boolean(u.adFlag));
         setCurrentProfilePic(u.profilePic || null);
 
         if (u.roles && u.roles.length > 0) {
@@ -136,6 +139,7 @@ export default function EditAdminUserPage({
       setEmail(adminUser.email || "");
       setPincode(adminUser.pinCode || adminUser.pincode || "");
       setMobileNumber(adminUser.mobileNumber || "");
+      setAdFlag(Boolean(adminUser.adFlag));
       setCurrentProfilePic(adminUser.profilePic || null);
       if (adminUser.roles && adminUser.roles.length > 0) {
         setSelectedRoleId(String(adminUser.roles[0].id));
@@ -220,6 +224,7 @@ export default function EditAdminUserPage({
         profilePic: profilePicValue,
         roleIds: selectedRoleId ? [selectedRoleId] : undefined,
         pinCode: cleanPincode,
+        adFlag,
       });
 
       if (!updateRes.success) {
@@ -462,6 +467,24 @@ export default function EditAdminUserPage({
                 <p className="mt-1 text-[11px] text-slate-500">
                   Allowed formats: PNG, JPG, JPEG (Max 5 MB)
                 </p>
+              </div>
+            </div>
+
+            {/* Is AD user */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <div className="hidden sm:block" />
+              <div className="sm:col-span-3 flex items-center gap-2">
+                <Checkbox
+                  id="edit-ad-user-flag"
+                  checked={adFlag}
+                  onCheckedChange={(checked) => setAdFlag(Boolean(checked))}
+                />
+                <Label
+                  htmlFor="edit-ad-user-flag"
+                  className="text-xs font-medium text-slate-700 cursor-pointer"
+                >
+                  is AD user ?
+                </Label>
               </div>
             </div>
 

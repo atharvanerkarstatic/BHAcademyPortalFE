@@ -1417,10 +1417,6 @@ export default function CourseDetailPage() {
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-1">
-                  <span className="font-semibold text-slate-700">Admin Entry:</span>
-                  <span className="col-span-2 text-slate-400">—</span>
-                </div>
-                <div className="grid grid-cols-3 gap-1">
                   <span className="font-semibold text-slate-700">Course Code:</span>
                   <span className="col-span-2 font-mono text-slate-700">
                     {course.courseCode || "—"}

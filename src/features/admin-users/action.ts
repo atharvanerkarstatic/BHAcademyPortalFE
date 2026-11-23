@@ -136,6 +136,7 @@ export async function createAdminUserAction(payload: CreateAdminUserPayload) {
       mobileNumber: payload.mobileNumber || null,
       profilePic: payload.profilePic || null,
       pinCode: payload.pinCode || payload.pincode || "",
+      adFlag: payload.adFlag ?? false,
     };
 
     const res = await apiFetch<{
@@ -191,6 +192,7 @@ export async function updateAdminUserAction(
       profilePic: payload.profilePic ?? null,
       roleIds: payload.roleIds,
       pinCode: payload.pinCode !== undefined ? payload.pinCode : payload.pincode !== undefined ? payload.pincode : "",
+      adFlag: payload.adFlag ?? false,
     };
 
     const res = await apiFetch<{

@@ -35,6 +35,7 @@ export interface AdminUserItem {
   profilePic?: string | null;
   pinCode?: string | null;
   pincode?: string | null;
+  adFlag?: boolean;
   roleCodes?: string[];
   roles?: {
     id: number;
@@ -77,6 +78,7 @@ export interface CreateAdminUserPayload {
   profilePic?: string | null;
   pinCode?: string | null;
   pincode?: string | null;
+  adFlag?: boolean;
 }
 
 export interface UpdateAdminUserPayload {
@@ -89,5 +91,6 @@ export interface UpdateAdminUserPayload {
   roleIds?: string[];
   pinCode?: string | null;
   pincode?: string | null;
+  adFlag?: boolean;
 }
 

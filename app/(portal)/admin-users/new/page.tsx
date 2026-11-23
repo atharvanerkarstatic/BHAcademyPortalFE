@@ -8,6 +8,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
@@ -43,6 +44,7 @@ export default function NewAdminUserPage() {
   const [password, setPassword] = useState("");
   const [pincode, setPincode] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
+  const [adFlag, setAdFlag] = useState(false);
   const [selectedRoleId, setSelectedRoleId] = useState<string>("1");
   const [roles, setRoles] = useState<RoleItem[]>([]);
   const [loadingRoles, setLoadingRoles] = useState(true);
@@ -82,6 +84,7 @@ export default function NewAdminUserPage() {
     setPassword("");
     setPincode("");
     setMobileNumber("");
+    setAdFlag(false);
     setImageFile(null);
     setFormKey((k) => k + 1);
   };
@@ -173,6 +176,7 @@ export default function NewAdminUserPage() {
         profilePic: uploadedPicUrl,
         roleIds: [selectedRoleId],
         pinCode: cleanPincode,
+        adFlag,
       });
 
       if (res.success) {
@@ -403,6 +407,24 @@ export default function NewAdminUserPage() {
                 <p className="mt-1 text-[11px] text-slate-400">
                   Allowed formats: PNG, JPG, JPEG (Max 5 MB)
                 </p>
+              </div>
+            </div>
+
+            {/* Is AD user */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <div className="hidden sm:block" />
+              <div className="sm:col-span-3 flex items-center gap-2">
+                <Checkbox
+                  id="ad-user-flag"
+                  checked={adFlag}
+                  onCheckedChange={(checked) => setAdFlag(Boolean(checked))}
+                />
+                <Label
+                  htmlFor="ad-user-flag"
+                  className="text-xs font-medium text-slate-700 cursor-pointer"
+                >
+                  is AD user ?
+                </Label>
               </div>
             </div>
 
