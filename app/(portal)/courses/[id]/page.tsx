@@ -311,7 +311,7 @@ export default function CourseDetailPage() {
     setTransCourseName("");
     setTransDescription("");
     setTransDuration("");
-    setTransCourseLevel("BEGINNER");
+    setTransCourseLevel((course?.courseLevel as string)?.toUpperCase() || "BEGINNER");
     setCurrentTransData(null);
   };
 
@@ -410,7 +410,7 @@ export default function CourseDetailPage() {
           setCourse(courseData);
 
           // Populate default uploadCourseId
-          const initialCourseCode = courseData.courseLevel || String(courseData.id || id);
+          const initialCourseCode = courseData.courseCode || String(courseData.id || id);
           setUploadCourseId(initialCourseCode);
           setUploadVideosCourseId(initialCourseCode);
           setUploadQuestionsCourseId(initialCourseCode);
@@ -555,7 +555,9 @@ export default function CourseDetailPage() {
         setTransCourseName(res.data.courseName || "");
         setTransDescription(res.data.courseDetails || "");
         setTransDuration(res.data.duration || "");
-        setTransCourseLevel(res.data.courseLevel || "BEGINNER");
+        setTransCourseLevel(
+          (res.data.courseLevel || course?.courseLevel || "BEGINNER").toUpperCase()
+        );
       } else {
         // Fallback from current course state if not found
         const meta = LANGUAGES_META.find(
@@ -569,7 +571,7 @@ export default function CourseDetailPage() {
         setTransCourseName((course?.[nameKey] as string) || (isEn ? course?.courseName || "" : ""));
         setTransDescription((course?.[descKey] as string) || (isEn ? course?.courseDetails || "" : ""));
         setTransDuration(course?.duration || "");
-        setTransCourseLevel((course?.courseLevel as string) || "BEGINNER");
+        setTransCourseLevel(((course?.courseLevel as string) || "BEGINNER").toUpperCase());
       }
     } catch (err) {
       console.error("Failed to load translation:", err);
@@ -622,7 +624,7 @@ export default function CourseDetailPage() {
         courseName: transCourseName.trim(),
         courseDetails: transDescription.trim(),
         courseLevel: transCourseLevel || "BEGINNER",
-        duration: transDuration.trim(),
+        duration: course.duration || "",
       };
 
       const res = await updateCourseTranslationAction(course.id, payload);
@@ -1421,7 +1423,13 @@ export default function CourseDetailPage() {
                 <div className="grid grid-cols-3 gap-1">
                   <span className="font-semibold text-slate-700">Course Code:</span>
                   <span className="col-span-2 font-mono text-slate-700">
-                    {course.courseLevel || "WDA"}
+                    {course.courseCode || "—"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  <span className="font-semibold text-slate-700">Course Level:</span>
+                  <span className="col-span-2 text-slate-700 font-medium">
+                    {course.courseLevel || "—"}
                   </span>
                 </div>
               </div>
@@ -2057,26 +2065,6 @@ export default function CourseDetailPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-4">
-                <Label htmlFor="trans-duration" className="text-xs font-bold text-slate-800 sm:text-right pt-2">
-                  Course Duration
-                </Label>
-                <div className="sm:col-span-3 space-y-1">
-                  <Input
-                    id="trans-duration"
-                    value={transDuration}
-                    type="text"
-                    onChange={(e) => setTransDuration(e.target.value)}
-                    placeholder="e.g. 32.03 mins or 1:20:39 hours"
-                    maxLength={100}
-                    className="h-9 text-xs"
-                  />
-                  <p className="text-[11px] text-slate-500">
-                    Allow decimal values or time formats. E.g. <span className="font-medium text-slate-700">32.03 mins</span> or <span className="font-medium text-slate-700">1:20:39 hours</span>
-                  </p>
-                </div>
-              </div>
-
               {/* SAVE / CANCEL buttons */}
               <div className="flex items-center justify-center gap-2 pt-4">
                 <Button
@@ -2341,22 +2329,28 @@ export default function CourseDetailPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-4">
-                  <Label htmlFor="v-duration" className="text-xs font-bold text-slate-800 sm:text-right pt-2">
-                    Duration
+                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                  <Label htmlFor="v-duration" className="text-xs font-bold text-slate-800 sm:text-right">
+                    Duration (Minutes)
                   </Label>
                   <div className="sm:col-span-3 space-y-1">
                     <Input
                       id="v-duration"
                       value={videoDuration}
                       type="text"
-                      onChange={(e) => setVideoDuration(e.target.value)}
-                      placeholder="e.g. 32.03 mins or 1:20:39 hours"
-                      maxLength={100}
+                      inputMode="decimal"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                          setVideoDuration(val);
+                        }
+                      }}
+                      placeholder="e.g. 12.5"
+                      maxLength={20}
                       className="h-9 text-xs"
                     />
                     <p className="text-[11px] text-slate-500">
-                      Allow decimal values or time formats. E.g. <span className="font-medium text-slate-700">32.03 mins</span> or <span className="font-medium text-slate-700">1:20:39 hours</span>
+                      Enter a decimal number only. Value must be in minutes (e.g. <span className="font-medium text-slate-700">12.5</span>).
                     </p>
                   </div>
                 </div>

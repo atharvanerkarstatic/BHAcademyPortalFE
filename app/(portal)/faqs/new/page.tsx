@@ -22,7 +22,7 @@ export default function NewFaqPage() {
   const { success, error: toastError } = useToast();
   const [isPending, startTransition] = useTransition();
 
-  const [formKey, setFormKey] = useState<number>(() => Date.now());
+  const [formKey, setFormKey] = useState<number>(0);
 
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
@@ -84,7 +84,7 @@ export default function NewFaqPage() {
       answerTa: "",
       answerTe: "",
     });
-    setFormKey(Date.now());
+    setFormKey((prev) => prev + 1);
   };
 
   useEffect(() => {

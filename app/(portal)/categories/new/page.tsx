@@ -48,7 +48,7 @@ export default function NewCategoryPage() {
   const { success, error: toastError } = useToast();
   const [isPending, startTransition] = useTransition();
 
-  const [formKey, setFormKey] = useState<number>(() => Date.now());
+  const [formKey, setFormKey] = useState<number>(0);
 
   const [category, setCategory] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -67,7 +67,7 @@ export default function NewCategoryPage() {
     setStatus("ACTIVE");
     setFeatured(false);
     setTranslations({ ...INITIAL_TRANSLATIONS });
-    setFormKey(Date.now());
+    setFormKey((prev) => prev + 1);
   };
 
   useEffect(() => {

@@ -30,13 +30,13 @@ export default function EditCoursePage() {
 
   // Primary Course Fields
   const [categoryId, setCategoryId] = useState<string>("");
+  const [courseCode, setCourseCode] = useState<string>("");
   const [courseName, setCourseName] = useState<string>("");
   const [courseLevel, setCourseLevel] = useState<string>("Beginner");
   const [duration, setDuration] = useState<string>("");
   const [mode, setMode] = useState<string>("virtual");
   const [points, setPoints] = useState<number | "">(0);
   const [noOfVideos, setNoOfVideos] = useState<number | "">(0);
-  const [noOfCertifications, setNoOfCertifications] = useState<string>("1");
   const [imageUrl, setImageUrl] = useState<string>("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [courseDetails, setCourseDetails] = useState<string>("");
@@ -94,13 +94,13 @@ export default function EditCoursePage() {
       if (res.success && res.data) {
         const item: CourseItem = res.data;
         setCategoryId(String(item.categoryId ?? ""));
+        setCourseCode(item.courseCode || "");
         setCourseName(item.courseName || "");
         setCourseLevel(item.courseLevel || "Beginner");
         setDuration(item.duration || "");
         setMode(item.mode || "virtual");
         setPoints(typeof item.points === "number" ? item.points : 0);
         setNoOfVideos(typeof item.noOfVideos === "number" ? item.noOfVideos : 0);
-        setNoOfCertifications(item.noOfCertifications || "1");
         setImageUrl(item.imageUrl || "");
         setCourseDetails(item.courseDetails || "");
 
@@ -201,6 +201,12 @@ export default function EditCoursePage() {
       return;
     }
 
+    const cleanCourseCode = sanitizeTextInput(courseCode, 100);
+    if (!cleanCourseCode) {
+      toastError("Course Code is required.");
+      return;
+    }
+
     const cleanCourseName = sanitizeTextInput(courseName, 255);
     if (!cleanCourseName) {
       toastError("Course Name is required.");
@@ -208,8 +214,15 @@ export default function EditCoursePage() {
     }
 
     const cleanCourseLevel = sanitizeTextInput(courseLevel, 100) || "Beginner";
-    const cleanDuration = sanitizeTextInput(duration, 100);
-    const cleanCertifications = noOfCertifications === "" ? "0" : String(sanitizeNonNegativeNumber(noOfCertifications, 0, 0));
+    const cleanDuration = duration.trim();
+    if (!cleanDuration) {
+      toastError("Duration is required.");
+      return;
+    }
+    if (!/^\d+(\.\d+)?$/.test(cleanDuration)) {
+      toastError("Duration must be a valid decimal number in minutes (e.g. 16.55). No letters or symbols allowed.");
+      return;
+    }
     const cleanImageUrl = sanitizeTextInput(imageUrl, 500);
     const cleanCourseDetails = sanitizeTextInput(courseDetails, 5000);
 
@@ -233,10 +246,10 @@ export default function EditCoursePage() {
 
     const payload: UpdateCoursePayload = {
       categoryId: cleanCategoryId,
+      courseCode: cleanCourseCode,
       courseName: cleanCourseName,
       points: sanitizeNonNegativeNumber(points, 0, 0),
       noOfVideos: sanitizeNonNegativeNumber(noOfVideos, 0, 0),
-      noOfCertifications: cleanCertifications,
       courseLevel: cleanCourseLevel,
       duration: cleanDuration || undefined,
       imageUrl: cleanImageUrl || undefined,
@@ -300,21 +313,42 @@ export default function EditCoursePage() {
             <div className="mx-auto max-w-2xl space-y-4">
               {/* Category */}
               <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label
-                htmlFor="edit-course-category"
-                className="text-xs font-semibold text-slate-700 sm:text-right"
-              >
-                Category <span className="text-rose-500">*</span>
-              </Label>
-              <div className="sm:col-span-3">
-                <CategorySelect
-                  value={categoryId}
-                  onChange={(catId) => setCategoryId(catId)}
-                />
+                <Label
+                  htmlFor="edit-course-category"
+                  className="text-xs font-semibold text-slate-700 sm:text-right"
+                >
+                  Category <span className="text-rose-500">*</span>
+                </Label>
+                <div className="sm:col-span-3">
+                  <CategorySelect
+                    value={categoryId}
+                    onChange={(catId) => setCategoryId(catId)}
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Course Name */}
+              {/* Course Code */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                <Label
+                  htmlFor="edit-course-code"
+                  className="text-xs font-semibold text-slate-700 sm:text-right"
+                >
+                  Course Code <span className="text-rose-500">*</span>
+                </Label>
+                <div className="sm:col-span-3">
+                  <Input
+                    id="edit-course-code"
+                    value={courseCode}
+                    onChange={(e) => setCourseCode(e.target.value)}
+                    placeholder="e.g. WDA"
+                    maxLength={100}
+                    className="h-9 text-xs font-mono uppercase"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Course Name */}
             <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
               <Label
                 htmlFor="edit-course-name"
@@ -363,21 +397,27 @@ export default function EditCoursePage() {
                 htmlFor="edit-course-duration"
                 className="text-xs font-semibold text-slate-700 sm:text-right pt-2"
               >
-                Duration <span className="text-rose-500">*</span>
+                Duration (Minutes) <span className="text-rose-500">*</span>
               </Label>
               <div className="sm:col-span-3 space-y-1">
                 <Input
                   id="edit-course-duration"
                   value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                      setDuration(val);
+                    }
+                  }}
                   type="text"
-                  placeholder="e.g. 32.03 mins or 1:20:39 hours"
-                  maxLength={100}
+                  inputMode="decimal"
+                  placeholder="e.g. 16.55"
+                  maxLength={20}
                   className="h-9 text-xs"
                   required
                 />
                 <p className="text-[11px] text-slate-500">
-                  Allowed decimal values or time formats. E.g. <span className="font-medium text-slate-700">32.03 mins</span> or <span className="font-medium text-slate-700">1:20:39 hours</span>
+                  Enter a decimal number only. Value must be in minutes (e.g. <span className="font-medium text-slate-700">16.55</span>).
                 </p>
               </div>
             </div>
@@ -440,28 +480,6 @@ export default function EditCoursePage() {
                   value={noOfVideos}
                   onChange={(e) => setNoOfVideos(e.target.value === "" ? "" : sanitizeNonNegativeNumber(e.target.value, 0, 0))}
                   placeholder="0"
-                  className="h-9 text-xs font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Number of Certifications */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-              <Label
-                htmlFor="edit-course-certifications"
-                className="text-xs font-semibold text-slate-700 sm:text-right"
-              >
-                Certifications
-              </Label>
-              <div className="sm:col-span-3">
-                <Input
-                  id="edit-course-certifications"
-                  value={noOfCertifications}
-                  type="number"
-                  min="0"
-                  onChange={(e) => setNoOfCertifications(e.target.value === "" ? "" : String(sanitizeNonNegativeNumber(e.target.value, 0, 0)))}
-                  placeholder="e.g. 1"
-                  maxLength={50}
                   className="h-9 text-xs font-mono"
                 />
               </div>

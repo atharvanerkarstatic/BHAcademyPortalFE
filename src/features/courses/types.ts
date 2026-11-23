@@ -80,6 +80,7 @@ export type ApiResponse<T> = {
 
 export type CreateCoursePayload = {
   categoryId: string | number;
+  courseCode?: string;
   courseName: string;
   points?: number;
   noOfVideos?: number;

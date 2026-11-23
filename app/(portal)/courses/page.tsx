@@ -343,16 +343,6 @@ function CoursesView() {
         className: "w-20 text-center",
       },
       {
-        header: "Certifications",
-        cell: (r) => (
-          <div className="flex items-center gap-1 text-xs text-slate-700">
-            <Award className="h-3 w-3 text-amber-500" />
-            <span>{r.noOfCertifications ? Number(r.noOfCertifications).toLocaleString() : 0}</span>
-          </div>
-        ),
-        className: "w-28",
-      },
-      {
         header: "Status",
         cell: (r) => {
           const isActive = r.status?.toUpperCase() === "ACTIVE";
