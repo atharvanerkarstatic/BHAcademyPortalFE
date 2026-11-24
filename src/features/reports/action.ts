@@ -21,7 +21,13 @@ async function fetchCsvReport(pathWithQuery: string, defaultFilename: string): P
   const user = await getCurrentUser();
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
-  if (!hasPermission(userPerms, "audit.read") && !hasPermission(userPerms, "reports.read") && !hasPermission(userPerms, "courses.read") && !hasPermission(userPerms, "system.all")) {
+  if (
+    !hasPermission(userPerms, "audit.read") &&
+    !hasPermission(userPerms, "reports.read") &&
+    !hasPermission(userPerms, "courses.read") &&
+    !hasPermission(userPerms, "trainer-wise-summary.export") &&
+    !hasPermission(userPerms, "system.all")
+  ) {
     return {
       success: false,
       error: "You do not have permission to generate reports.",
@@ -229,6 +235,31 @@ export async function exportTrainerIpReportAction(params: TrainerIpReportParams)
   return fetchCsvReport(
     `/v1/report/trainers-assessment-ip-report/export?${query.toString()}`,
     "trainer-ip-report.csv"
+  );
+}
+
+export type TrainerWiseSummaryReportParams = {
+  division?: string;
+  region?: string;
+  languageId?: string;
+  courseId?: string;
+  startDate?: string;
+  endDate?: string;
+};
+
+export async function exportTrainerWiseSummaryAction(params: TrainerWiseSummaryReportParams): Promise<ExportReportResult> {
+  const query = new URLSearchParams({
+    division: params.division ?? "",
+    region: params.region ?? "",
+    languageId: params.languageId ?? "",
+    courseId: params.courseId ?? "",
+    startDate: params.startDate ?? "",
+    endDate: params.endDate ?? "",
+  });
+
+  return fetchCsvReport(
+    `/v1/report/trainer-wise-summary/export?${query.toString()}`,
+    "trainer-wise-summary.csv"
   );
 }
 

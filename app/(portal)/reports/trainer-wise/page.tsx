@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ReportPageLayout, type ReportFilterState } from "@/features/reports/components/report-page-layout";
 import { getTrainerWiseDashboardAction } from "@/features/dashboard/action";
+import { exportTrainerWiseSummaryAction } from "@/features/reports/action";
 import type { TrainerWiseSummaryItem } from "@/features/dashboard/types";
 import {
   CollapsibleChartCard,
@@ -56,18 +57,15 @@ export default function TrainerWiseSummaryReportPage() {
       onViewReport={async (filters) => {
         await fetchDashboardData(filters, true);
       }}
-      onGenerate={async () => {
-        // Generate CSV from current trainer-wise data
-        const headers = "Trainer Name,Total,Passed,Failed\n";
-        const rows = chartData
-          .map((d) => `"${d.label}",${d.total},${d.passed},${d.failed}`)
-          .join("\n");
-        return {
-          success: true,
-          data: headers + rows,
-          filename: `trainer-wise-summary_${new Date().toISOString().slice(0, 10)}.csv`,
-          message: "Trainer-wise summary report generated",
-        };
+      onGenerate={async (filters) => {
+        return exportTrainerWiseSummaryAction({
+          division: filters.division || "",
+          region: filters.region || "",
+          languageId: filters.languageId || "",
+          courseId: filters.courseId || "",
+          startDate: filters.startDate || "",
+          endDate: filters.endDate || "",
+        });
       }}
     >
       <div className="space-y-6">
