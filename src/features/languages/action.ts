@@ -102,30 +102,11 @@ export async function getLanguageByIdAction(id: string) {
   }
 }
 
-export async function createLanguageAction(payload: CreateLanguagePayload) {
-  try {
-    const res = await apiFetch<ApiResponse<LanguageItem>>("/v1/languages", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-
-    revalidatePath("/languages");
-    revalidatePath("/dashboard");
-
-    return {
-      success: true,
-      data: res.data,
-      message: res.message || "Language created successfully",
-    };
-  } catch (error) {
-    console.error("Failed to create language:", error);
-    const message =
-      error instanceof ApiError ? error.message : "Failed to create language. Please try again.";
-    return {
-      success: false,
-      error: message,
-    };
-  }
+export async function createLanguageAction(_payload: CreateLanguagePayload) {
+  return {
+    success: false,
+    error: "Adding new languages is disabled.",
+  };
 }
 
 export async function updateLanguageAction(id: string, payload: UpdateLanguagePayload) {
