@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus, RefreshCw, Search, ShieldCheck, Key } from "lucide-react";
+import { Plus, RefreshCw, Search, Key } from "lucide-react";
 
 import { DataTable, type Column } from "@/components/common/data-table";
 import { PageHeader } from "@/components/common/page-header";

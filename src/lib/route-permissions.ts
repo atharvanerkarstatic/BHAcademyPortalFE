@@ -96,6 +96,16 @@ export const ROUTE_PERMISSIONS: RoutePermissionRule[] = [
     href: "/reports/trainer-access-logs",
   },
   {
+    pattern: /^\/reports\/request-training(\/.*)?$/,
+    permission: ["request-training.export", "reports.export", "reports.read", "audit.read", "system.all"],
+    href: "/reports/request-training",
+  },
+  {
+    pattern: /^\/reports\/register-training(\/.*)?$/,
+    permission: ["register-training.export", "reports.export", "reports.read", "audit.read", "system.all"],
+    href: "/reports/register-training",
+  },
+  {
     pattern: /^\/reports(\/.*)?$/,
     permission: [
       "participants-results.export",

@@ -38,6 +38,8 @@ async function fetchCsvReport(pathWithQuery: string, defaultFilename: string): P
     "trainer-wise-summary.export",
     "trainer-ip-report.export",
     "trainer-access-log.export",
+    "request-training.export",
+    "register-training.export",
     "data.export",
     "system.all",
   ];
@@ -278,6 +280,48 @@ export async function exportTrainerWiseSummaryAction(params: TrainerWiseSummaryR
   );
 }
 
+export type RequestTrainingReportParams = {
+  from?: string;
+  to?: string;
+  startDate?: string;
+  endDate?: string;
+};
+
+export async function exportRequestTrainingAction(params: RequestTrainingReportParams = {}): Promise<ExportReportResult> {
+  const fromVal = params.from ?? params.startDate ?? "";
+  const toVal = params.to ?? params.endDate ?? "";
+  const query = new URLSearchParams({
+    from: fromVal,
+    to: toVal,
+  });
+
+  return fetchCsvReport(
+    `/v1/request-training/export?${query.toString()}`,
+    "request-training.csv"
+  );
+}
+
+export type RegisterTrainingReportParams = {
+  from?: string;
+  to?: string;
+  startDate?: string;
+  endDate?: string;
+};
+
+export async function exportRegisterTrainingAction(params: RegisterTrainingReportParams = {}): Promise<ExportReportResult> {
+  const fromVal = params.from ?? params.startDate ?? "";
+  const toVal = params.to ?? params.endDate ?? "";
+  const query = new URLSearchParams({
+    from: fromVal,
+    to: toVal,
+  });
+
+  return fetchCsvReport(
+    `/v1/register-training/export?${query.toString()}`,
+    "register-training.csv"
+  );
+}
+
 export async function getReportFilterOptionsAction() {
   const user = await getCurrentUser();
   const [langRes, coursesRes, trainersRes] = await Promise.all([
@@ -290,7 +334,7 @@ export async function getReportFilterOptionsAction() {
     userEmail: user?.email || "satyam.pattnaik@stetig.in",
     languages:
       langRes.success && Array.isArray(langRes.data)
-        ? langRes.data.map((l: any, idx: number) => {
+        ? langRes.data.map((l: { languageId?: string | number; id?: string | number; language?: string; languageCode?: string | null }, idx: number) => {
             const id = l.languageId ?? l.id ?? String(idx + 1);
             return {
               id: String(id),
@@ -300,7 +344,7 @@ export async function getReportFilterOptionsAction() {
         : [],
     courses:
       coursesRes.success && coursesRes.data?.content
-        ? coursesRes.data.content.map((c: any, idx: number) => {
+        ? coursesRes.data.content.map((c: { id?: string | number; courseId?: string | number; courseName?: string }, idx: number) => {
             const id = c.id ?? c.courseId ?? String(idx + 1);
             return {
               id: String(id),
@@ -310,7 +354,7 @@ export async function getReportFilterOptionsAction() {
         : [],
     trainers:
       trainersRes.success && trainersRes.data?.content
-        ? trainersRes.data.content.map((t: any, idx: number) => {
+        ? trainersRes.data.content.map((t: { id?: string | number; firstName?: string; lastName?: string; email?: string }, idx: number) => {
             const id = t.id ?? String(idx + 1);
             const name = [t.firstName, t.lastName].filter(Boolean).join(" ") || t.email || `Trainer #${id}`;
             return {

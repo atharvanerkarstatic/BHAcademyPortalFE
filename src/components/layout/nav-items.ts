@@ -120,6 +120,18 @@ export const navSections: NavSection[] = [
         icon: BarChart3,
         permission: ["trainer-access-log.export", "reports.export", "reports.read", "audit.read", "system.all"],
       },
+      {
+        label: "Request Training",
+        href: "/reports/request-training",
+        icon: BarChart3,
+        permission: ["request-training.export", "reports.export", "reports.read", "audit.read", "system.all"],
+      },
+      {
+        label: "Register Training",
+        href: "/reports/register-training",
+        icon: BarChart3,
+        permission: ["register-training.export", "reports.export", "reports.read", "audit.read", "system.all"],
+      },
     ],
   },
   {
