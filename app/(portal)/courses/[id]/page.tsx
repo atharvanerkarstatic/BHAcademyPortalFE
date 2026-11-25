@@ -409,6 +409,28 @@ export default function CourseDetailPage() {
 
         if (courseRes.success && courseRes.data) {
           const courseData = courseRes.data;
+
+          // If getCourseByIdAction returns a course without `languages` array or empty,
+          // fetch from getCoursesAction to retrieve the full languages array with videoCount/questionCount
+          if (!courseData.languages || courseData.languages.length === 0) {
+            const searchKey = courseData.courseCode || courseData.courseName;
+            getCoursesAction({ search: searchKey, size: 50 }).then((coursesRes) => {
+              if (coursesRes.success && coursesRes.data?.content) {
+                const matched = coursesRes.data.content.find(
+                  (c) =>
+                    String(c.id) === String(courseData.id) ||
+                    (courseData.courseCode && c.courseCode === courseData.courseCode) ||
+                    c.courseName.toLowerCase() === courseData.courseName.toLowerCase()
+                );
+                if (matched?.languages && matched.languages.length > 0) {
+                  setCourse((prev) => (prev ? { ...prev, languages: matched.languages } : prev));
+                }
+              }
+            }).catch(() => {
+              // Ignore background fetch error
+            });
+          }
+
           setCourse(courseData);
 
           // Populate default uploadCourseId
@@ -1300,6 +1322,8 @@ export default function CourseDetailPage() {
 
     // Check if course has a matching item in its languages array from API
     const apiLang = course.languages?.find((l) => {
+      if (!l) return false;
+
       const lCode = l.languageCode?.trim().toLowerCase();
       const mCode = meta.code?.trim().toLowerCase();
       if (lCode && mCode && lCode === mCode) return true;
@@ -1308,13 +1332,29 @@ export default function CourseDetailPage() {
       const mName = meta.language?.trim().toLowerCase();
       if (lName && mName && lName === mName) return true;
 
-      if (l.languageId && meta.languageId && String(l.languageId) === String(meta.languageId)) return true;
+      // Handle backend language ID matching (by string/numeric or via allBackendLanguages)
+      if (l.languageId && meta.languageId) {
+        if (String(l.languageId) === String(meta.languageId)) return true;
+      }
+
+      // Check if backend language list maps this languageId to meta
+      if (l.languageId && allBackendLanguages.length > 0) {
+        const bLang = allBackendLanguages.find((b) => String(b.languageId) === String(l.languageId));
+        if (bLang) {
+          if (bLang.languageCode && mCode && bLang.languageCode.trim().toLowerCase() === mCode) return true;
+          if (bLang.language && mName && bLang.language.trim().toLowerCase() === mName) return true;
+        }
+      }
 
       return false;
     });
 
-    const videosCount = Number(apiLang?.videoCount ?? 0);
-    const questionsCount = Number(apiLang?.questionCount ?? 0);
+    const videosCount = typeof apiLang?.videoCount === "number"
+      ? apiLang.videoCount
+      : (apiLang?.videoCount !== undefined && apiLang?.videoCount !== null ? Number(apiLang.videoCount) : 0);
+    const questionsCount = typeof apiLang?.questionCount === "number"
+      ? apiLang.questionCount
+      : (apiLang?.questionCount !== undefined && apiLang?.questionCount !== null ? Number(apiLang.questionCount) : 0);
 
     return {
       num: meta.num,
