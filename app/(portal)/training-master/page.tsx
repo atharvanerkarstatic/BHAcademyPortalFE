@@ -253,7 +253,7 @@ export default function TrainingMasterPage() {
         logoSrc="/logo.png"
         columns={columns}
         data={pageData.content || []}
-        getRowId={(r) => r.id}
+        getRowId={(r, index) => (r.topicId ? `${r.id}-${r.topicId}-${index}` : `${r.id}-${index}`)}
         loading={isPending}
         emptyMessage={
           activeSearch

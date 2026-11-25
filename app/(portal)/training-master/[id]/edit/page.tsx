@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
+import { getAllLanguagesAction } from "@/features/languages/action";
+import type { LanguageItem } from "@/features/languages/types";
 import {
   getTrainingMasterByIdAction,
   updateTrainingMasterAction,
@@ -23,7 +25,20 @@ import type {
   TrainingMasterLanguageItem,
 } from "@/features/training-master/types";
 
-const DEFAULT_LANGUAGES = ["en", "hi", "bn"];
+const FALLBACK_LANGUAGES: { code: string; label: string }[] = [
+  { code: "en", label: "English (en)" },
+  { code: "hi", label: "Hindi (hi)" },
+  { code: "bn", label: "Bengali (bn)" },
+  { code: "mr", label: "Marathi (mr)" },
+  { code: "te", label: "Telugu (te)" },
+  { code: "ta", label: "Tamil (ta)" },
+  { code: "gu", label: "Gujarati (gu)" },
+  { code: "kn", label: "Kannada (kn)" },
+  { code: "ml", label: "Malayalam (ml)" },
+  { code: "pa", label: "Punjabi (pa)" },
+  { code: "or", label: "Odia (or)" },
+  { code: "as", label: "Assamese (as)" },
+];
 
 export default function EditTrainingMasterPage({
   params: paramsPromise,
@@ -45,6 +60,8 @@ export default function EditTrainingMasterPage({
   const [geoLocation, setGeoLocation] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [googleMapsLink, setGoogleMapsLink] = useState("");
+  const [availableLanguages, setAvailableLanguages] = useState<LanguageItem[]>([]);
+  const [loadingLanguages, setLoadingLanguages] = useState(true);
 
   const [languages, setLanguages] = useState<TrainingMasterLanguageItem[]>([
     {
@@ -60,6 +77,41 @@ export default function EditTrainingMasterPage({
   const [isPending, startTransition] = useTransition();
 
   const canUpdate = can("users.update") || can("ROLE_TRAINER") || can("system.all");
+
+  useEffect(() => {
+    let active = true;
+
+    getAllLanguagesAction()
+      .then((res) => {
+        if (!active) return;
+        if (res.success && res.data && res.data.length > 0) {
+          setAvailableLanguages(res.data);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load languages list:", err);
+      })
+      .finally(() => {
+        if (active) setLoadingLanguages(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const languageOptions =
+    availableLanguages.length > 0
+      ? availableLanguages
+          .filter((l) => l.languageCode || l.language)
+          .map((l) => {
+            const code = (l.languageCode || l.language || "").trim().toLowerCase();
+            const label = l.nativeName
+              ? `${l.language} (${l.nativeName}) - ${code.toUpperCase()}`
+              : `${l.language} - ${code.toUpperCase()}`;
+            return { code, label };
+          })
+      : FALLBACK_LANGUAGES;
 
   useEffect(() => {
     let active = true;
@@ -102,11 +154,12 @@ export default function EditTrainingMasterPage({
     return () => {
       active = false;
     };
-  }, [trainingMasterId]);
+  }, [trainingMasterId, toastError]);
 
   const addLanguage = () => {
-    const existingCodes = languages.map((l) => l.languageCode);
-    const nextCode = DEFAULT_LANGUAGES.find((c) => !existingCodes.includes(c)) || "";
+    const existingCodes = languages.map((l) => l.languageCode.toLowerCase());
+    const nextOption = languageOptions.find((opt) => !existingCodes.includes(opt.code.toLowerCase()));
+    const nextCode = nextOption ? nextOption.code : languageOptions[0]?.code || "";
     setLanguages((prev) => [
       ...prev,
       {
@@ -240,81 +293,80 @@ export default function EditTrainingMasterPage({
               <p className="text-xs">Loading training master details...</p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} autoComplete="off" className="mx-auto max-w-3xl space-y-6">
-              {/* Basic Information Section */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-slate-900 border-b pb-2">
-                  General Information
-                </h3>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Training Date */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="trainingDate" className="text-xs font-semibold text-slate-700">
-                      Training Date <span className="text-rose-500">*</span>
-                    </Label>
-                    <Input
-                      id="trainingDate"
-                      type="date"
-                      value={trainingDate}
-                      onChange={(e) => setTrainingDate(e.target.value)}
-                      className="h-9 text-xs"
-                      required
-                    />
-                  </div>
-
-                  {/* Pincode */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="pincode" className="text-xs font-semibold text-slate-700">
-                      Pincode <span className="text-rose-500">*</span>
-                    </Label>
-                    <Input
-                      id="pincode"
-                      value={pincode}
-                      onChange={(e) => setPincode(e.target.value)}
-                      placeholder="e.g. 411001 or 733124"
-                      maxLength={10}
-                      className="h-9 text-xs"
-                      required
-                    />
-                  </div>
+            <form onSubmit={handleSubmit} autoComplete="off" className="mx-auto max-w-2xl space-y-4">
+              {/* Training Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                <Label htmlFor="trainingDate" className="text-xs font-semibold text-slate-700 sm:text-right">
+                  Training Date <span className="text-rose-500">*</span>
+                </Label>
+                <div className="sm:col-span-3">
+                  <Input
+                    id="trainingDate"
+                    type="date"
+                    value={trainingDate}
+                    onChange={(e) => setTrainingDate(e.target.value)}
+                    className="h-9 text-xs"
+                    required
+                  />
                 </div>
+              </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Geo Location */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="geoLocation" className="text-xs font-semibold text-slate-700">
-                      Geo Location / City
-                    </Label>
-                    <Input
-                      id="geoLocation"
-                      value={geoLocation}
-                      onChange={(e) => setGeoLocation(e.target.value)}
-                      placeholder="e.g. Pune, Maharashtra"
-                      className="h-9 text-xs"
-                    />
-                  </div>
-
-                  {/* Google Maps Link */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="googleMapsLink" className="text-xs font-semibold text-slate-700">
-                      Google Maps Link
-                    </Label>
-                    <Input
-                      id="googleMapsLink"
-                      value={googleMapsLink}
-                      onChange={(e) => setGoogleMapsLink(e.target.value)}
-                      placeholder="https://maps.google.com/?q=..."
-                      className="h-9 text-xs"
-                    />
-                  </div>
+              {/* Pincode */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                <Label htmlFor="pincode" className="text-xs font-semibold text-slate-700 sm:text-right">
+                  Pincode <span className="text-rose-500">*</span>
+                </Label>
+                <div className="sm:col-span-3">
+                  <Input
+                    id="pincode"
+                    value={pincode}
+                    onChange={(e) => setPincode(e.target.value)}
+                    placeholder="e.g. 411001 or 733124"
+                    maxLength={10}
+                    className="h-9 text-xs font-mono"
+                    required
+                  />
                 </div>
+              </div>
 
-                {/* Image URL */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="imageUrl" className="text-xs font-semibold text-slate-700">
-                    Image URL
-                  </Label>
+              {/* Geo Location */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                <Label htmlFor="geoLocation" className="text-xs font-semibold text-slate-700 sm:text-right">
+                  Geo Location / City
+                </Label>
+                <div className="sm:col-span-3">
+                  <Input
+                    id="geoLocation"
+                    value={geoLocation}
+                    onChange={(e) => setGeoLocation(e.target.value)}
+                    placeholder="e.g. Pune, Maharashtra"
+                    className="h-9 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Google Maps Link */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                <Label htmlFor="googleMapsLink" className="text-xs font-semibold text-slate-700 sm:text-right">
+                  Google Maps Link
+                </Label>
+                <div className="sm:col-span-3">
+                  <Input
+                    id="googleMapsLink"
+                    value={googleMapsLink}
+                    onChange={(e) => setGoogleMapsLink(e.target.value)}
+                    placeholder="https://maps.google.com/?q=..."
+                    className="h-9 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Image URL */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                <Label htmlFor="imageUrl" className="text-xs font-semibold text-slate-700 sm:text-right">
+                  Image URL
+                </Label>
+                <div className="sm:col-span-3">
                   <Input
                     id="imageUrl"
                     value={imageUrl}
@@ -326,14 +378,14 @@ export default function EditTrainingMasterPage({
               </div>
 
               {/* Language Content Section */}
-              <div className="space-y-4 pt-2">
-                <div className="flex items-center justify-between border-b pb-2">
+              <div className="pt-4 border-t border-slate-200 space-y-4">
+                <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-900">
-                      Language Variations & Titles
+                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                      Language Variations & Content
                     </h3>
-                    <p className="text-xs text-slate-500">
-                      Provide title, description, and venue in one or more languages.
+                    <p className="text-[11px] text-slate-500">
+                      Add title, venue, tags, and description for each supported language.
                     </p>
                   </div>
                   <Button
@@ -341,7 +393,7 @@ export default function EditTrainingMasterPage({
                     variant="outline"
                     size="sm"
                     onClick={addLanguage}
-                    className="gap-1 text-xs"
+                    className="h-8 gap-1.5 text-xs font-medium border-slate-300"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     Add Language
@@ -352,10 +404,10 @@ export default function EditTrainingMasterPage({
                   {languages.map((lang, index) => (
                     <div
                       key={index}
-                      className="rounded-lg border border-slate-200 bg-slate-50/50 p-4 space-y-3 relative"
+                      className="rounded-lg border border-slate-200 bg-slate-50/60 p-4 space-y-3.5 relative"
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                      <div className="flex items-center justify-between pb-1 border-b border-slate-200/80">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                           Language #{index + 1}
                         </span>
                         {languages.length > 1 && (
@@ -370,81 +422,103 @@ export default function EditTrainingMasterPage({
                         )}
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {/* Language Code */}
-                        <div>
-                          <Label className="text-xs font-semibold text-slate-700">
-                            Language Code <span className="text-rose-500">*</span>
-                          </Label>
-                          <Input
+                      {/* Language Code Picklist */}
+                      <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                        <Label className="text-xs font-semibold text-slate-700 sm:text-right">
+                          Language <span className="text-rose-500">*</span>
+                        </Label>
+                        <div className="sm:col-span-3">
+                          <select
                             value={lang.languageCode}
                             onChange={(e) =>
                               updateLanguageField(index, "languageCode", e.target.value.toLowerCase())
                             }
-                            placeholder="e.g. en, hi, bn"
-                            maxLength={10}
-                            className="h-8 text-xs font-mono uppercase bg-white mt-1"
+                            disabled={loadingLanguages}
+                            className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
                             required
-                          />
+                          >
+                            {/* In case current languageCode is not yet in options, render it as an option */}
+                            {!languageOptions.some((o) => o.code === lang.languageCode?.toLowerCase()) &&
+                              lang.languageCode && (
+                                <option value={lang.languageCode.toLowerCase()}>
+                                  {lang.languageCode.toUpperCase()}
+                                </option>
+                              )}
+                            {languageOptions.map((opt) => (
+                              <option key={opt.code} value={opt.code}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
                         </div>
+                      </div>
 
-                        {/* Training Title */}
-                        <div className="sm:col-span-2">
-                          <Label className="text-xs font-semibold text-slate-700">
-                            Training Title <span className="text-rose-500">*</span>
-                          </Label>
+                      {/* Training Title */}
+                      <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                        <Label className="text-xs font-semibold text-slate-700 sm:text-right">
+                          Training Title <span className="text-rose-500">*</span>
+                        </Label>
+                        <div className="sm:col-span-3">
                           <Input
                             value={lang.trainingTitle || ""}
                             onChange={(e) =>
                               updateLanguageField(index, "trainingTitle", e.target.value)
                             }
                             placeholder="e.g. Advanced Digital Skills Training"
-                            className="h-8 text-xs bg-white mt-1"
+                            className="h-9 text-xs bg-white"
                             required
                           />
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {/* Venue Details */}
-                        <div>
-                          <Label className="text-xs font-semibold text-slate-700">
-                            Venue Details
-                          </Label>
+                      {/* Venue Details */}
+                      <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                        <Label className="text-xs font-semibold text-slate-700 sm:text-right">
+                          Venue Details
+                        </Label>
+                        <div className="sm:col-span-3">
                           <Input
                             value={lang.venueDetails || ""}
                             onChange={(e) =>
                               updateLanguageField(index, "venueDetails", e.target.value)
                             }
-                            placeholder="Training Centre, Shivajinagar..."
-                            className="h-8 text-xs bg-white mt-1"
+                            placeholder="e.g. Training Centre, Shivajinagar..."
+                            className="h-9 text-xs bg-white"
                           />
                         </div>
+                      </div>
 
-                        {/* Tags */}
-                        <div>
-                          <Label className="text-xs font-semibold text-slate-700">Tags</Label>
+                      {/* Tags */}
+                      <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                        <Label className="text-xs font-semibold text-slate-700 sm:text-right">
+                          Tags
+                        </Label>
+                        <div className="sm:col-span-3">
                           <Input
                             value={lang.tags || ""}
                             onChange={(e) => updateLanguageField(index, "tags", e.target.value)}
-                            placeholder="Advanced Digital Skills, Technology..."
-                            className="h-8 text-xs bg-white mt-1"
+                            placeholder="e.g. Advanced Digital Skills, Technology..."
+                            className="h-9 text-xs bg-white"
                           />
                         </div>
                       </div>
 
                       {/* Description */}
-                      <div>
-                        <Label className="text-xs font-semibold text-slate-700">Description</Label>
-                        <Textarea
-                          rows={2}
-                          value={lang.trainingDescription || ""}
-                          onChange={(e) =>
-                            updateLanguageField(index, "trainingDescription", e.target.value)
-                          }
-                          placeholder="An updated practical training session..."
-                          className="text-xs bg-white mt-1"
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-3">
+                        <Label className="text-xs font-semibold text-slate-700 sm:text-right sm:pt-2">
+                          Description
+                        </Label>
+                        <div className="sm:col-span-3">
+                          <Textarea
+                            rows={3}
+                            value={lang.trainingDescription || ""}
+                            onChange={(e) =>
+                              updateLanguageField(index, "trainingDescription", e.target.value)
+                            }
+                            placeholder="An updated practical training session..."
+                            className="text-xs bg-white resize-y"
+                          />
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -452,7 +526,7 @@ export default function EditTrainingMasterPage({
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-center gap-3 pt-6 border-t border-slate-100">
+              <div className="flex items-center justify-center gap-3 pt-6 border-t mt-6">
                 <Button
                   type="submit"
                   disabled={isPending}

@@ -121,19 +121,24 @@ export function DataTable<T>({
                 </TableCell>
               </TableRow>
             ) : (
-              data.map((row, index) => (
-                <TableRow key={getRowId ? getRowId(row, index) : ((row as any)?._rowId ?? (row as any)?.id ?? (row as any)?.key ?? index)}>
-                  {columns.map((col) => (
-                    <TableCell key={col.header} className={col.className}>
-                      {typeof col.cell === "function"
-                        ? col.cell(row, index)
-                        : col.accessorKey
-                        ? String((row as any)[col.accessorKey] ?? "")
-                        : null}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              data.map((row, index) => {
+                const rowKey = getRowId
+                  ? getRowId(row, index)
+                  : ((row as any)?._rowId ?? (row as any)?.id ? `${(row as any).id}-${index}` : index);
+                return (
+                  <TableRow key={rowKey}>
+                    {columns.map((col) => (
+                      <TableCell key={col.header} className={col.className}>
+                        {typeof col.cell === "function"
+                          ? col.cell(row, index)
+                          : col.accessorKey
+                          ? String((row as any)[col.accessorKey] ?? "")
+                          : null}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
