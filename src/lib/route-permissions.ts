@@ -39,6 +39,11 @@ export const ROUTE_PERMISSIONS: RoutePermissionRule[] = [
   { pattern: /^\/trainers\/[^/]+\/edit(\/.*)?$/, permission: "users.update", href: "/trainers" },
   { pattern: /^\/trainers(\/.*)?$/, permission: ["users.read", "ROLE_TRAINER"], href: "/trainers" },
 
+  // Training Master
+  { pattern: /^\/training-master\/new(\/.*)?$/, permission: ["users.create", "ROLE_TRAINER", "system.all"], href: "/training-master" },
+  { pattern: /^\/training-master\/[^/]+\/edit(\/.*)?$/, permission: ["users.update", "ROLE_TRAINER", "system.all"], href: "/training-master" },
+  { pattern: /^\/training-master(\/.*)?$/, permission: ["users.read", "ROLE_TRAINER", "system.all"], href: "/training-master" },
+
   // Assessments
   { pattern: /^\/assessments\/send(\/.*)?$/, permission: ["assessments.create", "courses.read"], href: "/assessments/send" },
   { pattern: /^\/assessments\/links(\/.*)?$/, permission: ["assessments.read", "courses.read"], href: "/assessments/links" },
@@ -145,6 +150,7 @@ export const CANDIDATE_LANDING_ROUTES: { href: string; permission?: string | str
   { href: "/accounts", permission: ["accounts.read", "users.read"] },
   { href: "/faqs", permission: "faqs.read" },
   { href: "/trainers", permission: ["users.read", "ROLE_TRAINER"] },
+  { href: "/training-master", permission: ["users.read", "ROLE_TRAINER", "system.all"] },
   { href: "/assessments/send", permission: ["assessments.create", "courses.read"] },
   { href: "/assessments/links", permission: ["assessments.read", "courses.read"] },
   { href: "/assessments/results", permission: ["assessments.read", "audit.read"] },

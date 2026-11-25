@@ -16,7 +16,8 @@ import { cn } from "@/lib/utils";
 
 export type Column<T> = {
   header: string;
-  cell: (row: T, index?: number) => ReactNode;
+  accessorKey?: keyof T | string;
+  cell?: (row: T, index?: number) => ReactNode;
   className?: string;
 };
 
@@ -124,7 +125,11 @@ export function DataTable<T>({
                 <TableRow key={getRowId ? getRowId(row, index) : ((row as any)?._rowId ?? (row as any)?.id ?? (row as any)?.key ?? index)}>
                   {columns.map((col) => (
                     <TableCell key={col.header} className={col.className}>
-                      {col.cell(row, index)}
+                      {typeof col.cell === "function"
+                        ? col.cell(row, index)
+                        : col.accessorKey
+                        ? String((row as any)[col.accessorKey] ?? "")
+                        : null}
                     </TableCell>
                   ))}
                 </TableRow>
