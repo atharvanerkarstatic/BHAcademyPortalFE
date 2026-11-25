@@ -367,10 +367,19 @@ export default function CourseDetailPage() {
   const canUpdate = can("courses.update");
   const canDelete = can("courses.delete");
   const canImportTranslations = can("courses.import") || can("courses.update");
-  const canViewVideos = can(["videos.read", "videos.view", "videos.create", "videos.update", "videos.upload"]);
-  const canManageVideos = can(["videos.create", "videos.update", "videos.upload"]);
-  const canViewQuestions = can(["quizzes.read", "quizzes.view", "quizzes.create", "quizzes.update", "assessments.read", "assessments.create"]);
-  const canManageQuestions = can(["quizzes.create", "quizzes.update", "assessments.create"]);
+  // Explicitly require videos permissions (videos.view, videos.read, videos.create, videos.update)
+  const canViewVideos = can(["videos.view", "videos.read", "videos.create", "videos.update"]);
+  const canCreateVideo = can(["videos.create", "videos.upload"]);
+  const canUpdateVideo = can("videos.update");
+  const canDeleteVideo = can("videos.delete");
+  const canManageVideos = canCreateVideo || canUpdateVideo || canDeleteVideo;
+
+  // Explicitly require quiz permissions (quizzes.read, quizzes.view, quizzes.create, quizzes.update)
+  const canViewQuestions = can(["quizzes.read", "quizzes.view", "quizzes.create", "quizzes.update"]);
+  const canCreateQuiz = can("quizzes.create");
+  const canUpdateQuiz = can("quizzes.update");
+  const canDeleteQuiz = can("quizzes.delete");
+  const canManageQuestions = canCreateQuiz || canUpdateQuiz || canDeleteQuiz;
 
   // Listen for browser navigation (popstate/pageshow) and route cleanup so no cached tabs persist
   useEffect(() => {
@@ -2270,20 +2279,20 @@ export default function CourseDetailPage() {
                       <th className="py-2.5 px-3 text-center">Points</th>
                       <th className="py-2.5 px-3 text-center">Order</th>
                       <th className="py-2.5 px-3 text-center">Status</th>
-                      <th className="py-2.5 px-3 text-center">Edit</th>
-                      <th className="py-2.5 px-3 text-center">Delete</th>
+                      {canUpdateVideo && <th className="py-2.5 px-3 text-center">Edit</th>}
+                      {canDeleteVideo && <th className="py-2.5 px-3 text-center">Delete</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {loadingVideos ? (
                       <tr>
-                        <td colSpan={10} className="p-6 text-center text-slate-400">
+                        <td colSpan={canUpdateVideo && canDeleteVideo ? 10 : canUpdateVideo || canDeleteVideo ? 9 : 8} className="p-6 text-center text-slate-400">
                           <Loader2 className="h-5 w-5 animate-spin mx-auto text-blue-600" />
                         </td>
                       </tr>
                     ) : videosList.length === 0 ? (
                       <tr>
-                        <td colSpan={10} className="p-6 text-center text-slate-400">
+                        <td colSpan={canUpdateVideo && canDeleteVideo ? 10 : canUpdateVideo || canDeleteVideo ? 9 : 8} className="p-6 text-center text-slate-400">
                           No videos added yet for {selectedLangName}.
                         </td>
                       </tr>
@@ -2318,39 +2327,43 @@ export default function CourseDetailPage() {
                               {vid.status || "ACTIVE"}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 text-center">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingVideoId(vid.id || vid.videoId);
-                                setVideoTitle(vid.title || "");
-                                setVideoYoutubeId(vid.videoUrl || "");
-                                setVideoThumbnail(vid.thumbnail || "");
-                                setVideoDuration(vid.duration || "");
-                                setVideoPoints(vid.points ?? 10);
-                                setVideoIsQuizPresent(Boolean(vid.isQuizPresent));
-                                setVideoOrder(String(vid.sequenceNo || ""));
-                                setVideoStatus(
-                                  vid.status && String(vid.status).toUpperCase() === "INACTIVE"
-                                    ? "INACTIVE"
-                                    : "ACTIVE"
-                                );
-                                success(`Editing video: ${vid.title}`);
-                              }}
-                              className="text-xs text-blue-600 hover:underline font-medium"
-                            >
-                              Edit
-                            </button>
-                          </td>
-                          <td className="py-2.5 px-3 text-center">
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteVideo(vid.id || vid.videoId)}
-                              className="text-xs text-rose-600 hover:underline font-medium"
-                            >
-                              Delete
-                            </button>
-                          </td>
+                          {canUpdateVideo && (
+                            <td className="py-2.5 px-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingVideoId(vid.id || vid.videoId);
+                                  setVideoTitle(vid.title || "");
+                                  setVideoYoutubeId(vid.videoUrl || "");
+                                  setVideoThumbnail(vid.thumbnail || "");
+                                  setVideoDuration(vid.duration || "");
+                                  setVideoPoints(vid.points ?? 10);
+                                  setVideoIsQuizPresent(Boolean(vid.isQuizPresent));
+                                  setVideoOrder(String(vid.sequenceNo || ""));
+                                  setVideoStatus(
+                                    vid.status && String(vid.status).toUpperCase() === "INACTIVE"
+                                      ? "INACTIVE"
+                                      : "ACTIVE"
+                                  );
+                                  success(`Editing video: ${vid.title}`);
+                                }}
+                                className="text-xs text-blue-600 hover:underline font-medium"
+                              >
+                                Edit
+                              </button>
+                            </td>
+                          )}
+                          {canDeleteVideo && (
+                            <td className="py-2.5 px-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteVideo(vid.id || vid.videoId)}
+                                className="text-xs text-rose-600 hover:underline font-medium"
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       ))
                     )}
@@ -2365,187 +2378,189 @@ export default function CourseDetailPage() {
           </Card>
 
           {/* Add / Edit Video Form Card */}
-          <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <CardHeader className="border-b px-6 py-3 bg-white flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-bold text-slate-900">
-                  {editingVideoId ? `Edit Video - ${selectedLangName}` : `Add Video - ${selectedLangName}`}
-                </CardTitle>
-                <CardDescription className="text-xs text-slate-500">
-                  {editingVideoId
-                    ? "Modify video details and update the record."
-                    : `Add a new video in ${selectedLangName} (${selectedLangCode.toUpperCase()}) for this course.`}
-                </CardDescription>
-              </div>
-              {editingVideoId && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={resetVideoForm}
-                  className="h-7 text-xs"
-                >
-                  + Switch to Add New
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent className="p-6">
-              <form onSubmit={handleAddVideo} className="mx-auto max-w-2xl space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                  <Label htmlFor="v-title" className="text-xs font-bold text-slate-800 sm:text-right">
-                    Title <span className="text-rose-500">*</span>
-                  </Label>
-                  <div className="sm:col-span-3">
-                    <Input
-                      id="v-title"
-                      value={videoTitle}
-                      onChange={(e) => setVideoTitle(e.target.value)}
-                      placeholder="Title"
-                      className="h-9 text-xs"
-                      required
-                    />
-                  </div>
+          {canCreateVideo && (
+            <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <CardHeader className="border-b px-6 py-3 bg-white flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-bold text-slate-900">
+                    {editingVideoId ? `Edit Video - ${selectedLangName}` : `Add Video - ${selectedLangName}`}
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-500">
+                    {editingVideoId
+                      ? "Modify video details and update the record."
+                      : `Add a new video in ${selectedLangName} (${selectedLangCode.toUpperCase()}) for this course.`}
+                  </CardDescription>
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                  <Label htmlFor="v-url" className="text-xs font-bold text-slate-800 sm:text-right">
-                    Video URL / YouTube <span className="text-rose-500">*</span>
-                  </Label>
-                  <div className="sm:col-span-3">
-                    <Input
-                      id="v-url"
-                      value={videoYoutubeId}
-                      onChange={(e) => setVideoYoutubeId(e.target.value)}
-                      placeholder="e.g. https://www.youtube.com/watch?v=... or URL"
-                      className="h-9 text-xs font-mono"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                  <Label htmlFor="v-thumbnail" className="text-xs font-bold text-slate-800 sm:text-right">
-                    Thumbnail URL
-                  </Label>
-                  <div className="sm:col-span-3">
-                    <Input
-                      id="v-thumbnail"
-                      value={videoThumbnail}
-                      onChange={(e) => setVideoThumbnail(e.target.value)}
-                      placeholder="https://img.youtube.com/vi/.../0.jpg"
-                      className="h-9 text-xs font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                  <Label htmlFor="v-duration" className="text-xs font-bold text-slate-800 sm:text-right">
-                    Duration (Minutes)
-                  </Label>
-                  <div className="sm:col-span-3 space-y-1">
-                    <Input
-                      id="v-duration"
-                      value={videoDuration}
-                      type="text"
-                      inputMode="decimal"
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === "" || /^\d*\.?\d*$/.test(val)) {
-                          setVideoDuration(val);
-                        }
-                      }}
-                      placeholder="e.g. 12.5"
-                      maxLength={20}
-                      className="h-9 text-xs"
-                    />
-                    <p className="text-[11px] text-slate-500">
-                      Enter a decimal number only. Value must be in minutes (e.g. <span className="font-medium text-slate-700">12.5</span>).
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                  <Label htmlFor="v-points" className="text-xs font-bold text-slate-800 sm:text-right">
-                    Points
-                  </Label>
-                  <div className="sm:col-span-3">
-                    <Input
-                      id="v-points"
-                      type="number"
-                      value={videoPoints}
-                      min="0"
-                      onChange={(e) => setVideoPoints(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                      placeholder="10"
-                      className="h-9 text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                  <Label htmlFor="v-order" className="text-xs font-bold text-slate-800 sm:text-right">
-                    Sequence / Order
-                  </Label>
-                  <div className="sm:col-span-3">
-                    <Input
-                      id="v-order"
-                      value={videoOrder}
-                      onChange={(e) => setVideoOrder(e.target.value)}
-                      placeholder="Auto-assigned if blank"
-                      className="h-9 text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                  <Label className="text-xs font-bold text-slate-800 sm:text-right">Quiz Present</Label>
-                  <div className="sm:col-span-3 flex items-center space-x-2">
-                    <Checkbox
-                      id="v-quiz"
-                      checked={videoIsQuizPresent}
-                      onCheckedChange={(c) => setVideoIsQuizPresent(Boolean(c))}
-                    />
-                    <Label htmlFor="v-quiz" className="text-xs font-semibold text-slate-700 cursor-pointer">
-                      Is Quiz Present
-                    </Label>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                  <Label htmlFor="v-status" className="text-xs font-bold text-slate-800 sm:text-right">Status</Label>
-                  <div className="sm:col-span-3">
-                    <select
-                      id="v-status"
-                      value={videoStatus}
-                      onChange={(e) => setVideoStatus(e.target.value as "ACTIVE" | "INACTIVE")}
-                      className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    >
-                      <option value="ACTIVE">ACTIVE</option>
-                      <option value="INACTIVE">INACTIVE</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-center gap-2 pt-4">
-                  <Button
-                    type="submit"
-                    disabled={isSavingVideo}
-                    className="bg-blue-600 hover:bg-blue-700 text-white min-w-20 h-8 text-xs font-semibold uppercase"
-                  >
-                    {isSavingVideo && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                    {editingVideoId ? "UPDATE VIDEO" : "SAVE VIDEO"}
-                  </Button>
+                {editingVideoId && (
                   <Button
                     type="button"
                     variant="outline"
+                    size="sm"
                     onClick={resetVideoForm}
-                    className="min-w-20 h-8 text-xs font-medium uppercase border-slate-300"
+                    className="h-7 text-xs"
                   >
-                    CANCEL
+                    + Switch to Add New
                   </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+                )}
+              </CardHeader>
+              <CardContent className="p-6">
+                <form onSubmit={handleAddVideo} className="mx-auto max-w-2xl space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                    <Label htmlFor="v-title" className="text-xs font-bold text-slate-800 sm:text-right">
+                      Title <span className="text-rose-500">*</span>
+                    </Label>
+                    <div className="sm:col-span-3">
+                      <Input
+                        id="v-title"
+                        value={videoTitle}
+                        onChange={(e) => setVideoTitle(e.target.value)}
+                        placeholder="Title"
+                        className="h-9 text-xs"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                    <Label htmlFor="v-url" className="text-xs font-bold text-slate-800 sm:text-right">
+                      Video URL / YouTube <span className="text-rose-500">*</span>
+                    </Label>
+                    <div className="sm:col-span-3">
+                      <Input
+                        id="v-url"
+                        value={videoYoutubeId}
+                        onChange={(e) => setVideoYoutubeId(e.target.value)}
+                        placeholder="e.g. https://www.youtube.com/watch?v=... or URL"
+                        className="h-9 text-xs font-mono"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                    <Label htmlFor="v-thumbnail" className="text-xs font-bold text-slate-800 sm:text-right">
+                      Thumbnail URL
+                    </Label>
+                    <div className="sm:col-span-3">
+                      <Input
+                        id="v-thumbnail"
+                        value={videoThumbnail}
+                        onChange={(e) => setVideoThumbnail(e.target.value)}
+                        placeholder="https://img.youtube.com/vi/.../0.jpg"
+                        className="h-9 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                    <Label htmlFor="v-duration" className="text-xs font-bold text-slate-800 sm:text-right">
+                      Duration (Minutes)
+                    </Label>
+                    <div className="sm:col-span-3 space-y-1">
+                      <Input
+                        id="v-duration"
+                        value={videoDuration}
+                        type="text"
+                        inputMode="decimal"
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                            setVideoDuration(val);
+                          }
+                        }}
+                        placeholder="e.g. 12.5"
+                        maxLength={20}
+                        className="h-9 text-xs"
+                      />
+                      <p className="text-[11px] text-slate-500">
+                        Enter a decimal number only. Value must be in minutes (e.g. <span className="font-medium text-slate-700">12.5</span>).
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                    <Label htmlFor="v-points" className="text-xs font-bold text-slate-800 sm:text-right">
+                      Points
+                    </Label>
+                    <div className="sm:col-span-3">
+                      <Input
+                        id="v-points"
+                        type="number"
+                        value={videoPoints}
+                        min="0"
+                        onChange={(e) => setVideoPoints(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                        placeholder="10"
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                    <Label htmlFor="v-order" className="text-xs font-bold text-slate-800 sm:text-right">
+                      Sequence / Order
+                    </Label>
+                    <div className="sm:col-span-3">
+                      <Input
+                        id="v-order"
+                        value={videoOrder}
+                        onChange={(e) => setVideoOrder(e.target.value)}
+                        placeholder="Auto-assigned if blank"
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                    <Label className="text-xs font-bold text-slate-800 sm:text-right">Quiz Present</Label>
+                    <div className="sm:col-span-3 flex items-center space-x-2">
+                      <Checkbox
+                        id="v-quiz"
+                        checked={videoIsQuizPresent}
+                        onCheckedChange={(c) => setVideoIsQuizPresent(Boolean(c))}
+                      />
+                      <Label htmlFor="v-quiz" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                        Is Quiz Present
+                      </Label>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                    <Label htmlFor="v-status" className="text-xs font-bold text-slate-800 sm:text-right">Status</Label>
+                    <div className="sm:col-span-3">
+                      <select
+                        id="v-status"
+                        value={videoStatus}
+                        onChange={(e) => setVideoStatus(e.target.value as "ACTIVE" | "INACTIVE")}
+                        className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        <option value="ACTIVE">ACTIVE</option>
+                        <option value="INACTIVE">INACTIVE</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-2 pt-4">
+                    <Button
+                      type="submit"
+                      disabled={isSavingVideo}
+                      className="bg-blue-600 hover:bg-blue-700 text-white min-w-20 h-8 text-xs font-semibold uppercase"
+                    >
+                      {isSavingVideo && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                      {editingVideoId ? "UPDATE VIDEO" : "SAVE VIDEO"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={resetVideoForm}
+                      className="min-w-20 h-8 text-xs font-medium uppercase border-slate-300"
+                    >
+                      CANCEL
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
@@ -2634,21 +2649,21 @@ export default function CourseDetailPage() {
                         <th className="py-2.5 px-3 min-w-28 text-center">Correct Answer</th>
                         <th className="py-2.5 px-3 text-center w-20">Points</th>
                         <th className="py-2.5 px-3 text-center w-24">Status</th>
-                        <th className="py-2.5 px-3 text-center w-16">Edit</th>
-                        <th className="py-2.5 px-3 text-center w-16">Delete</th>
+                        {canUpdateQuiz && <th className="py-2.5 px-3 text-center w-16">Edit</th>}
+                        {canDeleteQuiz && <th className="py-2.5 px-3 text-center w-16">Delete</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {loadingQuizzes ? (
                         <tr>
-                          <td colSpan={7} className="p-8 text-center text-slate-400">
+                          <td colSpan={canUpdateQuiz && canDeleteQuiz ? 7 : canUpdateQuiz || canDeleteQuiz ? 6 : 5} className="p-8 text-center text-slate-400">
                             <Loader2 className="h-5 w-5 animate-spin mx-auto text-blue-600 mb-2" />
                             Loading quizzes in {selectedLangName}…
                           </td>
                         </tr>
                       ) : quizzesList.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="p-8 text-center text-slate-400">
+                          <td colSpan={canUpdateQuiz && canDeleteQuiz ? 7 : canUpdateQuiz || canDeleteQuiz ? 6 : 5} className="p-8 text-center text-slate-400">
                             No quiz questions found for {selectedLangName}. You can add one below.
                           </td>
                         </tr>
@@ -2705,50 +2720,54 @@ export default function CourseDetailPage() {
                                   {q.status || "ACTIVE"}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const qId = q.quizId ?? q.id;
-                                    if (!qId) return;
-                                    setEditingQuizId(qId);
-                                    setQuestionText(q.question || "");
-                                    setOpt1(q.answer1 || "");
-                                    setOpt2(q.answer2 || "");
-                                    setOpt3(q.answer3 || "");
-                                    setOpt4(q.answer4 || "");
-                                    const cAns = String(q.correctAnswer || "").toLowerCase();
-                                    if (cAns === "answer1" || cAns === String(q.answer1 || "").toLowerCase()) {
-                                      setRightAnswer(1);
-                                    } else if (cAns === "answer2" || cAns === String(q.answer2 || "").toLowerCase()) {
-                                      setRightAnswer(2);
-                                    } else if (cAns === "answer3" || cAns === String(q.answer3 || "").toLowerCase()) {
-                                      setRightAnswer(3);
-                                    } else if (cAns === "answer4" || cAns === String(q.answer4 || "").toLowerCase()) {
-                                      setRightAnswer(4);
-                                    } else {
-                                      setRightAnswer(1);
-                                    }
-                                    setQuizNameInput(q.quizName || "");
-                                    success(`Loaded question ${qId} for editing`);
-                                  }}
-                                  className="text-xs text-blue-600 hover:underline font-medium"
-                                >
-                                  Edit
-                                </button>
-                              </td>
-                              <td className="py-2.5 px-3 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const qId = q.quizId ?? q.id;
-                                    if (qId) handleDeleteQuiz(qId);
-                                  }}
-                                  className="text-xs text-rose-600 hover:underline font-medium"
-                                >
-                                  Delete
-                                </button>
-                              </td>
+                              {canUpdateQuiz && (
+                                <td className="py-2.5 px-3 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const qId = q.quizId ?? q.id;
+                                      if (!qId) return;
+                                      setEditingQuizId(qId);
+                                      setQuestionText(q.question || "");
+                                      setOpt1(q.answer1 || "");
+                                      setOpt2(q.answer2 || "");
+                                      setOpt3(q.answer3 || "");
+                                      setOpt4(q.answer4 || "");
+                                      const cAns = String(q.correctAnswer || "").toLowerCase();
+                                      if (cAns === "answer1" || cAns === String(q.answer1 || "").toLowerCase()) {
+                                        setRightAnswer(1);
+                                      } else if (cAns === "answer2" || cAns === String(q.answer2 || "").toLowerCase()) {
+                                        setRightAnswer(2);
+                                      } else if (cAns === "answer3" || cAns === String(q.answer3 || "").toLowerCase()) {
+                                        setRightAnswer(3);
+                                      } else if (cAns === "answer4" || cAns === String(q.answer4 || "").toLowerCase()) {
+                                        setRightAnswer(4);
+                                      } else {
+                                        setRightAnswer(1);
+                                      }
+                                      setQuizNameInput(q.quizName || "");
+                                      success(`Loaded question ${qId} for editing`);
+                                    }}
+                                    className="text-xs text-blue-600 hover:underline font-medium"
+                                  >
+                                    Edit
+                                  </button>
+                                </td>
+                              )}
+                              {canDeleteQuiz && (
+                                <td className="py-2.5 px-3 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const qId = q.quizId ?? q.id;
+                                      if (qId) handleDeleteQuiz(qId);
+                                    }}
+                                    className="text-xs text-rose-600 hover:underline font-medium"
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
+                              )}
                             </tr>
                           );
                         })
@@ -2771,21 +2790,21 @@ export default function CourseDetailPage() {
                         <th className="py-2.5 px-3 min-w-24 text-center">Correct Answer</th>
                         <th className="py-2.5 px-3 text-center w-20">Points</th>
                         <th className="py-2.5 px-3 text-center w-24">Status</th>
-                        <th className="py-2.5 px-3 text-center w-16">Edit</th>
-                        <th className="py-2.5 px-3 text-center w-16">Delete</th>
+                        {canUpdateQuiz && <th className="py-2.5 px-3 text-center w-16">Edit</th>}
+                        {canDeleteQuiz && <th className="py-2.5 px-3 text-center w-16">Delete</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {loadingInteractiveQuizzes ? (
                         <tr>
-                          <td colSpan={9} className="p-8 text-center text-slate-400">
+                          <td colSpan={canUpdateQuiz && canDeleteQuiz ? 9 : canUpdateQuiz || canDeleteQuiz ? 8 : 7} className="p-8 text-center text-slate-400">
                             <Loader2 className="h-5 w-5 animate-spin mx-auto text-blue-600 mb-2" />
                             Loading interactive questions in {selectedLangName}…
                           </td>
                         </tr>
                       ) : interactiveQuizzesList.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="p-8 text-center text-slate-400">
+                          <td colSpan={canUpdateQuiz && canDeleteQuiz ? 9 : canUpdateQuiz || canDeleteQuiz ? 8 : 7} className="p-8 text-center text-slate-400">
                             No interactive assessment questions added yet for {selectedLangName}.
                           </td>
                         </tr>
@@ -2892,62 +2911,66 @@ export default function CourseDetailPage() {
                                   {iq.status || "ACTIVE"}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const qId = iq.quizId ?? iq.id;
-                                    if (!qId) return;
-                                    setEditingInteractiveQuizId(qId);
-                                    setInteractiveQuestionText(iq.question || "");
-                                    setInteractiveAfterVideo(iq.videoId ? String(iq.videoId) : "");
+                              {canUpdateQuiz && (
+                                <td className="py-2.5 px-3 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const qId = iq.quizId ?? iq.id;
+                                      if (!qId) return;
+                                      setEditingInteractiveQuizId(qId);
+                                      setInteractiveQuestionText(iq.question || "");
+                                      setInteractiveAfterVideo(iq.videoId ? String(iq.videoId) : "");
 
-                                    // Determine type
-                                    if (iq.answer1Url || iq.answer2Url) {
-                                      setInteractiveQType("Image");
-                                      setImageOpt1Url(iq.answer1Url || "");
-                                      setImageOpt2Url(iq.answer2Url || "");
-                                      setImageOpt3Url(iq.answer3Url || "");
-                                      setImageOpt4Url(iq.answer4Url || "");
-                                    } else if (iq.questionImageUrl) {
-                                      setInteractiveQType("Pattern");
-                                      setPatternImageUrl(iq.questionImageUrl || "");
-                                      setInteractiveOpt1(iq.answer1 || "");
-                                      setInteractiveOpt2(iq.answer2 || "");
-                                      setInteractiveOpt3(iq.answer3 || "");
-                                      setInteractiveOpt4(iq.answer4 || "");
-                                    } else {
-                                      setInteractiveQType("True or False");
-                                    }
+                                      // Determine type
+                                      if (iq.answer1Url || iq.answer2Url) {
+                                        setInteractiveQType("Image");
+                                        setImageOpt1Url(iq.answer1Url || "");
+                                        setImageOpt2Url(iq.answer2Url || "");
+                                        setImageOpt3Url(iq.answer3Url || "");
+                                        setImageOpt4Url(iq.answer4Url || "");
+                                      } else if (iq.questionImageUrl) {
+                                        setInteractiveQType("Pattern");
+                                        setPatternImageUrl(iq.questionImageUrl || "");
+                                        setInteractiveOpt1(iq.answer1 || "");
+                                        setInteractiveOpt2(iq.answer2 || "");
+                                        setInteractiveOpt3(iq.answer3 || "");
+                                        setInteractiveOpt4(iq.answer4 || "");
+                                      } else {
+                                        setInteractiveQType("True or False");
+                                      }
 
-                                    const cAns = String(iq.correctAnswer || "").toLowerCase();
-                                    if (cAns === "answer1") setInteractiveRightAnswer(1);
-                                    else if (cAns === "answer2") setInteractiveRightAnswer(2);
-                                    else if (cAns === "answer3") setInteractiveRightAnswer(3);
-                                    else if (cAns === "answer4") setInteractiveRightAnswer(4);
-                                    else setInteractiveRightAnswer(1);
+                                      const cAns = String(iq.correctAnswer || "").toLowerCase();
+                                      if (cAns === "answer1") setInteractiveRightAnswer(1);
+                                      else if (cAns === "answer2") setInteractiveRightAnswer(2);
+                                      else if (cAns === "answer3") setInteractiveRightAnswer(3);
+                                      else if (cAns === "answer4") setInteractiveRightAnswer(4);
+                                      else setInteractiveRightAnswer(1);
 
-                                    success(`Loaded interactive question for editing`);
-                                  }}
-                                  className="text-xs text-blue-600 hover:underline font-medium"
-                                >
-                                  Edit
-                                </button>
-                              </td>
-                              <td className="py-2.5 px-3 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const qId = iq.quizId ?? iq.id;
-                                    if (qId) {
-                                      handleDeleteQuiz(qId);
-                                    }
-                                  }}
-                                  className="text-xs text-rose-600 hover:underline font-medium"
-                                >
-                                  Delete
-                                </button>
-                              </td>
+                                      success(`Loaded interactive question for editing`);
+                                    }}
+                                    className="text-xs text-blue-600 hover:underline font-medium"
+                                  >
+                                    Edit
+                                  </button>
+                                </td>
+                              )}
+                              {canDeleteQuiz && (
+                                <td className="py-2.5 px-3 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const qId = iq.quizId ?? iq.id;
+                                      if (qId) {
+                                        handleDeleteQuiz(qId);
+                                      }
+                                    }}
+                                    className="text-xs text-rose-600 hover:underline font-medium"
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
+                              )}
                             </tr>
                           );
                         })
@@ -2960,7 +2983,7 @@ export default function CourseDetailPage() {
           </Card>
 
           {/* Add Question Card (Standard Questionnaire) */}
-          {questionnaireSubTab === "standard" && (
+          {questionnaireSubTab === "standard" && canCreateQuiz && (
             <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
               <CardHeader className="border-b px-6 py-3 bg-white">
                 <CardTitle className="text-base font-bold text-slate-900">
@@ -3044,7 +3067,7 @@ export default function CourseDetailPage() {
           )}
 
           {/* Add Question Card (Interactive Questionnaire - Matches attached screenshots) */}
-          {questionnaireSubTab === "interactive" && (
+          {questionnaireSubTab === "interactive" && canCreateQuiz && (
             <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
               <CardHeader className="border-b px-6 py-3 bg-white">
                 <CardTitle className="text-base font-bold text-slate-900">

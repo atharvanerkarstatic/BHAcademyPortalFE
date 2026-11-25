@@ -36,13 +36,14 @@ export default function AssessmentLinksPage() {
 
   const [isPending, startTransition] = useTransition();
 
-  const canCreate = can("courses.create") || can("courses.read");
+  const canRead = can("assessments.read");
 
   const loadAssessmentLinks = (
     targetPage = page,
     searchTerm = activeSearch,
     showSuccessToast = false
   ) => {
+    if (!canRead) return;
     startTransition(async () => {
       const res = await getAssessmentLinksAction({
         page: targetPage,
@@ -198,77 +199,83 @@ export default function AssessmentLinksPage() {
         ]}
       />
 
-      <DataTable
-        title="Assessment Links List"
-        logoSrc="/logo.png"
-        columns={columns}
-        data={pageData.content}
-        getRowId={(r) => r.id}
-        loading={isPending}
-        emptyMessage={
-          activeSearch
-            ? `No assessment links matching "${activeSearch}"`
-            : "No assessment links found"
-        }
-        action={
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* Search Input beside Refresh matching Courses list */}
-            <form onSubmit={handleSearchSubmit} className="relative flex items-center">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              <Input
-                placeholder="Search course, trainer, mobile..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="h-8 w-44 pl-8 pr-14 text-xs sm:w-64"
-              />
-              {searchInput && (
-                <button
-                  type="button"
-                  onClick={handleSearchClear}
-                  className="absolute right-2 text-[11px] text-slate-400 hover:text-slate-600"
-                >
-                  Clear
-                </button>
+      {canRead ? (
+        <DataTable
+          title="Assessment Links List"
+          logoSrc="/logo.png"
+          columns={columns}
+          data={pageData.content}
+          getRowId={(r) => r.id}
+          loading={isPending}
+          emptyMessage={
+            activeSearch
+              ? `No assessment links matching "${activeSearch}"`
+              : "No assessment links found"
+          }
+          action={
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Search Input beside Refresh matching Courses list */}
+              <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <Input
+                  placeholder="Search course, trainer, mobile..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="h-8 w-44 pl-8 pr-14 text-xs sm:w-64"
+                />
+                {searchInput && (
+                  <button
+                    type="button"
+                    onClick={handleSearchClear}
+                    className="absolute right-2 text-[11px] text-slate-400 hover:text-slate-600"
+                  >
+                    Clear
+                  </button>
+                )}
+                <Button type="submit" variant="ghost" size="sm" className="hidden">
+                  Search
+                </Button>
+              </form>
+
+              {/* Refresh button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setPage(1);
+                  loadAssessmentLinks(1, activeSearch, true);
+                }}
+                disabled={isPending}
+                className="gap-1.5 text-slate-600"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline">Refresh</span>
+              </Button>
+
+              {/* Send Assessment Link button */}
+              {canCreate && (
+                <Button asChild size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white">
+                  <Link href="/assessments/send">
+                    <Plus className="h-4 w-4" />
+                    Send Assessment Link
+                  </Link>
+                </Button>
               )}
-              <Button type="submit" variant="ghost" size="sm" className="hidden">
-                Search
-              </Button>
-            </form>
-
-            {/* Refresh button */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setPage(1);
-                loadAssessmentLinks(1, activeSearch, true);
-              }}
-              disabled={isPending}
-              className="gap-1.5 text-slate-600"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-
-            {/* Send Assessment Link button */}
-            {canCreate && (
-              <Button asChild size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white">
-                <Link href="/assessments/send">
-                  <Plus className="h-4 w-4" />
-                  Send Assessment Link
-                </Link>
-              </Button>
-            )}
-          </div>
-        }
-        pagination={{
-          page,
-          pageSize,
-          totalElements: pageData.totalElements,
-          totalPages: pageData.totalPages,
-          onPageChange: handlePageChange,
-        }}
-      />
+            </div>
+          }
+          pagination={{
+            page,
+            pageSize,
+            totalElements: pageData.totalElements,
+            totalPages: pageData.totalPages,
+            onPageChange: handlePageChange,
+          }}
+        />
+      ) : (
+        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-500 shadow-sm">
+          <p className="text-sm">You do not have permission to view assessment links.</p>
+        </div>
+      )}
     </>
   );
 }

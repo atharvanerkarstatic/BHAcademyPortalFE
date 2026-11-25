@@ -21,6 +21,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { useAuth } from "@/lib/auth-context";
 import { getReportFilterOptionsAction } from "@/features/reports/action";
 import { sendAssessmentLinkAction } from "@/features/assessments/action";
 import type { AssessmentRecordItem } from "@/features/assessments/types";
@@ -30,7 +31,11 @@ import {
 } from "@/lib/validations";
 
 export default function SendAssessmentLinkPage() {
+  const { can } = useAuth();
   const { error: toastError, success: toastSuccess } = useToast();
+
+  const canCreate = can("assessments.create");
+  const canRead = can("assessments.read");
 
   // Dropdown options
   const [trainers, setTrainers] = useState<{ id: string; name: string }[]>([]);
@@ -439,7 +444,7 @@ export default function SendAssessmentLinkPage() {
       </div>
 
       {/* Assessment Records Created Table (if records returned) */}
-      {createdRecords.length > 0 && (
+      {createdRecords.length > 0 && canRead && (
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs sm:p-6 space-y-4">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-emerald-600" />

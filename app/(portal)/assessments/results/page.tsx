@@ -10,10 +10,12 @@ import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { useAuth } from "@/lib/auth-context";
 import { getAssessmentResultsAction } from "@/features/assessments/action";
 import type { AssessmentResultItem } from "@/features/assessments/types";
 
 export default function AssessmentResultsPage() {
+  const { can } = useAuth();
   const { success, error: toastError } = useToast();
   const pathname = usePathname();
 
@@ -34,11 +36,14 @@ export default function AssessmentResultsPage() {
 
   const [isPending, startTransition] = useTransition();
 
+  const canRead = can("assessments.read");
+
   const loadAssessmentResults = (
     targetPage = page,
     searchTerm = activeSearch,
     showSuccessToast = false
   ) => {
+    if (!canRead) return;
     startTransition(async () => {
       const res = await getAssessmentResultsAction({
         page: targetPage,
@@ -206,75 +211,81 @@ export default function AssessmentResultsPage() {
         ]}
       />
 
-      <DataTable
-        title="Assessment Results List"
-        logoSrc="/logo.png"
-        columns={columns}
-        data={pageData.content}
-        getRowId={(r) => r.id}
-        loading={isPending}
-        emptyMessage={
-          activeSearch
-            ? `No assessment results matching "${activeSearch}"`
-            : "No assessment results found"
-        }
-        action={
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* Search Input beside Refresh matching Courses list */}
-            <form onSubmit={handleSearchSubmit} className="relative flex items-center">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              <Input
-                placeholder="Search participant, course, trainer..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="h-8 w-44 pl-8 pr-14 text-xs sm:w-64"
-              />
-              {searchInput && (
-                <button
-                  type="button"
-                  onClick={handleSearchClear}
-                  className="absolute right-2 text-[11px] text-slate-400 hover:text-slate-600"
-                >
-                  Clear
-                </button>
-              )}
-              <Button type="submit" variant="ghost" size="sm" className="hidden">
-                Search
+      {canRead ? (
+        <DataTable
+          title="Assessment Results List"
+          logoSrc="/logo.png"
+          columns={columns}
+          data={pageData.content}
+          getRowId={(r) => r.id}
+          loading={isPending}
+          emptyMessage={
+            activeSearch
+              ? `No assessment results matching "${activeSearch}"`
+              : "No assessment results found"
+          }
+          action={
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Search Input beside Refresh matching Courses list */}
+              <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <Input
+                  placeholder="Search participant, course, trainer..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="h-8 w-44 pl-8 pr-14 text-xs sm:w-64"
+                />
+                {searchInput && (
+                  <button
+                    type="button"
+                    onClick={handleSearchClear}
+                    className="absolute right-2 text-[11px] text-slate-400 hover:text-slate-600"
+                  >
+                    Clear
+                  </button>
+                )}
+                <Button type="submit" variant="ghost" size="sm" className="hidden">
+                  Search
+                </Button>
+              </form>
+
+              {/* Refresh button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setPage(1);
+                  loadAssessmentResults(1, activeSearch, true);
+                }}
+                disabled={isPending}
+                className="gap-1.5 text-slate-600"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline">Refresh</span>
               </Button>
-            </form>
 
-            {/* Refresh button */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setPage(1);
-                loadAssessmentResults(1, activeSearch, true);
-              }}
-              disabled={isPending}
-              className="gap-1.5 text-slate-600"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-
-            {/* Assessment Summary button */}
-            <Button asChild size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white">
-              <Link href="/reports/assessment-summary">
-                <BarChart3 className="h-4 w-4" />
-                Assessment Summary
-              </Link>
-            </Button>
-          </div>
-        }
-        pagination={{
-          page,
-          pageSize,
-          totalElements: pageData.totalElements,
-          totalPages: pageData.totalPages,
-          onPageChange: handlePageChange,
-        }}
-      />
+              {/* Assessment Summary button */}
+              <Button asChild size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white">
+                <Link href="/reports/assessment-summary">
+                  <BarChart3 className="h-4 w-4" />
+                  Assessment Summary
+                </Link>
+              </Button>
+            </div>
+          }
+          pagination={{
+            page,
+            pageSize,
+            totalElements: pageData.totalElements,
+            totalPages: pageData.totalPages,
+            onPageChange: handlePageChange,
+          }}
+        />
+      ) : (
+        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-500 shadow-sm">
+          <p className="text-sm">You do not have permission to view assessment results.</p>
+        </div>
+      )}
     </>
   );
 }
