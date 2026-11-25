@@ -37,6 +37,7 @@ export default function AssessmentLinksPage() {
   const [isPending, startTransition] = useTransition();
 
   const canRead = can("assessments.read");
+  const canCreate = can("assessments.create");
 
   const loadAssessmentLinks = (
     targetPage = page,
