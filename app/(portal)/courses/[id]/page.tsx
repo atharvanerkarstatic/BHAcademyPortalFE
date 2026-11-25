@@ -45,6 +45,7 @@ import {
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth-context";
 import {
+  getCoursesAction,
   getCourseByIdAction,
   deleteCourseAction,
   getCourseVideosAction,
@@ -417,10 +418,10 @@ export default function CourseDetailPage() {
           // fetch from getCoursesAction to retrieve the full languages array with videoCount/questionCount
           if (!courseData.languages || courseData.languages.length === 0) {
             const searchKey = courseData.courseCode || courseData.courseName;
-            getCoursesAction({ search: searchKey, size: 50 }).then((coursesRes) => {
+            getCoursesAction({ search: searchKey, size: 50 }).then((coursesRes: { success: boolean; data?: { content?: CourseItem[] } }) => {
               if (coursesRes.success && coursesRes.data?.content) {
                 const matched = coursesRes.data.content.find(
-                  (c) =>
+                  (c: CourseItem) =>
                     String(c.id) === String(courseData.id) ||
                     (courseData.courseCode && c.courseCode === courseData.courseCode) ||
                     c.courseName.toLowerCase() === courseData.courseName.toLowerCase()
