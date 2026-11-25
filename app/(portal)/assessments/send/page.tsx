@@ -47,10 +47,13 @@ export default function SendAssessmentLinkPage() {
   const [trainerId, setTrainerId] = useState("");
   const [courseId, setCourseId] = useState("");
   const [languageId, setLanguageId] = useState("");
-  const [trainingDate, setTrainingDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split("T")[0];
-  });
+  const [trainingDate, setTrainingDate] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    setTrainingDate(new Date().toISOString().split("T")[0]);
+  }, []);
 
   // Mobile numbers array
   const [mobileNumbers, setMobileNumbers] = useState<string[]>([""]);
@@ -196,7 +199,7 @@ export default function SendAssessmentLinkPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-4 pb-12" suppressHydrationWarning>
       <PageHeader
         title="Send Assessment Link"
         breadcrumbs={[
@@ -264,7 +267,7 @@ export default function SendAssessmentLinkPage() {
         )}
 
         {!filterCollapsed && (
-          <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-4 py-4">
+          <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-4 py-4" suppressHydrationWarning>
             {/* Trainer Selection */}
             <div className="flex flex-col sm:flex-row sm:items-center">
               <label className="w-32 shrink-0 pb-1 text-sm font-medium text-slate-700 sm:pb-0 sm:pr-4 sm:text-right">
