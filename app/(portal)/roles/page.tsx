@@ -53,7 +53,12 @@ export default function RolesPage() {
   const canCreate = can("roles.create");
   const canUpdate = can("roles.update");
   const canDelete = can("roles.delete");
-  const canViewPermissions = can(["roles.permissions.manage", "roles.read"]);
+  // Only show permissions if auth contains permissions.view or permissions.read (or roles.permissions.manage)
+  const canViewPermissions = can([
+    "permissions.view",
+    "permissions.read",
+    "roles.permissions.manage",
+  ]);
 
   const loadRoles = (
     targetPage = page,

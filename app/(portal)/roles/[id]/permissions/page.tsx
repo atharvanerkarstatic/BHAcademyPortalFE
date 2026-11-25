@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { useAuth } from "@/lib/auth-context";
 import { getRolePermissionsAction, updateRolePermissionsAction } from "@/features/roles/action";
 import type { RolePermissionsData, PermissionItem, UpdateRolePermissionsPayload } from "@/features/roles/types";
 
@@ -20,6 +21,12 @@ export default function RolePermissionsPage() {
   const roleId = params.id as string;
 
   const { success, error: toastError } = useToast();
+  const { can } = useAuth();
+
+  const canUpdatePermissions = can([
+    "permissions.update",
+    "roles.permissions.manage",
+  ]);
 
   const [loading, setLoading] = useState(true);
   const [roleData, setRoleData] = useState<RolePermissionsData | null>(null);
@@ -68,6 +75,7 @@ export default function RolePermissionsPage() {
   }, [roleId]);
 
   const togglePermission = (permissionId: number) => {
+    if (!canUpdatePermissions) return;
     setPermissionStates((prev) => ({
       ...prev,
       [permissionId]: !prev[permissionId],
@@ -75,6 +83,7 @@ export default function RolePermissionsPage() {
   };
 
   const handleScopeChange = (permissionId: number, scope: string) => {
+    if (!canUpdatePermissions) return;
     setPermissionScopes((prev) => ({
       ...prev,
       [permissionId]: scope,
@@ -356,21 +365,23 @@ export default function RolePermissionsPage() {
 
             {/* Action Buttons matching Add Account Form */}
             <div className="flex items-center justify-center gap-3 pt-6 border-t border-slate-100">
-              <Button
-                type="submit"
-                disabled={isSaving}
-                className="bg-blue-600 hover:bg-blue-700 text-white min-w-24 h-8 text-xs font-semibold uppercase"
-              >
-                {isSaving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                SAVE
-              </Button>
+              {canUpdatePermissions && (
+                <Button
+                  type="submit"
+                  disabled={isSaving}
+                  className="bg-blue-600 hover:bg-blue-700 text-white min-w-24 h-8 text-xs font-semibold uppercase"
+                >
+                  {isSaving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                  SAVE
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"
                 asChild
                 className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
               >
-                <Link href="/roles">CANCEL</Link>
+                <Link href="/roles">{canUpdatePermissions ? "CANCEL" : "BACK"}</Link>
               </Button>
             </div>
           </form>
