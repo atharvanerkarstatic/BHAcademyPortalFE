@@ -74,6 +74,7 @@ function CoursesView() {
   const canUpdate = can("courses.update");
   const canDelete = can("courses.delete");
   const canExport = can("courses.export") || can("courses.read");
+  const canViewVideos = can(["videos.read", "videos.view", "videos.create", "videos.update"]);
 
   const loadCourses = (
     targetPage = page,
@@ -323,16 +324,20 @@ function CoursesView() {
         ),
         className: "w-24",
       },
-      {
-        header: "Videos",
-        cell: (r) => (
-          <div className="flex items-center gap-1 text-xs text-slate-700">
-            <Video className="h-3 w-3 text-slate-400" />
-            <span>{r.noOfVideos ?? 0}</span>
-          </div>
-        ),
-        className: "w-20",
-      },
+      ...(canViewVideos
+        ? [
+            {
+              header: "Videos",
+              cell: (r: CourseItem) => (
+                <div className="flex items-center gap-1 text-xs text-slate-700">
+                  <Video className="h-3 w-3 text-slate-400" />
+                  <span>{r.noOfVideos ?? 0}</span>
+                </div>
+              ),
+              className: "w-20",
+            },
+          ]
+        : []),
       {
         header: "Points",
         cell: (r) => (
@@ -452,7 +457,7 @@ function CoursesView() {
     }
 
     return cols;
-  }, [canUpdate, canDelete, togglingCourseId]);
+  }, [canUpdate, canDelete, canViewVideos, togglingCourseId]);
 
   const handleDownloadCourses = async () => {
     setIsExporting(true);

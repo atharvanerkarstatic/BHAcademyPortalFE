@@ -50,10 +50,10 @@ export default function RolesPage() {
   const [roleToDelete, setRoleToDelete] = useState<RoleItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const canCreate = can("roles.create") || can("system.all");
-  const canUpdate = can("roles.update") || can("system.all");
-  const canDelete = can("roles.delete") || can("system.all");
-  const canViewPermissions = can("roles.read") || can("system.all");
+  const canCreate = can("roles.create");
+  const canUpdate = can("roles.update");
+  const canDelete = can("roles.delete");
+  const canViewPermissions = can(["roles.permissions.manage", "roles.read"]);
 
   const loadRoles = (
     targetPage = page,
@@ -224,7 +224,7 @@ export default function RolesPage() {
   }, [canViewPermissions, canUpdate, canDelete, page, pageSize, toastError]);
 
   return (
-    <>
+    <div className="w-full space-y-4 pb-12">
       <PageHeader
         title="Manage Roles"
         breadcrumbs={[
@@ -346,6 +346,6 @@ export default function RolesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 }

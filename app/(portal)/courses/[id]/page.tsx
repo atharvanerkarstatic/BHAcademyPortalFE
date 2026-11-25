@@ -367,8 +367,10 @@ export default function CourseDetailPage() {
   const canUpdate = can("courses.update");
   const canDelete = can("courses.delete");
   const canImportTranslations = can("courses.import") || can("courses.update");
-  const canManageVideos = can("videos.create") || can("videos.update") || can("videos.upload") || can("courses.update");
-  const canManageQuestions = can("quizzes.create") || can("quizzes.update") || can("assessments.create") || can("courses.update");
+  const canViewVideos = can(["videos.read", "videos.view", "videos.create", "videos.update", "videos.upload"]);
+  const canManageVideos = can(["videos.create", "videos.update", "videos.upload"]);
+  const canViewQuestions = can(["quizzes.read", "quizzes.view", "quizzes.create", "quizzes.update", "assessments.read", "assessments.create"]);
+  const canManageQuestions = can(["quizzes.create", "quizzes.update", "assessments.create"]);
 
   // Listen for browser navigation (popstate/pageshow) and route cleanup so no cached tabs persist
   useEffect(() => {
@@ -621,6 +623,10 @@ export default function CourseDetailPage() {
   };
 
   const handleOpenVideos = (row: CourseLangRow) => {
+    if (!canViewVideos) {
+      toastError("You do not have permission to view course videos.");
+      return;
+    }
     resetVideoForm();
     setSelectedLangId(String(row.languageId));
     setSelectedLangName(row.language);
@@ -629,6 +635,10 @@ export default function CourseDetailPage() {
   };
 
   const handleOpenQuestionnaire = (row: CourseLangRow) => {
+    if (!canViewQuestions) {
+      toastError("You do not have permission to view course questionnaires.");
+      return;
+    }
     resetQuestionForm();
     setSelectedLangId(String(row.languageId));
     setSelectedLangName(row.language);
@@ -1646,8 +1656,8 @@ export default function CourseDetailPage() {
                         <th className="py-2.5 px-3 w-8">#</th>
                         <th className="py-2.5 px-3 min-w-40">Language</th>
                         <th className="py-2.5 px-3 text-center">Translation</th>
-                        <th className="py-2.5 px-3 text-center">Videos</th>
-                        <th className="py-2.5 px-3 text-center">Questionairre</th>
+                        {canViewVideos && <th className="py-2.5 px-3 text-center">Videos</th>}
+                        {canViewQuestions && <th className="py-2.5 px-3 text-center">Questionairre</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -1677,46 +1687,54 @@ export default function CourseDetailPage() {
                           </td>
 
                           {/* Videos: View Videos(X) or (Add Now) */}
-                          <td className="py-2.5 px-3 text-center">
-                            {row.videosCount > 0 ? (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenVideos(row)}
-                                className="text-xs text-blue-600 hover:underline font-medium"
-                              >
-                                View Videos({row.videosCount})
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenVideos(row)}
-                                className="text-xs text-rose-500 hover:underline font-medium"
-                              >
-                                (Add Now)
-                              </button>
-                            )}
-                          </td>
+                          {canViewVideos && (
+                            <td className="py-2.5 px-3 text-center">
+                              {row.videosCount > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenVideos(row)}
+                                  className="text-xs text-blue-600 hover:underline font-medium"
+                                >
+                                  View Videos({row.videosCount})
+                                </button>
+                              ) : canManageVideos ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenVideos(row)}
+                                  className="text-xs text-rose-500 hover:underline font-medium"
+                                >
+                                  (Add Now)
+                                </button>
+                              ) : (
+                                <span className="text-xs text-slate-400 font-normal">0</span>
+                              )}
+                            </td>
+                          )}
 
                           {/* Questionnaire: X Questions or (Add Now) */}
-                          <td className="py-2.5 px-3 text-center">
-                            {row.questionsCount > 0 ? (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenQuestionnaire(row)}
-                                className="text-xs text-blue-600 hover:underline font-medium"
-                              >
-                                {row.questionsCount} {row.questionsCount === 1 ? "Question" : "Questions"}
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenQuestionnaire(row)}
-                                className="text-xs text-rose-500 hover:underline font-medium"
-                              >
-                                (Add Now)
-                              </button>
-                            )}
-                          </td>
+                          {canViewQuestions && (
+                            <td className="py-2.5 px-3 text-center">
+                              {row.questionsCount > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenQuestionnaire(row)}
+                                  className="text-xs text-blue-600 hover:underline font-medium"
+                                >
+                                  {row.questionsCount} {row.questionsCount === 1 ? "Question" : "Questions"}
+                                </button>
+                              ) : canManageQuestions ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenQuestionnaire(row)}
+                                  className="text-xs text-rose-500 hover:underline font-medium"
+                                >
+                                  (Add Now)
+                                </button>
+                              ) : (
+                                <span className="text-xs text-slate-400 font-normal">0</span>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -2187,7 +2205,7 @@ export default function CourseDetailPage() {
       {/* ========================================================== */}
       {/* VIEW 3: COURSE VIDEOS VIEW (Matches Screenshot 4)          */}
       {/* ========================================================== */}
-      {viewMode === "videos_view" && (
+      {viewMode === "videos_view" && canViewVideos && (
         <div className="space-y-4">
           <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             {/* Top Tabs */}
@@ -2534,7 +2552,7 @@ export default function CourseDetailPage() {
       {/* ========================================================== */}
       {/* VIEW 4: QUESTIONNAIRE VIEW (Matches Screenshot 5)          */}
       {/* ========================================================== */}
-      {viewMode === "questionnaire_view" && (
+      {viewMode === "questionnaire_view" && canViewQuestions && (
         <div className="space-y-4">
           <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             {/* Top Tabs */}
