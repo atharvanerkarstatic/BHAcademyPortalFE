@@ -53,6 +53,7 @@ export default function TrainerWiseSummaryReportPage() {
       title="Trainer-wise Summary"
       breadcrumbTitle="Trainer-wise Summary"
       fields={["division", "region", "language", "course", "dateRange"]}
+      exportPermission={["trainer-wise-summary.export", "reports.export", "reports.read", "audit.read", "system.all"]}
       autoFetchOnMount={true}
       onViewReport={async (filters) => {
         await fetchDashboardData(filters, true);

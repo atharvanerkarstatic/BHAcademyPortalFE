@@ -7,6 +7,7 @@ export default function ParticipantsResultReportPage() {
   return (
     <ReportPageLayout
       title="Participants Result"
+      exportPermission={["participants-results.export", "reports.export", "reports.read", "audit.read", "system.all"]}
       fields={["modeOfTraining", "division", "region", "trainer", "language", "course", "dateRange"]}
       onGenerate={async (filters) => {
         return exportParticipantsResultAction({

@@ -97,7 +97,13 @@ export async function getModuleWiseDashboardAction(payload: ModuleWiseFilterPayl
   const user = await getCurrentUser();
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
-  if (!hasPermission(userPerms, "dashboard.read") && !hasPermission(userPerms, "audit.read") && !hasPermission(userPerms, "system.all")) {
+  if (
+    !hasPermission(userPerms, "module-wise-summary.read") &&
+    !hasPermission(userPerms, "module-wise-summary.export") &&
+    !hasPermission(userPerms, "dashboard.read") &&
+    !hasPermission(userPerms, "audit.read") &&
+    !hasPermission(userPerms, "system.all")
+  ) {
     return {
       success: false,
       error: "You do not have permission to view module-wise summary.",
@@ -198,7 +204,13 @@ export async function getTrainerWiseDashboardAction(payload: TrainerWiseFilterPa
   const user = await getCurrentUser();
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
-  if (!hasPermission(userPerms, "dashboard.read") && !hasPermission(userPerms, "audit.read") && !hasPermission(userPerms, "system.all")) {
+  if (
+    !hasPermission(userPerms, "trainer-wise-summary.read") &&
+    !hasPermission(userPerms, "trainer-wise-summary.export") &&
+    !hasPermission(userPerms, "dashboard.read") &&
+    !hasPermission(userPerms, "audit.read") &&
+    !hasPermission(userPerms, "system.all")
+  ) {
     return {
       success: false,
       error: "You do not have permission to view trainer-wise summary.",
@@ -303,7 +315,12 @@ export async function getAssessmentSummaryDashboardAction(payload: AssessmentSum
   const user = await getCurrentUser();
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
-  if (!hasPermission(userPerms, "dashboard.read") && !hasPermission(userPerms, "audit.read") && !hasPermission(userPerms, "system.all")) {
+  if (
+    !hasPermission(userPerms, "assessment-summary.read") &&
+    !hasPermission(userPerms, "dashboard.read") &&
+    !hasPermission(userPerms, "audit.read") &&
+    !hasPermission(userPerms, "system.all")
+  ) {
     return {
       success: false,
       error: "You do not have permission to view assessment summary.",

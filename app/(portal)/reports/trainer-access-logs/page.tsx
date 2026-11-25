@@ -140,6 +140,7 @@ export default function TrainerAccessLogsPage() {
       title="Trainer Access Logs"
       breadcrumbTitle="Trainer Access Logs"
       fields={["trainer", "dateRange"]}
+      exportPermission={["trainer-access-log.export", "reports.export", "reports.read", "audit.read", "system.all"]}
       autoFetchOnMount={true}
       onViewReport={async (filters) => {
         await fetchLogs(filters, true);

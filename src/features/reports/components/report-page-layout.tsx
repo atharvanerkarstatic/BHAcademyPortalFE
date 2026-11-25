@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { Download, Loader2, Minus, Plus, X } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
+import { useAuth } from "@/lib/auth-context";
 import { getReportFilterOptionsAction, type ExportReportResult } from "../action";
 
 export type FilterFieldType =
@@ -39,6 +40,7 @@ export interface ReportPageLayoutProps {
   layoutMode?: "stacked" | "split";
   cardTitle?: string;
   showEmailSection?: boolean;
+  exportPermission?: string | string[];
 }
 
 export function ReportPageLayout({
@@ -54,7 +56,10 @@ export function ReportPageLayout({
   layoutMode = "stacked",
   cardTitle,
   showEmailSection = true,
+  exportPermission,
 }: ReportPageLayoutProps) {
+  const { can } = useAuth();
+  const canExport = exportPermission ? can(exportPermission) : true;
   const [languages, setLanguages] = useState<{ id: string; name: string }[]>([]);
   const [courses, setCourses] = useState<{ id: string; name: string }[]>([]);
   const [trainers, setTrainers] = useState<{ id: string; name: string }[]>([]);
@@ -440,22 +445,24 @@ export function ReportPageLayout({
                 </button>
               )}
 
-              <button
-                type="button"
-                onClick={handleGenerate}
-                disabled={isPending}
-                suppressHydrationWarning
-                className="inline-flex items-center justify-center rounded bg-[#0070e0] px-7 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
-              >
-                {isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    GENERATING...
-                  </>
-                ) : (
-                  "GENERATE REPORT"
-                )}
-              </button>
+              {canExport && (
+                <button
+                  type="button"
+                  onClick={handleGenerate}
+                  disabled={isPending}
+                  suppressHydrationWarning
+                  className="inline-flex items-center justify-center rounded bg-[#0070e0] px-7 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+                >
+                  {isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      GENERATING...
+                    </>
+                  ) : (
+                    "GENERATE REPORT"
+                  )}
+                </button>
+              )}
             </div>
 
             {showEmailSection && (

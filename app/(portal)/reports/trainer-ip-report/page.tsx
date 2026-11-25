@@ -188,6 +188,7 @@ export default function TrainerIpReportPage() {
       title="Trainer IP Report"
       breadcrumbTitle="Trainer IP Report"
       fields={["trainer", "dateRange"]}
+      exportPermission={["trainer-ip-report.export", "reports.export", "reports.read", "audit.read", "system.all"]}
       autoFetchOnMount={true}
       onViewReport={async (filters) => {
         await fetchReport(filters, true);

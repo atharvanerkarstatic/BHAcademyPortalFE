@@ -57,6 +57,7 @@ export default function ModuleWiseSummaryReportPage() {
       title="Module Wise Assessment"
       breadcrumbTitle="Module Wise Summary"
       fields={["modeOfTraining", "trainer", "division", "region", "language", "course", "dateRange"]}
+      exportPermission={["module-wise-summary.export", "reports.export", "reports.read", "audit.read", "system.all"]}
       autoFetchOnMount={true}
       onViewReport={async (filters) => {
         await fetchDashboardData(filters, true);

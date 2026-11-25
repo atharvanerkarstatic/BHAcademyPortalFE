@@ -7,6 +7,7 @@ export default function VirtualTrainingRegionReportPage() {
   return (
     <ReportPageLayout
       title="Virtual Training (Region)"
+      exportPermission={["virtual-training-region.export", "reports.export", "reports.read", "audit.read", "system.all"]}
       fields={["region", "language", "course", "dateRange"]}
       onGenerate={async (filters) => {
         return exportVirtualTrainingRegionAction({

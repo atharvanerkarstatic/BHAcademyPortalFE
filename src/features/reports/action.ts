@@ -21,13 +21,28 @@ async function fetchCsvReport(pathWithQuery: string, defaultFilename: string): P
   const user = await getCurrentUser();
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
-  if (
-    !hasPermission(userPerms, "audit.read") &&
-    !hasPermission(userPerms, "reports.read") &&
-    !hasPermission(userPerms, "courses.read") &&
-    !hasPermission(userPerms, "trainer-wise-summary.export") &&
-    !hasPermission(userPerms, "system.all")
-  ) {
+  const allowedPermissions = [
+    "audit.read",
+    "reports.read",
+    "reports.export",
+    "reports.create",
+    "courses.read",
+    "participants-results.export",
+    "on-demand-videos-pending-assessments.export",
+    "virtual-training-division.export",
+    "virtual-training-region.export",
+    "module-wise-summary.read",
+    "module-wise-summary.export",
+    "assessment-summary.read",
+    "trainer-wise-summary.read",
+    "trainer-wise-summary.export",
+    "trainer-ip-report.export",
+    "trainer-access-log.export",
+    "data.export",
+    "system.all",
+  ];
+
+  if (!hasPermission(userPerms, allowedPermissions)) {
     return {
       success: false,
       error: "You do not have permission to generate reports.",

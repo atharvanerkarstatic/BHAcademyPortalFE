@@ -365,6 +365,9 @@ export default function CourseDetailPage() {
   // Permissions
   const canUpdate = can("courses.update");
   const canDelete = can("courses.delete");
+  const canImportTranslations = can("courses.import") || can("courses.update");
+  const canManageVideos = can("videos.create") || can("videos.update") || can("videos.upload") || can("courses.update");
+  const canManageQuestions = can("quizzes.create") || can("quizzes.update") || can("assessments.create") || can("courses.update");
 
   // Listen for browser navigation (popstate/pageshow) and route cleanup so no cached tabs persist
   useEffect(() => {
@@ -1584,47 +1587,53 @@ export default function CourseDetailPage() {
                   Course Languages
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => setActiveDetailsTab("translations")}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-medium border-t-2 transition-colors",
-                    activeDetailsTab === "translations"
-                      ? "border-blue-600 bg-white text-blue-600 shadow-xs font-semibold"
-                      : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                  )}
-                >
-                  <List className="h-4 w-4" />
-                  Upload Translations
-                </button>
+                {canImportTranslations && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveDetailsTab("translations")}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-medium border-t-2 transition-colors",
+                      activeDetailsTab === "translations"
+                        ? "border-blue-600 bg-white text-blue-600 shadow-xs font-semibold"
+                        : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    )}
+                  >
+                    <List className="h-4 w-4" />
+                    Upload Translations
+                  </button>
+                )}
 
-                <button
-                  type="button"
-                  onClick={() => setActiveDetailsTab("videos")}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-medium border-t-2 transition-colors",
-                    activeDetailsTab === "videos"
-                      ? "border-blue-600 bg-white text-blue-600 shadow-xs font-semibold"
-                      : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                  )}
-                >
-                  <List className="h-4 w-4" />
-                  Upload Videos
-                </button>
+                {canManageVideos && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveDetailsTab("videos")}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-medium border-t-2 transition-colors",
+                      activeDetailsTab === "videos"
+                        ? "border-blue-600 bg-white text-blue-600 shadow-xs font-semibold"
+                        : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    )}
+                  >
+                    <List className="h-4 w-4" />
+                    Upload Videos
+                  </button>
+                )}
 
-                <button
-                  type="button"
-                  onClick={() => setActiveDetailsTab("questions")}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-medium border-t-2 transition-colors",
-                    activeDetailsTab === "questions"
-                      ? "border-blue-600 bg-white text-blue-600 shadow-xs font-semibold"
-                      : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                  )}
-                >
-                  <List className="h-4 w-4" />
-                  Upload Questions
-                </button>
+                {canManageQuestions && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveDetailsTab("questions")}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-medium border-t-2 transition-colors",
+                      activeDetailsTab === "questions"
+                        ? "border-blue-600 bg-white text-blue-600 shadow-xs font-semibold"
+                        : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    )}
+                  >
+                    <List className="h-4 w-4" />
+                    Upload Questions
+                  </button>
+                )}
               </div>
 
               {/* TAB 1: Course Languages Table */}
