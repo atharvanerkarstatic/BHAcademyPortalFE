@@ -64,6 +64,7 @@ export function ReportPageLayout({
   const [courses, setCourses] = useState<{ id: string; name: string }[]>([]);
   const [trainers, setTrainers] = useState<{ id: string; name: string }[]>([]);
   const [divisions, setDivisions] = useState<string[]>([]);
+  const [regions, setRegions] = useState<string[]>([]);
 
   const [selectedLanguage, setSelectedLanguage] = useState("");
   const [selectedCourse, setSelectedCourse] = useState("");
@@ -109,6 +110,7 @@ export function ReportPageLayout({
       if (res.courses) setCourses(res.courses);
       if (res.trainers) setTrainers(res.trainers);
       if (res.divisions) setDivisions(res.divisions);
+      if (res.regions) setRegions(res.regions);
       if (res.userEmail && !emails) {
         setEmails(res.userEmail);
       }
@@ -142,8 +144,9 @@ export function ReportPageLayout({
         setStatusBanner({
           show: true,
           type: "success",
-          message:
-            "Your report generation has started. You can check back this page in few minutes to find the download link. You will also receive the download link on the email ID(s) entered.",
+          message: showEmailSection
+            ? "Your report generation has started. You can check back this page in few minutes to find the download link. You will also receive the download link on the email ID(s) entered."
+            : "Your report has been generated successfully and downloaded.",
         });
 
         const blob = new Blob([res.data], { type: "text/csv;charset=utf-8;" });
@@ -315,14 +318,30 @@ export function ReportPageLayout({
                 Region
               </label>
               <div className="flex-1">
-                <input
-                  type="text"
-                  value={region}
-                  onChange={(e) => setRegion(e.target.value)}
-                  placeholder="Enter region"
-                  suppressHydrationWarning
-                  className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
+                {regions.length > 0 ? (
+                  <select
+                    value={region}
+                    onChange={(e) => setRegion(e.target.value)}
+                    suppressHydrationWarning
+                    className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="">All Regions</option>
+                    {regions.map((reg, idx) => (
+                      <option key={`reg-${reg || idx}`} value={reg}>
+                        {reg}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={region}
+                    onChange={(e) => setRegion(e.target.value)}
+                    placeholder="Enter region"
+                    suppressHydrationWarning
+                    className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                )}
               </div>
             </div>
           )}

@@ -203,6 +203,7 @@ export default function RegisterTrainingReportPage() {
     <ReportPageLayout
       title="Register Training"
       breadcrumbTitle="Register Training"
+      showEmailSection={false}
       fields={["dateRange"]}
       exportPermission={[
         "register-training.export",

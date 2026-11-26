@@ -28,9 +28,13 @@ export async function getTrainingMastersAction(params: GetTrainingMastersParams 
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
   if (
-    !hasPermission(userPerms, "users.read") &&
-    !hasPermission(userPerms, "ROLE_TRAINER") &&
-    !hasPermission(userPerms, "system.all")
+    !hasPermission(userPerms, [
+      "training-master.read",
+      "training-master.manage",
+      "users.read",
+      "ROLE_TRAINER",
+      "system.all",
+    ])
   ) {
     return {
       success: false,
@@ -105,9 +109,13 @@ export async function getTrainingMasterByIdAction(id: number | string) {
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
   if (
-    !hasPermission(userPerms, "users.read") &&
-    !hasPermission(userPerms, "ROLE_TRAINER") &&
-    !hasPermission(userPerms, "system.all")
+    !hasPermission(userPerms, [
+      "training-master.read",
+      "training-master.manage",
+      "users.read",
+      "ROLE_TRAINER",
+      "system.all",
+    ])
   ) {
     return {
       success: false,
@@ -144,9 +152,13 @@ export async function createTrainingMasterAction(payload: CreateTrainingMasterPa
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
   if (
-    !hasPermission(userPerms, "users.create") &&
-    !hasPermission(userPerms, "ROLE_TRAINER") &&
-    !hasPermission(userPerms, "system.all")
+    !hasPermission(userPerms, [
+      "training-master.create",
+      "training-master.manage",
+      "users.create",
+      "ROLE_TRAINER",
+      "system.all",
+    ])
   ) {
     return {
       success: false,
@@ -191,9 +203,13 @@ export async function updateTrainingMasterAction(
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
   if (
-    !hasPermission(userPerms, "users.update") &&
-    !hasPermission(userPerms, "ROLE_TRAINER") &&
-    !hasPermission(userPerms, "system.all")
+    !hasPermission(userPerms, [
+      "training-master.update",
+      "training-master.manage",
+      "users.update",
+      "ROLE_TRAINER",
+      "system.all",
+    ])
   ) {
     return {
       success: false,
@@ -236,9 +252,13 @@ export async function deleteTrainingMasterAction(id: number | string) {
   const userPerms = user ? [...user.roles, ...user.permissions] : [];
 
   if (
-    !hasPermission(userPerms, "users.delete") &&
-    !hasPermission(userPerms, "ROLE_TRAINER") &&
-    !hasPermission(userPerms, "system.all")
+    !hasPermission(userPerms, [
+      "training-master.delete",
+      "training-master.manage",
+      "users.delete",
+      "ROLE_TRAINER",
+      "system.all",
+    ])
   ) {
     return {
       success: false,

@@ -40,9 +40,9 @@ export const ROUTE_PERMISSIONS: RoutePermissionRule[] = [
   { pattern: /^\/trainers(\/.*)?$/, permission: ["users.read", "ROLE_TRAINER"], href: "/trainers" },
 
   // Training Master
-  { pattern: /^\/training-master\/new(\/.*)?$/, permission: ["users.create", "ROLE_TRAINER", "system.all"], href: "/training-master" },
-  { pattern: /^\/training-master\/[^/]+\/edit(\/.*)?$/, permission: ["users.update", "ROLE_TRAINER", "system.all"], href: "/training-master" },
-  { pattern: /^\/training-master(\/.*)?$/, permission: ["users.read", "ROLE_TRAINER", "system.all"], href: "/training-master" },
+  { pattern: /^\/training-master\/new(\/.*)?$/, permission: ["training-master.create", "users.create", "ROLE_TRAINER", "system.all"], href: "/training-master" },
+  { pattern: /^\/training-master\/[^/]+\/edit(\/.*)?$/, permission: ["training-master.update", "users.update", "ROLE_TRAINER", "system.all"], href: "/training-master" },
+  { pattern: /^\/training-master(\/.*)?$/, permission: ["training-master.read", "users.read", "ROLE_TRAINER", "system.all"], href: "/training-master" },
 
   // Assessments
   { pattern: /^\/assessments\/send(\/.*)?$/, permission: ["assessments.create", "courses.read"], href: "/assessments/send" },

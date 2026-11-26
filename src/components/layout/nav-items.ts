@@ -55,7 +55,7 @@ export const navSections: NavSection[] = [
     icon: GraduationCap,
     items: [
       { label: "Trainers", href: "/trainers", icon: GraduationCap, permission: ["users.read", "ROLE_TRAINER"] },
-      { label: "Training Master", href: "/training-master", icon: Calendar, permission: ["users.read", "ROLE_TRAINER", "system.all"] },
+      { label: "Training Master", href: "/training-master", icon: Calendar, permission: ["training-master.read", "users.read", "ROLE_TRAINER", "system.all"] },
       { label: "Send Assessment Links", href: "/assessments/send", icon: Link2, permission: ["assessments.create", "courses.read"] },
       { label: "Assessment Links", href: "/assessments/links", icon: ClipboardList, permission: ["assessments.read", "courses.read"] },
       { label: "Assessment Results", href: "/assessments/results", icon: Lightbulb, permission: ["assessments.read", "audit.read"] },

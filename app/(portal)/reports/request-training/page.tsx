@@ -203,6 +203,7 @@ export default function RequestTrainingReportPage() {
     <ReportPageLayout
       title="Request Training"
       breadcrumbTitle="Request Training"
+      showEmailSection={false}
       fields={["dateRange"]}
       exportPermission={[
         "request-training.export",

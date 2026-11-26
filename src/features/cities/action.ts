@@ -248,3 +248,34 @@ export async function getCityDivisionsAction(): Promise<{
     };
   }
 }
+
+export async function getCityRegionsAction(): Promise<{
+  success: boolean;
+  data: string[];
+  message?: string;
+  error?: string;
+}> {
+  try {
+    const res = await apiFetch<{
+      success: boolean;
+      status: number;
+      message: string;
+      data: string[];
+    }>("/v1/city/regions");
+
+    return {
+      success: true,
+      data: Array.isArray(res?.data) ? res.data : [],
+      message: res?.message,
+    };
+  } catch (error) {
+    console.error("Failed to fetch city regions:", error);
+    const message =
+      error instanceof ApiError ? error.message : "Failed to load regions.";
+    return {
+      success: false,
+      error: message,
+      data: [],
+    };
+  }
+}
