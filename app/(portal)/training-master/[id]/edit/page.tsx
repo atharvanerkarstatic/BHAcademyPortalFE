@@ -79,7 +79,7 @@ export default function EditTrainingMasterPage({
 
   const [isPending, startTransition] = useTransition();
 
-  const canUpdate = can(["training-master.update", "users.update", "ROLE_TRAINER", "system.all"]);
+  const canUpdate = can(["training-master.update", "training-master.manage"]);
 
   useEffect(() => {
     let active = true;

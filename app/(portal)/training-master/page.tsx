@@ -54,9 +54,9 @@ export default function TrainingMasterPage() {
   const [itemToDelete, setItemToDelete] = useState<TrainingMasterItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const canCreate = can(["training-master.create", "users.create", "ROLE_TRAINER", "system.all"]);
-  const canUpdate = can(["training-master.update", "users.update", "ROLE_TRAINER", "system.all"]);
-  const canDelete = can(["training-master.delete", "users.delete", "ROLE_TRAINER", "system.all"]);
+  const canCreate = can(["training-master.create", "training-master.manage"]);
+  const canUpdate = can(["training-master.update", "training-master.manage"]);
+  const canDelete = can(["training-master.delete", "training-master.manage"]);
 
   const loadData = (targetPage = page, searchTerm = activeSearch, showSuccessToast = false) => {
     startTransition(async () => {

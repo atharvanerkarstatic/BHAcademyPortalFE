@@ -217,7 +217,7 @@ export default function FaqsPage() {
   }, [canUpdate, canDelete]);
 
   return (
-    <>
+    <div className="w-full space-y-4 pb-12">
       <PageHeader
         title="Manage FAQs"
         breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "FAQs List" }]}
@@ -326,6 +326,6 @@ export default function FaqsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 }

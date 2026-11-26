@@ -31,8 +31,8 @@ export async function getTrainingMastersAction(params: GetTrainingMastersParams 
     !hasPermission(userPerms, [
       "training-master.read",
       "training-master.manage",
-      "users.read",
-      "ROLE_TRAINER",
+      "training-master.create",
+      "training-master.update",
       "system.all",
     ])
   ) {
@@ -112,8 +112,7 @@ export async function getTrainingMasterByIdAction(id: number | string) {
     !hasPermission(userPerms, [
       "training-master.read",
       "training-master.manage",
-      "users.read",
-      "ROLE_TRAINER",
+      "training-master.update",
       "system.all",
     ])
   ) {
@@ -155,8 +154,6 @@ export async function createTrainingMasterAction(payload: CreateTrainingMasterPa
     !hasPermission(userPerms, [
       "training-master.create",
       "training-master.manage",
-      "users.create",
-      "ROLE_TRAINER",
       "system.all",
     ])
   ) {
@@ -206,8 +203,6 @@ export async function updateTrainingMasterAction(
     !hasPermission(userPerms, [
       "training-master.update",
       "training-master.manage",
-      "users.update",
-      "ROLE_TRAINER",
       "system.all",
     ])
   ) {
@@ -255,8 +250,6 @@ export async function deleteTrainingMasterAction(id: number | string) {
     !hasPermission(userPerms, [
       "training-master.delete",
       "training-master.manage",
-      "users.delete",
-      "ROLE_TRAINER",
       "system.all",
     ])
   ) {

@@ -66,7 +66,7 @@ export default function NewTrainingMasterPage() {
 
   const [isPending, startTransition] = useTransition();
 
-  const canCreate = can(["training-master.create", "users.create", "ROLE_TRAINER", "system.all"]);
+  const canCreate = can(["training-master.create", "training-master.manage"]);
 
   useEffect(() => {
     let mounted = true;

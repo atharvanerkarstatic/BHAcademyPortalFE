@@ -20,7 +20,7 @@ export function PageHeader({ title, breadcrumbs }: { title: string; breadcrumbs?
                     {crumb.label}
                   </Link>
                 ) : (
-                  <span>{crumb.label}</span>
+                  <span suppressHydrationWarning>{crumb.label}</span>
                 )}
               </li>
             ))}
