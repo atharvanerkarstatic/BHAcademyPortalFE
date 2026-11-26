@@ -53,11 +53,11 @@ export default function RolesPage() {
   const canCreate = can("roles.create");
   const canUpdate = can("roles.update");
   const canDelete = can("roles.delete");
-  // Only show permissions if auth contains permissions.view or permissions.read (or roles.permissions.manage)
+  // Show permissions column if auth contains roles.permissions.manage or permissions.read
   const canViewPermissions = can([
-    "permissions.view",
-    "permissions.read",
     "roles.permissions.manage",
+    "permissions.read",
+    "permissions.view",
   ]);
 
   const loadRoles = (

@@ -63,6 +63,7 @@ export function ReportPageLayout({
   const [languages, setLanguages] = useState<{ id: string; name: string }[]>([]);
   const [courses, setCourses] = useState<{ id: string; name: string }[]>([]);
   const [trainers, setTrainers] = useState<{ id: string; name: string }[]>([]);
+  const [divisions, setDivisions] = useState<string[]>([]);
 
   const [selectedLanguage, setSelectedLanguage] = useState("");
   const [selectedCourse, setSelectedCourse] = useState("");
@@ -107,6 +108,7 @@ export function ReportPageLayout({
       if (res.languages) setLanguages(res.languages);
       if (res.courses) setCourses(res.courses);
       if (res.trainers) setTrainers(res.trainers);
+      if (res.divisions) setDivisions(res.divisions);
       if (res.userEmail && !emails) {
         setEmails(res.userEmail);
       }
@@ -278,14 +280,30 @@ export function ReportPageLayout({
                 Division
               </label>
               <div className="flex-1">
-                <input
-                  type="text"
-                  value={division}
-                  onChange={(e) => setDivision(e.target.value)}
-                  placeholder="Enter division"
-                  suppressHydrationWarning
-                  className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
+                {divisions.length > 0 ? (
+                  <select
+                    value={division}
+                    onChange={(e) => setDivision(e.target.value)}
+                    suppressHydrationWarning
+                    className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="">All Divisions</option>
+                    {divisions.map((div, idx) => (
+                      <option key={`div-${div || idx}`} value={div}>
+                        {div}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={division}
+                    onChange={(e) => setDivision(e.target.value)}
+                    placeholder="Enter division"
+                    suppressHydrationWarning
+                    className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                )}
               </div>
             </div>
           )}

@@ -23,10 +23,8 @@ export default function RolePermissionsPage() {
   const { success, error: toastError } = useToast();
   const { can } = useAuth();
 
-  const canUpdatePermissions = can([
-    "permissions.update",
-    "roles.permissions.manage",
-  ]);
+  // Strictly require permissions.update to edit, toggle checkboxes, or save permissions
+  const canUpdatePermissions = can("permissions.update");
 
   const [loading, setLoading] = useState(true);
   const [roleData, setRoleData] = useState<RolePermissionsData | null>(null);
@@ -91,6 +89,7 @@ export default function RolePermissionsPage() {
   };
 
   const toggleCategory = (categoryPermissions: PermissionItem[], assignAll: boolean) => {
+    if (!canUpdatePermissions) return;
     setPermissionStates((prev) => {
       const next = { ...prev };
       categoryPermissions.forEach((p) => {
@@ -221,34 +220,36 @@ export default function RolePermissionsPage() {
                   className="h-8 pl-8 text-xs bg-white"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const next: Record<number, boolean> = {};
-                    Object.values(roleData?.permissions || {}).forEach((list) => {
-                      list.forEach((p) => {
-                        next[p.permissionId] = true;
+              {canUpdatePermissions && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const next: Record<number, boolean> = {};
+                      Object.values(roleData?.permissions || {}).forEach((list) => {
+                        list.forEach((p) => {
+                          next[p.permissionId] = true;
+                        });
                       });
-                    });
-                    setPermissionStates(next);
-                  }}
-                  className="h-8 text-xs"
-                >
-                  Select All
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPermissionStates({})}
-                  className="h-8 text-xs"
-                >
-                  Deselect All
-                </Button>
-              </div>
+                      setPermissionStates(next);
+                    }}
+                    className="h-8 text-xs"
+                  >
+                    Select All
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPermissionStates({})}
+                    className="h-8 text-xs"
+                  >
+                    Deselect All
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Modules and Permissions listing */}
@@ -281,13 +282,15 @@ export default function RolePermissionsPage() {
                             ({perms.filter((p) => permissionStates[p.permissionId]).length}/{perms.length})
                           </span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => toggleCategory(perms, !allCategoryAssigned)}
-                          className="text-[11px] font-semibold text-blue-600 hover:text-blue-800"
-                        >
-                          {allCategoryAssigned ? "Deselect Group" : "Select Group"}
-                        </button>
+                        {canUpdatePermissions && (
+                          <button
+                            type="button"
+                            onClick={() => toggleCategory(perms, !allCategoryAssigned)}
+                            className="text-[11px] font-semibold text-blue-600 hover:text-blue-800"
+                          >
+                            {allCategoryAssigned ? "Deselect Group" : "Select Group"}
+                          </button>
+                        )}
                       </div>
 
                       {/* Permission Rows */}
@@ -298,29 +301,37 @@ export default function RolePermissionsPage() {
                           return (
                             <div
                               key={p.permissionId}
-                              onClick={() => togglePermission(p.permissionId)}
-                              className={`flex items-start gap-3.5 px-4 py-3 cursor-pointer hover:bg-slate-50/80 transition-colors ${
+                              onClick={() => {
+                                if (canUpdatePermissions) togglePermission(p.permissionId);
+                              }}
+                              className={`flex items-start gap-3.5 px-4 py-3 transition-colors ${
+                                canUpdatePermissions ? "cursor-pointer hover:bg-slate-50/80" : ""
+                              } ${
                                 isAssigned ? "bg-blue-50/25" : ""
                               }`}
                             >
-                              {/* Left Checkbox */}
-                              <div
-                                onClick={(e) => e.stopPropagation()}
-                                className="flex items-center pt-0.5 shrink-0"
-                              >
-                                <Checkbox
-                                  id={inputId}
-                                  checked={isAssigned}
-                                  onCheckedChange={() => togglePermission(p.permissionId)}
-                                  className="h-4 w-4 rounded border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-                                />
-                              </div>
+                              {/* Left Checkbox (only shown if canUpdatePermissions) */}
+                              {canUpdatePermissions && (
+                                <div
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex items-center pt-0.5 shrink-0"
+                                >
+                                  <Checkbox
+                                    id={inputId}
+                                    checked={isAssigned}
+                                    onCheckedChange={() => togglePermission(p.permissionId)}
+                                    className="h-4 w-4 rounded border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                                  />
+                                </div>
+                              )}
 
                               {/* Permission Details */}
                               <div className="space-y-0.5 min-w-0 flex-1">
                                 <label
-                                  htmlFor={inputId}
-                                  className="text-xs font-semibold text-slate-900 cursor-pointer block"
+                                  htmlFor={canUpdatePermissions ? inputId : undefined}
+                                  className={`text-xs font-semibold text-slate-900 block ${
+                                    canUpdatePermissions ? "cursor-pointer" : ""
+                                  }`}
                                 >
                                   {p.displayName}
                                 </label>
@@ -329,7 +340,7 @@ export default function RolePermissionsPage() {
                                 </p>
                               </div>
 
-                              {/* Scope Selector (always visible if availableScopes > 1) */}
+                              {/* Scope Selector (dropdown if canUpdatePermissions, badge if view-only) */}
                               {p.availableScopes && p.availableScopes.length > 1 && (
                                 <div
                                   onClick={(e) => e.stopPropagation()}
@@ -338,19 +349,25 @@ export default function RolePermissionsPage() {
                                   <span className="text-[10px] uppercase font-semibold text-slate-400">
                                     Scope:
                                   </span>
-                                  <select
-                                    value={permissionScopes[p.permissionId] || p.availableScopes[0]}
-                                    onChange={(e) =>
-                                      handleScopeChange(p.permissionId, e.target.value)
-                                    }
-                                    className="h-7 rounded border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 shadow-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                  >
-                                    {p.availableScopes.map((sc) => (
-                                      <option key={sc} value={sc}>
-                                        {sc}
-                                      </option>
-                                    ))}
-                                  </select>
+                                  {canUpdatePermissions ? (
+                                    <select
+                                      value={permissionScopes[p.permissionId] || p.availableScopes[0]}
+                                      onChange={(e) =>
+                                        handleScopeChange(p.permissionId, e.target.value)
+                                      }
+                                      className="h-7 rounded border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 shadow-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    >
+                                      {p.availableScopes.map((sc) => (
+                                        <option key={sc} value={sc}>
+                                          {sc}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <span className="inline-flex items-center rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                                      {permissionScopes[p.permissionId] || p.availableScopes[0]}
+                                    </span>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -366,23 +383,35 @@ export default function RolePermissionsPage() {
             {/* Action Buttons matching Add Account Form */}
             <div className="flex items-center justify-center gap-3 pt-6 border-t border-slate-100">
               {canUpdatePermissions && (
+                <>
+                  <Button
+                    type="submit"
+                    disabled={isSaving}
+                    className="bg-blue-600 hover:bg-blue-700 text-white min-w-24 h-8 text-xs font-semibold uppercase"
+                  >
+                    {isSaving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                    SAVE
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    asChild
+                    className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
+                  >
+                    <Link href="/roles">CANCEL</Link>
+                  </Button>
+                </>
+              )}
+              {!canUpdatePermissions && (
                 <Button
-                  type="submit"
-                  disabled={isSaving}
-                  className="bg-blue-600 hover:bg-blue-700 text-white min-w-24 h-8 text-xs font-semibold uppercase"
+                  type="button"
+                  variant="outline"
+                  asChild
+                  className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
                 >
-                  {isSaving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                  SAVE
+                  <Link href="/roles">BACK</Link>
                 </Button>
               )}
-              <Button
-                type="button"
-                variant="outline"
-                asChild
-                className="min-w-24 h-8 text-xs font-medium uppercase border-slate-300"
-              >
-                <Link href="/roles">{canUpdatePermissions ? "CANCEL" : "BACK"}</Link>
-              </Button>
             </div>
           </form>
         </CardContent>

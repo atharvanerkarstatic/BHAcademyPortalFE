@@ -8,6 +8,7 @@ import { hasPermission } from "@/lib/auth-jwt";
 import { getAllLanguagesAction } from "@/features/languages/action";
 import { getCoursesAction } from "@/features/courses/action";
 import { getTrainersAction } from "@/features/trainers/action";
+import { getCityDivisionsAction } from "@/features/cities/action";
 
 export type ExportReportResult = {
   success: boolean;
@@ -324,14 +325,16 @@ export async function exportRegisterTrainingAction(params: RegisterTrainingRepor
 
 export async function getReportFilterOptionsAction() {
   const user = await getCurrentUser();
-  const [langRes, coursesRes, trainersRes] = await Promise.all([
+  const [langRes, coursesRes, trainersRes, divisionsRes] = await Promise.all([
     getAllLanguagesAction(),
     getCoursesAction({ size: 200 }),
     getTrainersAction({ size: 200 }),
+    getCityDivisionsAction(),
   ]);
 
   return {
     userEmail: user?.email || "satyam.pattnaik@stetig.in",
+    divisions: divisionsRes.success && Array.isArray(divisionsRes.data) ? divisionsRes.data : [],
     languages:
       langRes.success && Array.isArray(langRes.data)
         ? langRes.data.map((l: { languageId?: string | number; id?: string | number; language?: string; languageCode?: string | null }, idx: number) => {
