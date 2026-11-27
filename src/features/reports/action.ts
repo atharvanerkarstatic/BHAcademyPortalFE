@@ -336,10 +336,6 @@ export async function getRegionsByDivisionAction(division?: string): Promise<{
   return getCityRegionsAction(division);
 }
 
-export async function getRegionsByDivisionAction(division?: string) {
-  return getCityRegionsAction(division);
-}
-
 export async function getReportFilterOptionsAction() {
   const user = await getCurrentUser();
   const [langRes, coursesRes, trainersRes, divisionsRes, regionsRes] = await Promise.all([
