@@ -598,6 +598,7 @@ export default function EditCoursePage() {
               namePlaceholder="Course Name"
               levelPlaceholder="Level"
               detailsPlaceholder="Details"
+              levelOptions={["Beginner", "Intermediate", "Advanced"]}
               nameMaxLength={255}
               levelMaxLength={100}
               detailsMaxLength={5000}

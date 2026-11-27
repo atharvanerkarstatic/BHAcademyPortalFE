@@ -39,6 +39,7 @@ export interface MultilingualContentTableProps {
   nameColumnTitle?: string;
   detailsColumnTitle?: string;
   levelColumnTitle?: string;
+  levelOptions?: readonly { label: string; value: string }[] | string[];
 }
 
 export function MultilingualContentTable({
@@ -62,6 +63,7 @@ export function MultilingualContentTable({
   nameColumnTitle = "Name",
   detailsColumnTitle = "Details",
   levelColumnTitle = "Level",
+  levelOptions,
 }: MultilingualContentTableProps) {
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-200 shadow-sm bg-white">
@@ -106,14 +108,34 @@ export function MultilingualContentTable({
                 </td>
                 {!hideLevel && (
                   <td className="py-3 px-4 align-top">
-                    <Input
-                      id={levelKey}
-                      placeholder={`${levelPlaceholder} in ${lang.name}`}
-                      value={levels[levelKey] || ""}
-                      onChange={(e) => onLevelChange?.(levelKey, e.target.value)}
-                      maxLength={levelMaxLength}
-                      className="h-9 text-xs bg-white"
-                    />
+                    {levelOptions && levelOptions.length > 0 ? (
+                      <select
+                        id={levelKey}
+                        value={levels[levelKey] || ""}
+                        onChange={(e) => onLevelChange?.(levelKey, e.target.value)}
+                        className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="">{`Select ${levelPlaceholder}`}</option>
+                        {levelOptions.map((opt) => {
+                          const val = typeof opt === "string" ? opt : opt.value;
+                          const lbl = typeof opt === "string" ? opt : opt.label;
+                          return (
+                            <option key={val} value={val}>
+                              {lbl}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    ) : (
+                      <Input
+                        id={levelKey}
+                        placeholder={`${levelPlaceholder} in ${lang.name}`}
+                        value={levels[levelKey] || ""}
+                        onChange={(e) => onLevelChange?.(levelKey, e.target.value)}
+                        maxLength={levelMaxLength}
+                        className="h-9 text-xs bg-white"
+                      />
+                    )}
                   </td>
                 )}
                 <td className="py-3 px-4 align-top">

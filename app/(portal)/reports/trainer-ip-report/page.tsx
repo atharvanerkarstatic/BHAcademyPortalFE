@@ -145,17 +145,35 @@ export default function TrainerIpReportPage() {
       {
         header: "Result",
         cell: (r) => {
-          const res = (r["Assessment Result"] || "").toUpperCase();
-          const isPassed = res === "PASS" || res === "PASSED" || res === "ACTIVE";
+          const raw = (r["Assessment Result"] || "").trim().toUpperCase();
+          const isPassed =
+            raw === "ACTIVE" ||
+            raw === "PASS" ||
+            raw === "PASSED" ||
+            raw === "SUCCESS" ||
+            raw === "COMPLETED";
+          const isFailed =
+            raw === "INACTIVE" ||
+            raw === "FAIL" ||
+            raw === "FAILED";
+
+          const displayLabel = isPassed
+            ? "Passed"
+            : isFailed
+            ? "Failed"
+            : r["Assessment Result"] || "—";
+
           return (
             <span
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold border ${
+              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${
                 isPassed
                   ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : "bg-rose-50 text-rose-700 border-rose-200"
+                  : isFailed
+                  ? "bg-rose-50 text-rose-700 border-rose-200"
+                  : "bg-slate-100 text-slate-700 border-slate-200"
               }`}
             >
-              {res || "—"}
+              {displayLabel}
             </span>
           );
         },

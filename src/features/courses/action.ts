@@ -19,6 +19,7 @@ export type GetCoursesParams = {
   page?: number;
   size?: number;
   sort?: "ASC" | "DESC" | string;
+  status?: string;
 };
 
 export async function getCoursesAction(params: GetCoursesParams = {}) {
@@ -58,6 +59,10 @@ export async function getCoursesAction(params: GetCoursesParams = {}) {
 
   if (params.search && params.search.trim()) {
     searchParams.set("search", params.search.trim());
+  }
+
+  if (params.status && params.status.trim()) {
+    searchParams.set("status", params.status.trim());
   }
 
   try {

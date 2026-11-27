@@ -340,7 +340,7 @@ export async function getReportFilterOptionsAction() {
   const user = await getCurrentUser();
   const [langRes, coursesRes, trainersRes, divisionsRes, regionsRes] = await Promise.all([
     getAllLanguagesAction(),
-    getCoursesAction({ size: 200 }),
+    getCoursesAction({ status: "ACTIVE", size: 100 }),
     getTrainersAction({ size: 200 }),
     getCityDivisionsAction(),
     getCityRegionsAction(),
