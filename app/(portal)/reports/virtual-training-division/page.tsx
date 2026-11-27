@@ -8,10 +8,11 @@ export default function VirtualTrainingDivisionReportPage() {
     <ReportPageLayout
       title="Virtual Training (Division)"
       exportPermission={["virtual-training-division.export", "reports.export", "reports.read", "audit.read", "system.all"]}
-      fields={["division", "language", "course", "dateRange"]}
+      fields={["division", "region", "language", "course", "dateRange"]}
       onGenerate={async (filters) => {
         return exportVirtualTrainingDivisionAction({
           division: filters.division,
+          region: filters.region,
           languageId: filters.languageId,
           courseId: filters.courseId,
           startDate: filters.startDate,

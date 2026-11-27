@@ -151,6 +151,7 @@ export async function exportOnDemandVideoAction(params: OnDemandVideoReportParam
 
 export type VirtualTrainingDivisionReportParams = {
   division?: string;
+  region?: string;
   languageId?: string;
   courseId?: string;
   startDate?: string;
@@ -160,6 +161,7 @@ export type VirtualTrainingDivisionReportParams = {
 export async function exportVirtualTrainingDivisionAction(params: VirtualTrainingDivisionReportParams): Promise<ExportReportResult> {
   const query = new URLSearchParams({
     division: params.division ?? "",
+    region: params.region ?? "",
     languageId: params.languageId ?? "",
     courseId: params.courseId ?? "",
     startDate: params.startDate ?? "",
@@ -170,6 +172,7 @@ export async function exportVirtualTrainingDivisionAction(params: VirtualTrainin
 }
 
 export type VirtualTrainingRegionReportParams = {
+  division?: string;
   region?: string;
   languageId?: string;
   courseId?: string;
@@ -179,6 +182,7 @@ export type VirtualTrainingRegionReportParams = {
 
 export async function exportVirtualTrainingRegionAction(params: VirtualTrainingRegionReportParams): Promise<ExportReportResult> {
   const query = new URLSearchParams({
+    division: params.division ?? "",
     region: params.region ?? "",
     languageId: params.languageId ?? "",
     courseId: params.courseId ?? "",
@@ -321,6 +325,19 @@ export async function exportRegisterTrainingAction(params: RegisterTrainingRepor
     `/v1/register-training/export?${query.toString()}`,
     "register-training.csv"
   );
+}
+
+export async function getRegionsByDivisionAction(division?: string): Promise<{
+  success: boolean;
+  data: string[];
+  message?: string;
+  error?: string;
+}> {
+  return getCityRegionsAction(division);
+}
+
+export async function getRegionsByDivisionAction(division?: string) {
+  return getCityRegionsAction(division);
 }
 
 export async function getReportFilterOptionsAction() {

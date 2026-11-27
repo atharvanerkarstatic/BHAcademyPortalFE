@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { Download, Loader2, Minus, Plus, X } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { useAuth } from "@/lib/auth-context";
-import { getReportFilterOptionsAction, type ExportReportResult } from "../action";
+import { getReportFilterOptionsAction, getRegionsByDivisionAction, type ExportReportResult } from "../action";
 
 export type FilterFieldType =
   | "language"
@@ -65,6 +65,7 @@ export function ReportPageLayout({
   const [trainers, setTrainers] = useState<{ id: string; name: string }[]>([]);
   const [divisions, setDivisions] = useState<string[]>([]);
   const [regions, setRegions] = useState<string[]>([]);
+  const [loadingRegions, setLoadingRegions] = useState(false);
 
   const [selectedLanguage, setSelectedLanguage] = useState("");
   const [selectedCourse, setSelectedCourse] = useState("");
@@ -110,7 +111,9 @@ export function ReportPageLayout({
       if (res.courses) setCourses(res.courses);
       if (res.trainers) setTrainers(res.trainers);
       if (res.divisions) setDivisions(res.divisions);
-      if (res.regions) setRegions(res.regions);
+      if (!fields.includes("division") && res.regions) {
+        setRegions(res.regions);
+      }
       if (res.userEmail && !emails) {
         setEmails(res.userEmail);
       }
@@ -132,6 +135,35 @@ export function ReportPageLayout({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Fetch regions dynamically when division changes
+  useEffect(() => {
+    if (!hasField("region")) return;
+    if (hasField("division")) {
+      if (!division) {
+        setRegions([]);
+        setRegion("");
+        return;
+      }
+      let active = true;
+      setLoadingRegions(true);
+      getRegionsByDivisionAction(division)
+        .then((res) => {
+          if (!active) return;
+          if (res.success && Array.isArray(res.data)) {
+            setRegions(res.data);
+          } else {
+            setRegions([]);
+          }
+        })
+        .finally(() => {
+          if (active) setLoadingRegions(false);
+        });
+      return () => {
+        active = false;
+      };
+    }
+  }, [division, fields]);
 
   const handleGenerate = () => {
     setStatusBanner({ show: false, message: "", type: "success" });
@@ -286,7 +318,10 @@ export function ReportPageLayout({
                 {divisions.length > 0 ? (
                   <select
                     value={division}
-                    onChange={(e) => setDivision(e.target.value)}
+                    onChange={(e) => {
+                      setDivision(e.target.value);
+                      setRegion("");
+                    }}
                     suppressHydrationWarning
                     className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
@@ -301,7 +336,10 @@ export function ReportPageLayout({
                   <input
                     type="text"
                     value={division}
-                    onChange={(e) => setDivision(e.target.value)}
+                    onChange={(e) => {
+                      setDivision(e.target.value);
+                      setRegion("");
+                    }}
                     placeholder="Enter division"
                     suppressHydrationWarning
                     className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -313,12 +351,30 @@ export function ReportPageLayout({
 
           {/* Region */}
           {hasField("region") && (
-            <div className="flex flex-col sm:flex-row sm:items-center">
-              <label className="w-28 shrink-0 pb-1 text-sm font-medium text-slate-700 sm:pb-0 sm:pr-4 sm:text-right">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:pt-1">
+              <label className="w-28 shrink-0 pb-1 text-sm font-medium text-slate-700 sm:pb-0 sm:pr-4 sm:text-right sm:pt-1.5">
                 Region
               </label>
               <div className="flex-1">
-                {regions.length > 0 ? (
+                {hasField("division") && !division ? (
+                  <div>
+                    <select
+                      disabled
+                      value=""
+                      className="w-full rounded border border-slate-200 bg-slate-100 px-3 py-1.5 text-sm text-slate-400 cursor-not-allowed shadow-none"
+                    >
+                      <option value="">Select Division first</option>
+                    </select>
+                    <p className="mt-1 text-xs text-amber-600 font-medium">
+                      Please select Division first to select Region
+                    </p>
+                  </div>
+                ) : loadingRegions ? (
+                  <div className="flex items-center gap-2 rounded border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-500">
+                    <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                    <span>Loading regions...</span>
+                  </div>
+                ) : regions.length > 0 ? (
                   <select
                     value={region}
                     onChange={(e) => setRegion(e.target.value)}
@@ -333,14 +389,21 @@ export function ReportPageLayout({
                     ))}
                   </select>
                 ) : (
-                  <input
-                    type="text"
-                    value={region}
-                    onChange={(e) => setRegion(e.target.value)}
-                    placeholder="Enter region"
-                    suppressHydrationWarning
-                    className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
+                  <div>
+                    <input
+                      type="text"
+                      value={region}
+                      onChange={(e) => setRegion(e.target.value)}
+                      placeholder={hasField("division") && division ? `No regions found for ${division}` : "Enter region"}
+                      suppressHydrationWarning
+                      className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    {hasField("division") && division && (
+                      <p className="mt-1 text-xs text-slate-500">
+                        No specific regions returned for division &quot;{division}&quot;.
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

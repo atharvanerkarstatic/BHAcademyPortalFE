@@ -249,19 +249,20 @@ export async function getCityDivisionsAction(): Promise<{
   }
 }
 
-export async function getCityRegionsAction(): Promise<{
+export async function getCityRegionsAction(division?: string): Promise<{
   success: boolean;
   data: string[];
   message?: string;
   error?: string;
 }> {
   try {
+    const query = division && division.trim() ? `?division=${encodeURIComponent(division.trim())}` : "";
     const res = await apiFetch<{
       success: boolean;
       status: number;
       message: string;
       data: string[];
-    }>("/v1/city/regions");
+    }>(`/v1/city/regions${query}`);
 
     return {
       success: true,
